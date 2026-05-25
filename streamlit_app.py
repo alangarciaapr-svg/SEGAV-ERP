@@ -4084,6 +4084,47 @@ def ensure_multiempresa_columns_postgres():
             execute(f"ALTER TABLE IF EXISTS {table} ADD COLUMN IF NOT EXISTS cliente_key TEXT;")
         except Exception as _exc:
             _record_soft_error("execute", _exc)
+
+    # ── Comprehensive column migration for tables created by older versions ──
+    _col_migrations = [
+        # faenas - estado, direccion, created_at
+        "ALTER TABLE IF EXISTS faenas ADD COLUMN IF NOT EXISTS estado TEXT DEFAULT 'ACTIVA';",
+        "ALTER TABLE IF EXISTS faenas ADD COLUMN IF NOT EXISTS direccion TEXT DEFAULT '';",
+        "ALTER TABLE IF EXISTS faenas ADD COLUMN IF NOT EXISTS created_at TEXT;",
+        # mandantes - rut
+        "ALTER TABLE IF EXISTS mandantes ADD COLUMN IF NOT EXISTS rut TEXT;",
+        # contratos_faena - bucket, object_path
+        "ALTER TABLE IF EXISTS contratos_faena ADD COLUMN IF NOT EXISTS bucket TEXT;",
+        "ALTER TABLE IF EXISTS contratos_faena ADD COLUMN IF NOT EXISTS object_path TEXT;",
+        # faena_anexos - bucket, object_path
+        "ALTER TABLE IF EXISTS faena_anexos ADD COLUMN IF NOT EXISTS bucket TEXT;",
+        "ALTER TABLE IF EXISTS faena_anexos ADD COLUMN IF NOT EXISTS object_path TEXT;",
+        # trabajadores - created_at
+        "ALTER TABLE IF EXISTS trabajadores ADD COLUMN IF NOT EXISTS created_at TEXT;",
+        # trabajador_documentos - bucket, object_path, vencimiento
+        "ALTER TABLE IF EXISTS trabajador_documentos ADD COLUMN IF NOT EXISTS bucket TEXT;",
+        "ALTER TABLE IF EXISTS trabajador_documentos ADD COLUMN IF NOT EXISTS object_path TEXT;",
+        "ALTER TABLE IF EXISTS trabajador_documentos ADD COLUMN IF NOT EXISTS vencimiento TEXT;",
+        # empresa_documentos - bucket, object_path, mandante_id
+        "ALTER TABLE IF EXISTS empresa_documentos ADD COLUMN IF NOT EXISTS bucket TEXT;",
+        "ALTER TABLE IF EXISTS empresa_documentos ADD COLUMN IF NOT EXISTS object_path TEXT;",
+        "ALTER TABLE IF EXISTS empresa_documentos ADD COLUMN IF NOT EXISTS mandante_id BIGINT;",
+        # faena_empresa_documentos - bucket, object_path
+        "ALTER TABLE IF EXISTS faena_empresa_documentos ADD COLUMN IF NOT EXISTS bucket TEXT;",
+        "ALTER TABLE IF EXISTS faena_empresa_documentos ADD COLUMN IF NOT EXISTS object_path TEXT;",
+        # export_historial - bucket, object_path
+        "ALTER TABLE IF EXISTS export_historial ADD COLUMN IF NOT EXISTS bucket TEXT;",
+        "ALTER TABLE IF EXISTS export_historial ADD COLUMN IF NOT EXISTS object_path TEXT;",
+        # export_historial_mes - bucket, object_path
+        "ALTER TABLE IF EXISTS export_historial_mes ADD COLUMN IF NOT EXISTS bucket TEXT;",
+        "ALTER TABLE IF EXISTS export_historial_mes ADD COLUMN IF NOT EXISTS object_path TEXT;",
+        # asignaciones - no extra columns needed beyond cliente_key
+    ]
+    for stmt in _col_migrations:
+        try:
+            execute(stmt)
+        except Exception as _exc:
+            _record_soft_error("col_migration_pg", _exc)
     # ── P2: New columns and tables ────────────────────────────────────────
     p2_stmts = [
         # Roles por empresa
@@ -4213,6 +4254,25 @@ def ensure_multiempresa_columns_sqlite(c):
             migrate_add_columns_if_missing(c, table, {'cliente_key': 'TEXT'})
         except Exception as _exc:
             _record_soft_error("migrate", _exc)
+
+    # ── Comprehensive column migration for tables created by older versions ──
+    _sqlite_col_fixes = [
+        ('faenas', {'estado': "TEXT DEFAULT 'ACTIVA'", 'direccion': 'TEXT', 'created_at': 'TEXT'}),
+        ('mandantes', {'rut': 'TEXT'}),
+        ('contratos_faena', {'bucket': 'TEXT', 'object_path': 'TEXT'}),
+        ('faena_anexos', {'bucket': 'TEXT', 'object_path': 'TEXT'}),
+        ('trabajadores', {'created_at': 'TEXT'}),
+        ('trabajador_documentos', {'bucket': 'TEXT', 'object_path': 'TEXT', 'vencimiento': 'TEXT'}),
+        ('empresa_documentos', {'bucket': 'TEXT', 'object_path': 'TEXT', 'mandante_id': 'INTEGER'}),
+        ('faena_empresa_documentos', {'bucket': 'TEXT', 'object_path': 'TEXT'}),
+        ('export_historial', {'bucket': 'TEXT', 'object_path': 'TEXT'}),
+        ('export_historial_mes', {'bucket': 'TEXT', 'object_path': 'TEXT'}),
+    ]
+    for tbl, cols in _sqlite_col_fixes:
+        try:
+            migrate_add_columns_if_missing(c, tbl, cols)
+        except Exception as _exc:
+            _record_soft_error(f"col_migration_sqlite.{tbl}", _exc)
     # ── P2: New columns and tables ────────────────────────────────────────
     try:
         migrate_add_columns_if_missing(c, 'user_client_access', {'role_empresa': 'TEXT'})
