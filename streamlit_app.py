@@ -2598,7 +2598,9 @@ def init_db():
         c.execute('''
         CREATE TABLE IF NOT EXISTS mandantes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL UNIQUE
+            nombre TEXT NOT NULL UNIQUE,
+            rut TEXT,
+            cliente_key TEXT DEFAULT ''
         );
         ''')
 
@@ -2610,8 +2612,11 @@ def init_db():
             fecha_inicio TEXT,
             fecha_termino TEXT,
             file_path TEXT,
+            bucket TEXT,
+            object_path TEXT,
             sha256 TEXT,
             created_at TEXT,
+            cliente_key TEXT DEFAULT '',
             FOREIGN KEY(mandante_id) REFERENCES mandantes(id) ON DELETE RESTRICT
         );
         ''')
@@ -2623,9 +2628,12 @@ def init_db():
             contrato_faena_id INTEGER,
             nombre TEXT NOT NULL,
             ubicacion TEXT DEFAULT '',
+            direccion TEXT DEFAULT '',
             fecha_inicio TEXT NOT NULL,
             fecha_termino TEXT,
             estado TEXT NOT NULL CHECK(estado IN ('ACTIVA','TERMINADA')),
+            created_at TEXT DEFAULT (datetime('now')),
+            cliente_key TEXT DEFAULT '',
             FOREIGN KEY(mandante_id) REFERENCES mandantes(id) ON DELETE RESTRICT,
             FOREIGN KEY(contrato_faena_id) REFERENCES contratos_faena(id) ON DELETE SET NULL
         );
@@ -2637,8 +2645,11 @@ def init_db():
             faena_id INTEGER NOT NULL,
             nombre TEXT NOT NULL,
             file_path TEXT NOT NULL,
+            bucket TEXT,
+            object_path TEXT,
             sha256 TEXT NOT NULL,
             created_at TEXT NOT NULL,
+            cliente_key TEXT DEFAULT '',
             FOREIGN KEY(faena_id) REFERENCES faenas(id) ON DELETE CASCADE
         );
         ''')
@@ -2649,7 +2660,9 @@ def init_db():
             rut TEXT NOT NULL UNIQUE,
             nombres TEXT NOT NULL,
             apellidos TEXT NOT NULL,
-            cargo TEXT DEFAULT ''
+            cargo TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            cliente_key TEXT DEFAULT ''
         );
         ''')
 
@@ -2669,6 +2682,7 @@ def init_db():
             fecha_ingreso TEXT NOT NULL,
             fecha_egreso TEXT,
             estado TEXT NOT NULL DEFAULT 'ACTIVA' CHECK(estado IN ('ACTIVA','CERRADA')),
+            cliente_key TEXT DEFAULT '',
             UNIQUE(faena_id, trabajador_id),
             FOREIGN KEY(faena_id) REFERENCES faenas(id) ON DELETE CASCADE,
             FOREIGN KEY(trabajador_id) REFERENCES trabajadores(id) ON DELETE CASCADE
@@ -2682,8 +2696,11 @@ def init_db():
             doc_tipo TEXT NOT NULL,
             nombre_archivo TEXT NOT NULL,
             file_path TEXT NOT NULL,
+            bucket TEXT,
+            object_path TEXT,
             sha256 TEXT NOT NULL,
             created_at TEXT NOT NULL,
+            cliente_key TEXT DEFAULT '',
             FOREIGN KEY(trabajador_id) REFERENCES trabajadores(id) ON DELETE CASCADE
         );
         ''')
@@ -2697,8 +2714,12 @@ def init_db():
             doc_tipo TEXT NOT NULL,
             nombre_archivo TEXT NOT NULL,
             file_path TEXT NOT NULL,
+            bucket TEXT,
+            object_path TEXT,
             sha256 TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            mandante_id INTEGER,
+            cliente_key TEXT DEFAULT ''
         );
         ''')
 
@@ -2718,8 +2739,11 @@ def init_db():
             doc_tipo TEXT NOT NULL,
             nombre_archivo TEXT NOT NULL,
             file_path TEXT NOT NULL,
+            bucket TEXT,
+            object_path TEXT,
             sha256 TEXT NOT NULL,
             created_at TEXT NOT NULL,
+            cliente_key TEXT DEFAULT '',
             FOREIGN KEY(faena_id) REFERENCES faenas(id) ON DELETE CASCADE,
             FOREIGN KEY(mandante_id) REFERENCES mandantes(id) ON DELETE SET NULL
         );
@@ -2729,9 +2753,12 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             faena_id INTEGER NOT NULL,
             file_path TEXT NOT NULL,
+            bucket TEXT,
+            object_path TEXT,
             sha256 TEXT NOT NULL,
             size_bytes INTEGER NOT NULL,
             created_at TEXT NOT NULL,
+            cliente_key TEXT DEFAULT '',
             FOREIGN KEY(faena_id) REFERENCES faenas(id) ON DELETE CASCADE
         );
         ''')
@@ -2744,9 +2771,12 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             year_month TEXT NOT NULL,
             file_path TEXT NOT NULL,
+            bucket TEXT,
+            object_path TEXT,
             sha256 TEXT,
             size_bytes INTEGER,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            cliente_key TEXT DEFAULT ''
         );
         ''')
         c.execute('''
