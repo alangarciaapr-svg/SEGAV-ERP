@@ -6809,7 +6809,7 @@ with st.sidebar:
     if is_superadmin() or has_perm("manage_users"):
         _NAV_SECTIONS["admin"] = ("🔐 Administración", ["Admin Usuarios", "SuperAdmin / Empresas"])
 
-    # Auto-detect which section should be open based on current page
+    # Detect which section the current page belongs to
     _current_page = st.session_state.get("nav_page", "Dashboard")
     _auto_section = None
     for _sec_key, (_sec_label, _sec_pages) in _NAV_SECTIONS.items():
@@ -6817,13 +6817,15 @@ with st.sidebar:
             _auto_section = _sec_key
             break
 
-    # Use session_state to track which section is open (default: auto from current page)
-    if "_sidebar_open_section" not in st.session_state or st.session_state.get("_sidebar_open_section") is None:
+    # Only auto-switch when user navigated to a NEW page (not on every rerun)
+    _prev_page = st.session_state.get("_sidebar_prev_page", "")
+    if "_sidebar_open_section" not in st.session_state:
+        # First load: open the section of the current page
         st.session_state["_sidebar_open_section"] = _auto_section
-
-    # If user navigated to a page in a different section, auto-switch
-    if _auto_section and st.session_state.get("_sidebar_open_section") != _auto_section:
+    elif _current_page != _prev_page and _auto_section:
+        # User navigated to a page in a different section: auto-switch
         st.session_state["_sidebar_open_section"] = _auto_section
+    st.session_state["_sidebar_prev_page"] = _current_page
 
     _open_section = st.session_state.get("_sidebar_open_section")
 
@@ -6832,9 +6834,9 @@ with st.sidebar:
         _header_icon = "▼" if _is_open else "▶"
         if st.button(f"{_header_icon} {_sec_label}", key=f"sidebar_section_{_sec_key}", use_container_width=True):
             if _is_open:
-                st.session_state["_sidebar_open_section"] = None  # collapse
+                st.session_state["_sidebar_open_section"] = None
             else:
-                st.session_state["_sidebar_open_section"] = _sec_key  # open this, close others
+                st.session_state["_sidebar_open_section"] = _sec_key
             st.rerun()
         if _is_open:
             for _page in _sec_pages:
