@@ -8,6 +8,12 @@ import streamlit as st
 from segav_core.ui import ui_header
 from segav_core.kpi_ui import kpi_card
 from segav_core.personal_utils import rut_input
+from segav_core.ops_estadisticas import (
+    render_tab_estadisticas as _render_estadisticas_new,
+    render_tab_cotizacion as _render_cotizacion_new,
+    render_tab_cumplimiento_legal as _render_cumplimiento_new,
+    ensure_estadisticas_tables,
+)
 
 
 def page_sgsst(
@@ -52,6 +58,7 @@ def page_sgsst(
     segav_template_payload,
     DS594_CHECKLIST_ITEMS=None,
     EPP_TIPOS=None,
+    DB_BACKEND="postgres",
     ROLES_EMPRESA=None,
     is_company_admin_for_active_tenant=None,
     save_company_logo_for_cliente=None,
@@ -119,6 +126,9 @@ def page_sgsst(
 
     tabs = st.tabs([
         "🏢 Resumen",
+        "📋 Cumplimiento Legal",
+        "📊 Estadísticas",
+        "💰 Cotización Adicional",
         "⚙️ Config ERP",
         "🏭 Ficha empresa",
         "🧩 Catálogos",
@@ -214,7 +224,34 @@ def page_sgsst(
         ])
         st.dataframe(dash_rows, use_container_width=True, hide_index=True)
 
+    # ── Tab 1: Cumplimiento Legal ──────────────────────────────────────────
     with tabs[1]:
+        try:
+            ensure_estadisticas_tables(execute, DB_BACKEND)
+            _ck_legal = str(current_segav_client_key() or "")
+            _render_cumplimiento_new(st, fetch_df, fetch_value, execute, K, cliente_key=_ck_legal)
+        except Exception as _exc:
+            st.error(f"Error al cargar cumplimiento legal: {_exc}")
+
+    # ── Tab 2: Estadísticas ────────────────────────────────────────────────
+    with tabs[2]:
+        try:
+            ensure_estadisticas_tables(execute, DB_BACKEND)
+            _ck_est = str(current_segav_client_key() or "")
+            _render_estadisticas_new(st, fetch_df, fetch_value, execute, K, cliente_key=_ck_est)
+        except Exception as _exc:
+            st.error(f"Error al cargar estadísticas: {_exc}")
+
+    # ── Tab 3: Cotización Adicional ────────────────────────────────────────
+    with tabs[3]:
+        try:
+            ensure_estadisticas_tables(execute, DB_BACKEND)
+            _ck_cot = str(current_segav_client_key() or "")
+            _render_cotizacion_new(st, fetch_df, fetch_value, K, cliente_key=_ck_cot, company=company)
+        except Exception as _exc:
+            st.error(f"Error al cargar cotización: {_exc}")
+
+    with tabs[4]:
         st.markdown("### Configuración ERP")
         cfg = segav_erp_config_map()
         z1, z2 = st.columns(2)
@@ -282,7 +319,7 @@ def page_sgsst(
         else:
             st.info("La gestión multiempresa y de administradores está disponible solo para **SUPERADMIN** en la sección **SuperAdmin / Empresas**.", icon="🔒")
 
-    with tabs[3]:
+    with tabs[6]:
         st.markdown("### Catálogos configurables")
         st.write("#### Cargos del ERP")
         cargos_df = segav_cargos_df()
@@ -334,7 +371,7 @@ def page_sgsst(
             st.success("Documentos empresa/faena actualizados.")
             st.rerun()
 
-    with tabs[2]:
+    with tabs[5]:
         st.markdown("### Ficha empresa")
         e1, e2 = st.columns(2)
         with e1:
@@ -375,7 +412,7 @@ def page_sgsst(
             st.success("Ficha empresa guardada.")
             st.rerun()
 
-    with tabs[4]:
+    with tabs[7]:
         st.markdown("### Matriz legal")
         f1, f2 = st.columns([1, 1])
         norma_sel = f1.selectbox("Norma", ["(Todas)"] + SGSST_NORMAS, key=K("sgsst_matriz_norma"))
@@ -450,7 +487,7 @@ def page_sgsst(
                     st.success("Requisito eliminado.")
                     st.rerun()
 
-    with tabs[5]:
+    with tabs[8]:
         st.markdown("### Programa anual preventivo")
         anio_view = st.number_input("Año", min_value=2024, max_value=2100, value=date.today().year, step=1, key=K("sgsst_prog_anio_view"))
         df_prog = fetch_df(
@@ -490,7 +527,7 @@ def page_sgsst(
                 st.success("Actividad incorporada al programa anual.")
                 st.rerun()
 
-    with tabs[6]:
+    with tabs[9]:
         st.markdown("### MIPER por faena, proceso y cargo")
         faenas_df = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
         faena_opts = [None] + faenas_df["id"].tolist() if not faenas_df.empty else [None]
@@ -564,7 +601,7 @@ def page_sgsst(
                         st.success("Riesgo eliminado.")
                         st.rerun()
 
-    with tabs[7]:
+    with tabs[10]:
         st.markdown("### Inspecciones DS 594")
         faenas_df = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
         faena_opts = [None] + faenas_df["id"].tolist() if not faenas_df.empty else [None]
@@ -601,7 +638,7 @@ def page_sgsst(
                 st.rerun()
 
     # ── TAB 8: CHECKLIST DS 594 ───────────────────────────────────────────
-    with tabs[8]:
+    with tabs[11]:
         st.markdown("### 📋 Checklist DS 594 — Inspección digital")
         st.caption("Checklist estandarizado para verificar cumplimiento de condiciones sanitarias y ambientales según DS 594.")
         _checklist_items = DS594_CHECKLIST_ITEMS or {}
@@ -688,7 +725,7 @@ def page_sgsst(
             else:
                 st.info("Aún no hay inspecciones registradas.")
 
-    with tabs[9]:
+    with tabs[12]:
         st.markdown("### Accidentes e incidentes")
         trab_df = fetch_df("SELECT id, rut, apellidos, nombres FROM trabajadores ORDER BY apellidos, nombres")
         faenas_df = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
@@ -753,7 +790,7 @@ def page_sgsst(
                         st.success("Eliminado.")
                         st.rerun()
 
-    with tabs[10]:
+    with tabs[13]:
         st.markdown("### Capacitaciones y ODI")
         trab_df = fetch_df("SELECT id, rut, apellidos, nombres FROM trabajadores ORDER BY apellidos, nombres")
         faenas_df = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
@@ -798,7 +835,7 @@ def page_sgsst(
                 st.rerun()
 
     # ── TAB 11: EPP POR TRABAJADOR ────────────────────────────────────────
-    with tabs[11]:
+    with tabs[14]:
         st.markdown("### 🦺 Entrega de EPP por Trabajador")
         st.caption("Registro de entrega de Elementos de Protección Personal según DS 594 Art. 53-55. Trazabilidad completa por trabajador.")
 
@@ -865,14 +902,14 @@ def page_sgsst(
                 st.success("Entrega de EPP registrada.")
                 st.rerun()
 
-    with tabs[12]:
+    with tabs[15]:
         st.markdown("### Bitácora de auditoría")
         aud_df = fetch_df("SELECT id, created_at, modulo, accion, detalle, usuario FROM sgsst_auditoria ORDER BY id DESC LIMIT 200")
         st.dataframe(aud_df, use_container_width=True, hide_index=True)
         st.caption("Esta bitácora registra acciones realizadas dentro del nuevo módulo ERP / SGSST.")
 
     # ── TAB 13: CPHS ─────────────────────────────────────────────────────
-    with tabs[13]:
+    with tabs[16]:
         st.markdown("### 👷 Comité Paritario de Higiene y Seguridad (CPHS)")
         st.caption("Ley 16.744 Art. 65-71: obligatorio para empresas con ≥25 trabajadores. Gestiona elecciones, miembros y actas de reunión.")
 
@@ -936,7 +973,7 @@ def page_sgsst(
                 st.rerun()
 
     # ── TAB 14: DIAT / DIEP ──────────────────────────────────────────────
-    with tabs[14]:
+    with tabs[17]:
         st.markdown("### 📝 Denuncia Individual de Accidente del Trabajo (DIAT) / Enfermedad Profesional (DIEP)")
         st.caption("Ley 16.744 Art. 76: toda empresa debe denunciar accidentes dentro de 24 horas al organismo administrador.")
 
@@ -996,7 +1033,7 @@ def page_sgsst(
                 st.rerun()
 
     # ── TAB 15: VIGILANCIA OCUPACIONAL ────────────────────────────────────
-    with tabs[15]:
+    with tabs[18]:
         st.markdown("### 🔬 Protocolos de Vigilancia Ocupacional")
         st.caption("PREXOR (ruido), PLANESI (sílice), TMERT (trastornos musculoesqueléticos), y otros protocolos según DS 594.")
 
@@ -1049,7 +1086,7 @@ def page_sgsst(
                 st.rerun()
 
     # ── TAB 16: SUBCONTRATISTAS ───────────────────────────────────────────
-    with tabs[16]:
+    with tabs[19]:
         st.markdown("### 🏗️ Coordinación de Subcontratistas")
         st.caption("Ley 20.123 / Art. 66 bis Ley 16.744: coordinación obligatoria con empresas contratistas y subcontratistas.")
 
@@ -1106,7 +1143,7 @@ def page_sgsst(
                     st.rerun()
 
     # ── TAB 17: RIOHS ────────────────────────────────────────────────────
-    with tabs[17]:
+    with tabs[20]:
         st.markdown("### 📕 Reglamento Interno de Orden, Higiene y Seguridad (RIOHS)")
         st.caption("DS 44 Art. 12: toda empresa debe mantener un RIOHS actualizado y entregado a cada trabajador con cargo de recepción.")
 

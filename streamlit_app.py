@@ -4136,6 +4136,7 @@ def ensure_multiempresa_columns_postgres():
         "ALTER TABLE IF EXISTS sgsst_capacitaciones ADD COLUMN IF NOT EXISTS asistentes TEXT;",
         "ALTER TABLE IF EXISTS sgsst_capacitaciones ADD COLUMN IF NOT EXISTS evaluacion_pct NUMERIC;",
         "ALTER TABLE IF EXISTS sgsst_capacitaciones ADD COLUMN IF NOT EXISTS certificado TEXT;",
+        "ALTER TABLE IF EXISTS sgsst_empresa ADD COLUMN IF NOT EXISTS depto_prevencion TEXT;",
         # EPP entrega
         """CREATE TABLE IF NOT EXISTS sgsst_epp_entrega (
             id BIGSERIAL PRIMARY KEY,
@@ -4267,6 +4268,7 @@ def ensure_multiempresa_columns_sqlite(c):
         ('faena_empresa_documentos', {'bucket': 'TEXT', 'object_path': 'TEXT'}),
         ('export_historial', {'bucket': 'TEXT', 'object_path': 'TEXT'}),
         ('export_historial_mes', {'bucket': 'TEXT', 'object_path': 'TEXT'}),
+        ('sgsst_empresa', {'depto_prevencion': 'TEXT'}),
     ]
     for tbl, cols in _sqlite_col_fixes:
         try:
@@ -6633,22 +6635,28 @@ if not st.session_state.get("_banner_shown"):
 # Sidebar navigation
 # ----------------------------
 PAGES = [
+    # Administrativa
     "Dashboard",
-    "Cumplimiento / Alertas",
-    "Mi Empresa / SGSST",
     "Mandantes",
     "Contratos de Faena",
     "Faenas",
     "Trabajadores",
-    "Documentos Empresa (Faena)",
     "Asignar Trabajadores",
+    "Mi Perfil",
+    # Prevención de Riesgos
+    "Mi Empresa / SGSST",
+    "Cumplimiento / Alertas",
+    "Aprobaciones / Auditoría legal",
+    # Documentación
+    "Documentos Empresa (Faena)",
     "Documentos Trabajador",
     "Exportar (ZIP)",
-    "Aprobaciones / Auditoría legal",
-    "Auditoría de acciones",
+    # Administración del Sistema
+    "Admin Usuarios",
+    "SuperAdmin / Empresas",
     "Backup / Restore",
+    "Auditoría de acciones",
     "Arquitectura / Escalabilidad",
-    "Mi Perfil",
 ]
 
 VISIBLE_PAGES = list(PAGES)
@@ -6771,23 +6779,23 @@ with st.sidebar:
 
     PAGE_LABELS = {
         "Dashboard": "📊 Dashboard",
-        "Cumplimiento / Alertas": "🚨 Cumplimiento / Alertas",
-        "Mi Empresa / SGSST": "🧭 ERP / SGSST",
         "Mandantes": "🏢 Mandantes",
-        "Contratos de Faena": "📄 Contratos",
+        "Contratos de Faena": "📄 Contratos de Faena",
         "Faenas": "🛠️ Faenas",
         "Trabajadores": "👷 Trabajadores",
-        "Documentos Empresa": "🏛️ Docs Empresa",
-        "Documentos Empresa (Faena)": "🏛️ Docs Empresa (Faena)",
-        "Asignar Trabajadores": "🧩 Asignar",
+        "Asignar Trabajadores": "🧩 Asignar Trabajadores",
+        "Mi Perfil": "👤 Mi Perfil",
+        "Mi Empresa / SGSST": "🦺 SGSST",
+        "Cumplimiento / Alertas": "🚨 Cumplimiento / Alertas",
+        "Aprobaciones / Auditoría legal": "✅ Aprobaciones Legales",
+        "Documentos Empresa (Faena)": "🏛️ Docs Empresa por Faena",
         "Documentos Trabajador": "📎 Docs Trabajador",
-        "Exportar (ZIP)": "📦 Exportar",
-        "Backup / Restore": "💾 Backup",
-        "Arquitectura / Escalabilidad": "🧱 Arquitectura / Escalabilidad",
-        "Mi Perfil": "👤 Mi perfil",
-        "SuperAdmin / Empresas": "🌐 SuperAdmin / Empresas",
+        "Exportar (ZIP)": "📦 Exportar ZIP",
         "Admin Usuarios": "🔐 Usuarios",
-        "Auditoría de acciones": "📋 Auditoría",
+        "SuperAdmin / Empresas": "🌐 SuperAdmin / Empresas",
+        "Backup / Restore": "💾 Backup / Restore",
+        "Auditoría de acciones": "📋 Auditoría de Acciones",
+        "Arquitectura / Escalabilidad": "🧱 Arquitectura",
     }
 
     def _sidebar_nav_button(page_name: str, key_suffix: str):
@@ -6800,14 +6808,36 @@ with st.sidebar:
             st.session_state["nav_page"] = page_name
             st.rerun()
 
-    # ── Accordion sidebar: only one section open at a time ──────────────
+    # ── Accordion sidebar: 3 áreas + administración ──────────────────────
     _NAV_SECTIONS = {
-        "ops": ("🧭 Operación", ["Mandantes", "Contratos de Faena", "Faenas", "Trabajadores", "Asignar Trabajadores"]),
-        "docs": ("🗂️ Documentación", ["Documentos Empresa (Faena)", "Documentos Trabajador", "Exportar (ZIP)", "Backup / Restore"]),
-        "ctrl": ("📈 Gestión y control", ["Dashboard", "Cumplimiento / Alertas", "Mi Empresa / SGSST", "Aprobaciones / Auditoría legal", "Auditoría de acciones", "Arquitectura / Escalabilidad", "Mi Perfil"]),
+        "admin_area": ("🏢 Administrativa", [
+            "Dashboard",
+            "Mandantes",
+            "Contratos de Faena",
+            "Faenas",
+            "Trabajadores",
+            "Asignar Trabajadores",
+            "Mi Perfil",
+        ]),
+        "prev": ("🦺 Prevención de Riesgos", [
+            "Mi Empresa / SGSST",
+            "Cumplimiento / Alertas",
+            "Aprobaciones / Auditoría legal",
+        ]),
+        "docs": ("🗂️ Documentación", [
+            "Documentos Empresa (Faena)",
+            "Documentos Trabajador",
+            "Exportar (ZIP)",
+        ]),
     }
     if is_superadmin() or has_perm("manage_users"):
-        _NAV_SECTIONS["admin"] = ("🔐 Administración", ["Admin Usuarios", "SuperAdmin / Empresas"])
+        _NAV_SECTIONS["superadmin"] = ("🔐 Administración del Sistema", [
+            "Admin Usuarios",
+            "SuperAdmin / Empresas",
+            "Backup / Restore",
+            "Auditoría de acciones",
+            "Arquitectura / Escalabilidad",
+        ])
 
     # Detect which section the current page belongs to
     _current_page = st.session_state.get("nav_page", "Dashboard")
@@ -9434,7 +9464,7 @@ def page_export_zip():
 
 
 def page_sgsst():
-    return _ops_sgsst.page_sgsst(fetch_df=tenant_fetch_df, fetch_value=tenant_fetch_value, execute=tenant_execute, clear_app_caches=clear_app_caches, ensure_sgsst_seed_data=ensure_sgsst_seed_data, segav_erp_config_map=segav_erp_config_map, segav_clientes_df=segav_clientes_df, current_segav_client_key=current_segav_client_key, segav_cargos_df=segav_cargos_df, get_empresa_required_doc_types=get_empresa_required_doc_types, clean_rut=clean_rut, go=go, segav_templates_df=segav_templates_df, ERP_TEMPLATE_PRESETS=ERP_TEMPLATE_PRESETS, apply_segav_template=apply_segav_template, sgsst_log=sgsst_log, make_erp_key=make_erp_key, segav_erp_value=segav_erp_value, ERP_CLIENT_PARAM_DEFAULTS=ERP_CLIENT_PARAM_DEFAULTS, set_segav_erp_config_value=set_segav_erp_config_value, segav_cliente_params=segav_cliente_params, segav_cargo_labels=segav_cargo_labels, segav_cargo_rules=segav_cargo_rules, DOC_OBLIGATORIOS=DOC_OBLIGATORIOS, DOC_TIPO_LABELS=DOC_TIPO_LABELS, doc_tipo_label=doc_tipo_label, segav_empresa_docs_df=segav_empresa_docs_df, get_empresa_monthly_doc_types=get_empresa_monthly_doc_types, parse_date_maybe=parse_date_maybe, SGSST_NORMAS=SGSST_NORMAS, SGSST_ESTADOS=SGSST_ESTADOS, SGSST_GRAVEDADES=SGSST_GRAVEDADES, SGSST_RESULTADOS=SGSST_RESULTADOS, SGSST_TIPOS_EVENTO=SGSST_TIPOS_EVENTO, SGSST_TIPOS_CAP=SGSST_TIPOS_CAP, doc_tipo_join=doc_tipo_join, current_user=current_user, segav_template_payload=segav_template_payload, DS594_CHECKLIST_ITEMS=DS594_CHECKLIST_ITEMS, EPP_TIPOS=EPP_TIPOS, ROLES_EMPRESA=ROLES_EMPRESA, is_company_admin_for_active_tenant=is_company_admin_for_active_tenant, save_company_logo_for_cliente=save_company_logo_for_cliente, get_company_logo_bytes=get_company_logo_bytes)
+    return _ops_sgsst.page_sgsst(fetch_df=tenant_fetch_df, fetch_value=tenant_fetch_value, execute=tenant_execute, clear_app_caches=clear_app_caches, ensure_sgsst_seed_data=ensure_sgsst_seed_data, segav_erp_config_map=segav_erp_config_map, segav_clientes_df=segav_clientes_df, current_segav_client_key=current_segav_client_key, segav_cargos_df=segav_cargos_df, get_empresa_required_doc_types=get_empresa_required_doc_types, clean_rut=clean_rut, go=go, segav_templates_df=segav_templates_df, ERP_TEMPLATE_PRESETS=ERP_TEMPLATE_PRESETS, apply_segav_template=apply_segav_template, sgsst_log=sgsst_log, make_erp_key=make_erp_key, segav_erp_value=segav_erp_value, ERP_CLIENT_PARAM_DEFAULTS=ERP_CLIENT_PARAM_DEFAULTS, set_segav_erp_config_value=set_segav_erp_config_value, segav_cliente_params=segav_cliente_params, segav_cargo_labels=segav_cargo_labels, segav_cargo_rules=segav_cargo_rules, DOC_OBLIGATORIOS=DOC_OBLIGATORIOS, DOC_TIPO_LABELS=DOC_TIPO_LABELS, doc_tipo_label=doc_tipo_label, segav_empresa_docs_df=segav_empresa_docs_df, get_empresa_monthly_doc_types=get_empresa_monthly_doc_types, parse_date_maybe=parse_date_maybe, SGSST_NORMAS=SGSST_NORMAS, SGSST_ESTADOS=SGSST_ESTADOS, SGSST_GRAVEDADES=SGSST_GRAVEDADES, SGSST_RESULTADOS=SGSST_RESULTADOS, SGSST_TIPOS_EVENTO=SGSST_TIPOS_EVENTO, SGSST_TIPOS_CAP=SGSST_TIPOS_CAP, doc_tipo_join=doc_tipo_join, current_user=current_user, segav_template_payload=segav_template_payload, DS594_CHECKLIST_ITEMS=DS594_CHECKLIST_ITEMS, EPP_TIPOS=EPP_TIPOS, ROLES_EMPRESA=ROLES_EMPRESA, is_company_admin_for_active_tenant=is_company_admin_for_active_tenant, save_company_logo_for_cliente=save_company_logo_for_cliente, get_company_logo_bytes=get_company_logo_bytes, DB_BACKEND=DB_BACKEND)
 
 
 def page_superadmin_empresas():
