@@ -1361,201 +1361,198 @@ def inject_css():
     st.markdown(
         """
         <style>
-/* ── Base ─────────────────────────────────────────────────── */
-html, body, [class*="css"] {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-}
-.stApp {
-    background: linear-gradient(160deg, #f8fafc 0%, #eef2ff 50%, #f8fafc 100%);
-}
-.block-container {
-    max-width: 1500px;
-    padding-top: 1.2rem;
-    padding-bottom: 2rem;
-}
+/* ══════════════════════════════════════════════════════════════
+   SEGAV ERP – Professional Theme v2
+   ══════════════════════════════════════════════════════════════ */
 
-/* ── Cards ────────────────────────────────────────────────── */
-.segav-card {
-    background: rgba(255,255,255,0.85);
-    border: 1px solid rgba(49,51,63,0.08);
-    border-radius: 18px;
-    padding: 16px 20px;
-    box-shadow: 0 4px 20px rgba(15,23,42,0.05);
-    backdrop-filter: blur(12px);
-    margin-bottom: 14px;
+.stApp {
+    background: linear-gradient(145deg, #f0f4ff 0%, #e8eeff 35%, #f5f0ff 65%, #f0f4ff 100%);
 }
-.segav-muted { opacity: 0.68; font-size: 0.92em; }
+html, body, [class*="css"] { -webkit-font-smoothing: antialiased; }
+.block-container { max-width: 1400px; padding-top: 1rem; padding-bottom: 2rem; }
+
+/* ── Page header card ─────────────────────────────────────── */
+.segav-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
+    border: 1px solid rgba(99,102,241,0.12);
+    border-left: 4px solid #6366f1;
+    border-radius: 14px;
+    padding: 18px 22px;
+    box-shadow: 0 4px 24px rgba(99,102,241,0.08);
+    margin-bottom: 16px;
+}
+.segav-muted { opacity: 0.65; font-size: 0.9em; margin-top: 4px; }
 
 /* ── Buttons ──────────────────────────────────────────────── */
-div.stButton > button, div.stDownloadButton > button {
-    border-radius: 14px !important;
-    padding: 0.55rem 0.9rem !important;
-    font-weight: 500;
-    transition: all 0.15s ease;
+div.stButton > button {
+    border-radius: 10px !important;
+    padding: 0.5rem 1rem !important;
+    font-weight: 550;
+    transition: all 0.2s ease;
 }
-div.stButton > button:hover, div.stDownloadButton > button:hover {
+div.stButton > button:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    box-shadow: 0 6px 20px rgba(99,102,241,0.15);
+}
+div.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    border: none !important;
+    color: white !important;
+}
+div.stDownloadButton > button {
+    border-radius: 10px !important;
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    border: none !important;
+    color: white !important;
+    font-weight: 550;
 }
 
 /* ── Tabs ─────────────────────────────────────────────────── */
 button[data-baseweb="tab"] {
-    border-radius: 12px;
+    border-radius: 10px;
     margin-right: 4px;
     padding: 8px 16px;
-    font-weight: 650;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+[data-testid="stTabs"] [aria-selected="true"] {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+    color: white !important;
+    border-radius: 10px;
 }
 
 /* ── Data elements ────────────────────────────────────────── */
 [data-testid="stDataFrame"], [data-testid="stTable"] {
-    border-radius: 14px;
-    border: 1px solid rgba(49,51,63,0.08);
+    border-radius: 12px;
+    border: 1px solid rgba(99,102,241,0.10);
     overflow: hidden;
-    box-shadow: 0 4px 16px rgba(15,23,42,0.04);
+    box-shadow: 0 2px 12px rgba(99,102,241,0.06);
 }
 [data-testid="stMetric"] {
-    border: 1px solid rgba(49,51,63,0.08);
-    border-radius: 14px;
-    padding: 12px 14px;
-    background: rgba(255,255,255,0.6);
+    background: linear-gradient(135deg, #ffffff, #f8faff);
+    border: 1px solid rgba(99,102,241,0.10);
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: 0 2px 10px rgba(99,102,241,0.06);
 }
 details[data-testid="stExpander"] {
-    border: 1px solid rgba(49,51,63,0.08);
-    border-radius: 14px;
+    border: 1px solid rgba(99,102,241,0.10);
+    border-radius: 12px;
     padding: 4px 8px;
+    background: rgba(255,255,255,0.7);
 }
-div[data-testid="stAlert"] {
-    border-radius: 14px;
-}
+div[data-testid="stAlert"] { border-radius: 12px; }
 
-/* ── Sidebar base ─────────────────────────────────────────── */
+/* ── Sidebar ──────────────────────────────────────────────── */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
-    border-right: 1px solid rgba(15,23,42,0.08);
+    background: linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%) !important;
+    border-right: none;
 }
 section[data-testid="stSidebar"] .block-container {
-    padding-top: 0.8rem;
-    padding-left: 0.6rem;
-    padding-right: 0.6rem;
+    padding-top: 0.5rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+section[data-testid="stSidebar"] .stCaption,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] div {
+    color: rgba(255,255,255,0.85) !important;
 }
 section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
 section[data-testid="stSidebar"] .stCaption,
 section[data-testid="stSidebar"] label {
     text-align: center !important;
 }
-section[data-testid="stSidebar"] img {
-    display: block !important;
-    margin: 0 auto !important;
-}
-section[data-testid="stSidebar"] .segav-sidebar-center {
-    text-align: center !important;
-}
+section[data-testid="stSidebar"] img { display: block !important; margin: 0 auto !important; }
+section[data-testid="stSidebar"] .segav-sidebar-center { text-align: center !important; }
 
-/* ── Sidebar info cards ───────────────────────────────────── */
+/* Sidebar cards */
 section[data-testid="stSidebar"] .segav-sidecard {
-    border: 1px solid rgba(49,51,63,0.08);
-    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
     padding: 12px 14px;
-    background: rgba(255,255,255,0.9);
-    box-shadow: 0 2px 12px rgba(15,23,42,0.04);
-    margin: 0.2rem 0 0.6rem 0;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+    margin: 0.2rem 0 0.5rem 0;
 }
 section[data-testid="stSidebar"] .segav-sidegrid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 0.45rem;
-    margin-top: 0.35rem;
+    gap: 0.4rem;
+    margin-top: 0.3rem;
 }
 section[data-testid="stSidebar"] .segav-sidepill {
-    border-radius: 12px;
-    padding: 0.5rem 0.3rem;
-    border: 1px solid rgba(49,51,63,0.06);
-    background: rgba(248,250,252,0.95);
+    border-radius: 10px;
+    padding: 0.45rem 0.25rem;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.06);
     text-align: center;
 }
 section[data-testid="stSidebar"] .segav-sidepill strong {
-    display: block;
-    font-size: 1rem;
+    display: block; font-size: 1rem; color: white !important;
+}
+section[data-testid="stSidebar"] .segav-sidepill span {
+    font-size: 0.75rem; opacity: 0.7;
 }
 
-/* ── Sidebar section headers (colored) ────────────────────── */
-.segav-section-header {
-    padding: 10px 14px;
-    border-radius: 12px;
-    margin: 6px 0 2px 0;
-    font-weight: 700;
-    font-size: 0.88rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.15s ease;
-    user-select: none;
-    letter-spacing: 0.01em;
-}
-.segav-section-header:hover {
-    filter: brightness(0.96);
-}
-.segav-section-admin_area {
-    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
-    color: #1e40af;
-    border: 1px solid #93c5fd;
-}
-.segav-section-prev {
-    background: linear-gradient(135deg, #fef3c7, #fde68a);
-    color: #92400e;
-    border: 1px solid #fcd34d;
-}
-.segav-section-docs {
-    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
-    color: #065f46;
-    border: 1px solid #6ee7b7;
-}
-.segav-section-superadmin {
-    background: linear-gradient(135deg, #fce7f3, #fbcfe8);
-    color: #9d174d;
-    border: 1px solid #f9a8d4;
-}
-
-/* ── Sidebar buttons ──────────────────────────────────────── */
+/* Sidebar nav buttons */
 section[data-testid="stSidebar"] .stButton > button {
     border-radius: 10px;
-    min-height: 36px;
-    font-weight: 500;
-    font-size: 0.87rem;
-    transition: all 0.12s ease;
+    min-height: 38px;
+    font-weight: 550;
+    font-size: 0.85rem;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    background: rgba(255,255,255,0.05) !important;
+    color: rgba(255,255,255,0.88) !important;
+    transition: all 0.15s ease;
 }
 section[data-testid="stSidebar"] .stButton > button:hover {
+    background: rgba(255,255,255,0.14) !important;
+    border-color: rgba(255,255,255,0.22) !important;
     transform: none;
-    box-shadow: none;
-}
-section[data-testid="stSidebar"] .segav-quick-title {
-    text-align: center;
-    font-weight: 700;
-    margin: 0.2rem 0 0.4rem 0;
-}
-section[data-testid="stSidebar"] .segav-sidehint {
-    text-align: center;
-    font-size: 0.82rem;
-    opacity: 0.65;
-    margin-top: -0.1rem;
-    margin-bottom: 0.3rem;
+    box-shadow: 0 0 12px rgba(139,92,246,0.15);
 }
 
-/* ── Logout button ────────────────────────────────────────── */
-.segav-logout-btn > button {
-    background: linear-gradient(135deg, #fee2e2, #fecaca) !important;
-    color: #991b1b !important;
-    border: 1px solid #fca5a5 !important;
+/* Sidebar selectbox */
+section[data-testid="stSidebar"] [data-baseweb="select"] {
+    background: rgba(255,255,255,0.10);
+    border-radius: 8px;
+}
+section[data-testid="stSidebar"] [data-baseweb="select"] div {
+    color: white !important;
+}
+
+/* Sidebar expanders */
+section[data-testid="stSidebar"] [data-testid="stExpander"] {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    margin-bottom: 0.3rem;
+}
+section[data-testid="stSidebar"] [data-testid="stExpander"] details summary p {
     font-weight: 600 !important;
-    margin-top: 8px;
+}
+section[data-testid="stSidebar"] .segav-quick-title {
+    text-align: center; font-weight: 700; margin: 0.2rem 0 0.4rem 0;
+}
+section[data-testid="stSidebar"] .segav-sidehint {
+    text-align: center; font-size: 0.8rem; opacity: 0.5; margin-bottom: 0.2rem;
+}
+
+/* Progress bar */
+[data-testid="stProgress"] > div > div {
+    background: linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa) !important;
+    border-radius: 8px;
 }
 
         </style>
         """,
         unsafe_allow_html=True,
     )
+
 
 def ui_header(title: str, desc: str = ""):
     st.markdown(
@@ -6766,15 +6763,49 @@ except Exception as _exc:
     _record_soft_error("user_sessions.touch", _exc)
 
 with st.sidebar:
-    # Branding compacto: usa logo de empresa activa si existe; si no, usa marca SEGAV
+    # Company logo prominently displayed
     try:
-        render_sidebar_top_logo(width=170)
+        _ck_for_logo = current_segav_client_key() if callable(current_segav_client_key) else ""
+        _logo_bytes = get_company_logo_bytes(str(_ck_for_logo)) if _ck_for_logo else None
+        if _logo_bytes:
+            _logo_b64 = base64.b64encode(_logo_bytes).decode('ascii')
+            st.markdown(
+                f'<div style="text-align:center; margin:8px 0 4px 0;">'
+                f'<img src="data:image/png;base64,{_logo_b64}" style="width:140px; height:auto; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.2);" alt="Logo empresa">'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            try:
+                render_sidebar_top_logo(width=140)
+            except Exception:
+                pass
     except Exception as exc:
-        _record_soft_error("sidebar.render_top_logo", exc)
-    st.markdown('<div class="segav-sidebar-center"><h3 style="margin:0;">SEGAV ERP</h3></div>', unsafe_allow_html=True)
+        _record_soft_error("sidebar.company_logo", exc)
+        try:
+            render_sidebar_top_logo(width=140)
+        except Exception:
+            pass
+
+    st.markdown(
+        '<div style="text-align:center; margin:4px 0 8px 0;">'
+        '<span style="font-size:1.3rem; font-weight:800; '
+        'background:linear-gradient(135deg, #a78bfa, #818cf8, #6366f1); '
+        '-webkit-background-clip:text; -webkit-text-fill-color:transparent; '
+        'background-clip:text;">SEGAV ERP</span></div>',
+        unsafe_allow_html=True,
+    )
     u = current_user()
     if u:
-        st.markdown(f'<div class="segav-sidecard segav-sidebar-center"><strong>{u.get("full_name") or u["username"]}</strong><br><span class="segav-muted">{u["role"]}</span></div>', unsafe_allow_html=True)
+        _role_colors = {"SUPERADMIN": "#f59e0b", "ADMIN": "#10b981", "OPERADOR": "#6366f1", "LECTOR": "#8b5cf6"}
+        _role_color = _role_colors.get(str(u.get("role", "")).upper(), "#8b5cf6")
+        st.markdown(
+            f'<div class="segav-sidecard segav-sidebar-center">'
+            f'<strong style="color:white !important;">{u.get("full_name") or u["username"]}</strong><br>'
+            f'<span style="background:{_role_color}; color:white; padding:2px 10px; border-radius:20px; font-size:0.75rem; font-weight:600;">{u["role"]}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
     try:
         ensure_user_client_access_table_once(DB_BACKEND, PG_DSN_FINGERPRINT)
@@ -6846,7 +6877,11 @@ with st.sidebar:
     except Exception as _exc_search:
         _record_soft_error("sidebar.search", _exc_search)
 
-    st.markdown('<div class="segav-sidebar-center" style="font-weight:700; margin:0.35rem 0 0.1rem 0;">Secciones</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="text-align:center; font-weight:700; margin:0.3rem 0 0.1rem 0; font-size:0.8rem; '
+        'text-transform:uppercase; letter-spacing:0.08em; opacity:0.5; color:rgba(255,255,255,0.5) !important;">Navegación</div>',
+        unsafe_allow_html=True,
+    )
 
     PAGE_LABELS = {
         "Dashboard": "📊 Dashboard",
@@ -6955,10 +6990,33 @@ with st.sidebar:
                     _sidebar_nav_button(_page, f"{_sec_key}_{_page}")
             st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
 
-    # Logout
-    st.markdown('<div style="margin-top:12px;"></div>', unsafe_allow_html=True)
-    if u and st.button("🚪 Cerrar sesión", use_container_width=True, key="sidebar_logout_main"):
-        auth_logout()
+    # Logout - red button
+    st.markdown('<div style="margin-top:16px;"></div>', unsafe_allow_html=True)
+    if u:
+        st.markdown(
+            '<div style="text-align:center; margin-bottom:4px;">'
+            '<span style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; opacity:0.4;">───────────────</span></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("🚪 Cerrar sesión", use_container_width=True, key="sidebar_logout_main", type="primary"):
+            auth_logout()
+        # Override logout button to red via inline style injection
+        st.markdown(
+            """<style>
+            section[data-testid="stSidebar"] button[key="sidebar_logout_main"],
+            section[data-testid="stSidebar"] .stButton:last-of-type > button {
+                background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+                border: 1px solid rgba(239,68,68,0.3) !important;
+                color: white !important;
+                font-weight: 600 !important;
+            }
+            section[data-testid="stSidebar"] .stButton:last-of-type > button:hover {
+                background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+                box-shadow: 0 4px 16px rgba(239,68,68,0.3) !important;
+            }
+            </style>""",
+            unsafe_allow_html=True,
+        )
 
 current_section = st.session_state.get("nav_page", "Dashboard")
 st.title(str(current_section))
