@@ -1468,17 +1468,15 @@ section[data-testid="stSidebar"] label {
 }
 section[data-testid="stSidebar"] img {
     display: block !important;
-    margin: 0 auto !important;
     margin-left: auto !important;
     margin-right: auto !important;
+    max-width: 80% !important;
 }
-section[data-testid="stSidebar"] [data-testid="stImage"] {
+section[data-testid="stSidebar"] [data-testid="stImage"],
+section[data-testid="stSidebar"] [data-testid="stImage"] > div {
     display: flex !important;
     justify-content: center !important;
-}
-section[data-testid="stSidebar"] [data-testid="stImage"] img {
-    display: block !important;
-    margin: 0 auto !important;
+    width: 100% !important;
 }
 section[data-testid="stSidebar"] .segav-sidebar-center { text-align: center !important; }
 
@@ -1511,41 +1509,50 @@ section[data-testid="stSidebar"] .segav-sidepill span {
     font-size: 0.75rem; opacity: 0.7;
 }
 
-/* Sidebar section header buttons (orange) */
-section[data-testid="stSidebar"] .stButton > button {
+/* Sidebar: Section headers (primary buttons) = ORANGE */
+section[data-testid="stSidebar"] .stButton > button[kind="primary"],
+section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"] {
     border-radius: 10px;
-    min-height: 38px;
-    font-weight: 650;
-    font-size: 0.85rem;
-    background: linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.18)) !important;
-    border: 1px solid rgba(251,191,36,0.30) !important;
-    color: #fef3c7 !important;
+    min-height: 40px;
+    font-weight: 700 !important;
+    font-size: 0.88rem;
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    border: 1px solid rgba(245,158,11,0.5) !important;
+    color: white !important;
     transition: all 0.15s ease;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
-section[data-testid="stSidebar"] .stButton > button:hover {
-    background: linear-gradient(135deg, rgba(251,191,36,0.35), rgba(245,158,11,0.28)) !important;
-    border-color: rgba(251,191,36,0.45) !important;
+section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover,
+section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"]:hover {
+    background: linear-gradient(135deg, #d97706, #b45309) !important;
+    border-color: rgba(217,119,6,0.6) !important;
     transform: none;
-    box-shadow: 0 0 14px rgba(251,191,36,0.15);
+    box-shadow: 0 4px 16px rgba(245,158,11,0.25);
 }
-/* Sub-menu items: flat, no box, like plain text links */
-section[data-testid="stSidebar"] .stButton + .stButton > button,
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:not(:first-child) .stButton > button {
+
+/* Sidebar: Sub-items (secondary/default buttons) = FLAT transparent */
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"],
+section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-secondary"],
+section[data-testid="stSidebar"] .stButton > button:not([kind="primary"]):not([data-testid="stBaseButton-primary"]) {
+    border-radius: 8px;
+    min-height: 34px;
+    font-weight: 450;
+    font-size: 0.84rem;
     background: transparent !important;
     border: none !important;
-    color: rgba(255,255,255,0.75) !important;
-    font-weight: 450;
-    font-size: 0.83rem;
-    min-height: 34px;
-    padding-left: 12px !important;
+    color: rgba(255,255,255,0.72) !important;
+    transition: all 0.12s ease;
+    padding-left: 16px !important;
 }
-section[data-testid="stSidebar"] .stButton + .stButton > button:hover,
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:not(:first-child) .stButton > button:hover {
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover,
+section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-secondary"]:hover,
+section[data-testid="stSidebar"] .stButton > button:not([kind="primary"]):not([data-testid="stBaseButton-primary"]):hover {
     background: rgba(255,255,255,0.08) !important;
     border: none !important;
     color: white !important;
     box-shadow: none;
+    transform: none;
 }
 
 /* Sidebar selectbox */
@@ -7013,7 +7020,7 @@ with st.sidebar:
         _is_open = (_open_section == _sec_key)
         _arrow = "▼" if _is_open else "▶"
 
-        if st.button(f"{_arrow} {_sec_label}", key=f"sidebar_section_{_sec_key}", use_container_width=True):
+        if st.button(f"{_arrow} {_sec_label}", key=f"sidebar_section_{_sec_key}", use_container_width=True, type="primary"):
             if _is_open:
                 st.session_state["_sidebar_open_section"] = None
             else:
@@ -7023,7 +7030,7 @@ with st.sidebar:
             for _page in _sec_pages:
                 if _page in VISIBLE_PAGES:
                     _sidebar_nav_button(_page, f"{_sec_key}_{_page}")
-            st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
 
     # Logout - red button
     st.markdown('<div style="margin-top:16px;"></div>', unsafe_allow_html=True)
