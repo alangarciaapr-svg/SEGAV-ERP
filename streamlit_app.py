@@ -1466,7 +1466,20 @@ section[data-testid="stSidebar"] .stCaption,
 section[data-testid="stSidebar"] label {
     text-align: center !important;
 }
-section[data-testid="stSidebar"] img { display: block !important; margin: 0 auto !important; }
+section[data-testid="stSidebar"] img {
+    display: block !important;
+    margin: 0 auto !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+section[data-testid="stSidebar"] [data-testid="stImage"] {
+    display: flex !important;
+    justify-content: center !important;
+}
+section[data-testid="stSidebar"] [data-testid="stImage"] img {
+    display: block !important;
+    margin: 0 auto !important;
+}
 section[data-testid="stSidebar"] .segav-sidebar-center { text-align: center !important; }
 
 /* Sidebar cards */
@@ -1498,22 +1511,41 @@ section[data-testid="stSidebar"] .segav-sidepill span {
     font-size: 0.75rem; opacity: 0.7;
 }
 
-/* Sidebar nav buttons */
+/* Sidebar section header buttons (orange) */
 section[data-testid="stSidebar"] .stButton > button {
     border-radius: 10px;
     min-height: 38px;
-    font-weight: 550;
+    font-weight: 650;
     font-size: 0.85rem;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    background: rgba(255,255,255,0.05) !important;
-    color: rgba(255,255,255,0.88) !important;
+    background: linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.18)) !important;
+    border: 1px solid rgba(251,191,36,0.30) !important;
+    color: #fef3c7 !important;
     transition: all 0.15s ease;
+    letter-spacing: 0.01em;
 }
 section[data-testid="stSidebar"] .stButton > button:hover {
-    background: rgba(255,255,255,0.14) !important;
-    border-color: rgba(255,255,255,0.22) !important;
+    background: linear-gradient(135deg, rgba(251,191,36,0.35), rgba(245,158,11,0.28)) !important;
+    border-color: rgba(251,191,36,0.45) !important;
     transform: none;
-    box-shadow: 0 0 12px rgba(139,92,246,0.15);
+    box-shadow: 0 0 14px rgba(251,191,36,0.15);
+}
+/* Sub-menu items: flat, no box, like plain text links */
+section[data-testid="stSidebar"] .stButton + .stButton > button,
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:not(:first-child) .stButton > button {
+    background: transparent !important;
+    border: none !important;
+    color: rgba(255,255,255,0.75) !important;
+    font-weight: 450;
+    font-size: 0.83rem;
+    min-height: 34px;
+    padding-left: 12px !important;
+}
+section[data-testid="stSidebar"] .stButton + .stButton > button:hover,
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:not(:first-child) .stButton > button:hover {
+    background: rgba(255,255,255,0.08) !important;
+    border: none !important;
+    color: white !important;
+    box-shadow: none;
 }
 
 /* Sidebar selectbox */
@@ -4746,7 +4778,13 @@ def get_login_hero_bytes():
 def render_brand_logo(width: int = 220):
     logo = get_login_logo_bytes()
     if logo:
-        st.image(logo, width=width)
+        _lb64 = base64.b64encode(logo).decode('ascii')
+        st.markdown(
+            f'<div style="text-align:center !important; display:flex; justify-content:center; margin:4px 0;">'
+            f'<img src="data:image/png;base64,{_lb64}" style="max-width:{int(width)}px; height:auto; display:block;" alt="SEGAV ERP">'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
     else:
         st.markdown(f"### {erp_brand_name()}")
 
@@ -6763,32 +6801,9 @@ except Exception as _exc:
     _record_soft_error("user_sessions.touch", _exc)
 
 with st.sidebar:
-    # Company logo prominently displayed
-    try:
-        _ck_for_logo = current_segav_client_key() if callable(current_segav_client_key) else ""
-        _logo_bytes = get_company_logo_bytes(str(_ck_for_logo)) if _ck_for_logo else None
-        if _logo_bytes:
-            _logo_b64 = base64.b64encode(_logo_bytes).decode('ascii')
-            st.markdown(
-                f'<div style="text-align:center; margin:8px 0 4px 0;">'
-                f'<img src="data:image/png;base64,{_logo_b64}" style="width:140px; height:auto; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.2);" alt="Logo empresa">'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            try:
-                render_sidebar_top_logo(width=140)
-            except Exception:
-                pass
-    except Exception as exc:
-        _record_soft_error("sidebar.company_logo", exc)
-        try:
-            render_sidebar_top_logo(width=140)
-        except Exception:
-            pass
-
+    # Title first
     st.markdown(
-        '<div style="text-align:center; margin:4px 0 8px 0;">'
+        '<div style="text-align:center; margin:10px 0 6px 0;">'
         '<span style="font-size:1.3rem; font-weight:800; '
         'background:linear-gradient(135deg, #a78bfa, #818cf8, #6366f1); '
         '-webkit-background-clip:text; -webkit-text-fill-color:transparent; '
@@ -6838,6 +6853,26 @@ with st.sidebar:
                         st.rerun()
                 _current_row = _cli_row_map.get(str(_cli_selected), _cli_df.iloc[0])
                 _vertical = str(_current_row.get("vertical") or segav_erp_value("erp_vertical", "General"))
+                # Company logo (associated with selected company)
+                try:
+                    _company_logo = get_company_logo_bytes(str(_cli_selected))
+                    if _company_logo:
+                        _cl_b64 = base64.b64encode(_company_logo).decode('ascii')
+                        st.markdown(
+                            f'<div style="text-align:center !important; display:flex; justify-content:center; margin:6px 0 8px 0;">'
+                            f'<img src="data:image/png;base64,{_cl_b64}" style="max-width:150px; height:auto; border-radius:12px; '
+                            f'box-shadow:0 4px 16px rgba(0,0,0,0.25); display:block;" alt="Logo empresa">'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        # Fallback to SEGAV logo centered
+                        try:
+                            render_brand_logo(width=120)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
                 st.markdown(f'<div class="segav-sidecard segav-sidebar-center"><div style="font-weight:700;">🏢 {_current_row["cliente_nombre"]}</div><div class="segav-muted">{_vertical}</div></div>', unsafe_allow_html=True)
                 try:
                     _side_kpis = get_sidebar_kpis(DB_BACKEND, PG_DSN_FINGERPRINT, str(_cli_selected))
@@ -7000,19 +7035,21 @@ with st.sidebar:
         )
         if st.button("🚪 Cerrar sesión", use_container_width=True, key="sidebar_logout_main", type="primary"):
             auth_logout()
-        # Override logout button to red via inline style injection
+        # Red logout button override
         st.markdown(
             """<style>
-            section[data-testid="stSidebar"] button[key="sidebar_logout_main"],
-            section[data-testid="stSidebar"] .stButton:last-of-type > button {
+            section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:last-child .stButton > button,
+            section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:last-child .stButton > button:hover {
                 background: linear-gradient(135deg, #ef4444, #dc2626) !important;
-                border: 1px solid rgba(239,68,68,0.3) !important;
+                border: 1px solid rgba(239,68,68,0.4) !important;
                 color: white !important;
-                font-weight: 600 !important;
+                font-weight: 650 !important;
+                min-height: 40px;
+                letter-spacing: 0.02em;
             }
-            section[data-testid="stSidebar"] .stButton:last-of-type > button:hover {
+            section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:last-child .stButton > button:hover {
                 background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
-                box-shadow: 0 4px 16px rgba(239,68,68,0.3) !important;
+                box-shadow: 0 4px 20px rgba(239,68,68,0.35) !important;
             }
             </style>""",
             unsafe_allow_html=True,
