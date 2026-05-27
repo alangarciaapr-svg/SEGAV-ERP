@@ -1361,124 +1361,195 @@ def inject_css():
     st.markdown(
         """
         <style>
-        .block-container {padding-top: 1rem; padding-bottom: 2rem;}
-        /* Metric cards */
-        div[data-testid="stMetric"]{
-            padding: 14px 14px 10px 14px;
-            border: 1px solid rgba(0,0,0,0.08);
-            border-radius: 16px;
-        }
-        /* Dataframes */
-        div[data-testid="stDataFrame"]{
-            border: 1px solid rgba(0,0,0,0.08);
-            border-radius: 14px;
-            overflow: hidden;
-        }
-        /* Expander */
-        details[data-testid="stExpander"]{
-            border: 1px solid rgba(0,0,0,0.08);
-            border-radius: 14px;
-            padding: 6px 10px;
-        }
-        
-/* Buttons */
-div.stButton > button {
-    border-radius: 14px !important;
-    padding-top: 0.55rem !important;
-    padding-bottom: 0.55rem !important;
-}
-/* Sidebar spacing */
-section[data-testid="stSidebar"] .block-container {padding-top: 1rem;}
-section[data-testid="stSidebar"] .block-container {display:flex; flex-direction:column; align-items:stretch; padding-left:0.7rem; padding-right:0.7rem;}
-section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
-section[data-testid="stSidebar"] .stCaption,
-section[data-testid="stSidebar"] label {text-align:center !important;}
-section[data-testid="stSidebar"] .segav-sidebar-center {text-align:center !important; justify-content:center !important;}
-section[data-testid="stSidebar"] .segav-sidecard {border:1px solid rgba(49,51,63,0.10); border-radius:18px; padding:12px 14px; background:linear-gradient(180deg, rgba(255,255,255,0.86), rgba(248,250,252,0.92)); box-shadow:0 10px 26px rgba(15,23,42,0.07); margin:0.25rem 0 0.70rem 0;}
-section[data-testid="stSidebar"] .segav-sidegrid {display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0.55rem; margin-top:0.4rem;}
-section[data-testid="stSidebar"] .segav-sidepill {border-radius:14px; padding:0.55rem 0.35rem; border:1px solid rgba(49,51,63,0.08); background:rgba(248,250,252,0.96); text-align:center;}
-section[data-testid="stSidebar"] .segav-sidepill strong {display:block; font-size:1rem;}
-section[data-testid="stSidebar"] [data-testid="stExpander"] {border:1px solid rgba(49,51,63,0.08); border-radius:16px; background:rgba(255,255,255,0.72); margin-bottom:0.55rem; overflow:hidden;}
-section[data-testid="stSidebar"] [data-testid="stExpander"] details summary p {font-weight:700 !important;}
-section[data-testid="stSidebar"] .stButton > button {border-radius:14px; min-height:42px; font-weight:600;}
-section[data-testid="stSidebar"] .segav-quick-title {text-align:center; font-weight:700; margin:0.2rem 0 0.45rem 0;}
-section[data-testid="stSidebar"] .segav-sidehint {text-align:center; font-size:0.83rem; opacity:0.78; margin-top:-0.15rem; margin-bottom:0.35rem;}
-
-        
-/* iOS-like look & feel */
-html, body, [class*="css"]  {
+/* ── Base ─────────────────────────────────────────────────── */
+html, body, [class*="css"] {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
-.block-container { padding-top: 1.2rem; padding-bottom: 2rem; }
-section[data-testid="stSidebar"] { border-right: 1px solid rgba(49,51,63,0.12); }
-section[data-testid="stSidebar"] .block-container { padding-top: 1rem; }
-
-/* Cards */
-.segav-card {
-    background: rgba(255,255,255,0.72);
-    border: 1px solid rgba(49,51,63,0.10);
-    border-radius: 18px;
-    padding: 14px 16px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    margin-bottom: 12px;
-}
-.segav-muted { opacity: 0.75; }
-
-/* Buttons */
-div.stButton > button, div.stDownloadButton > button {
-    border-radius: 16px !important;
-    padding: 0.62rem 0.9rem !important;
-}
-
-/* Tabs */
-button[data-baseweb="tab"] {
-    border-radius: 14px;
-    margin-right: 6px;
-    padding-left: 14px;
-    padding-right: 14px;
-}
-
-/* Dataframe container */
-[data-testid="stDataFrame"] {
-    border-radius: 16px;
-    border: 1px solid rgba(49,51,63,0.10);
-    overflow: hidden;
-}
-
-/* Metric cards */
-[data-testid="stMetric"] {
-    border: 1px solid rgba(49,51,63,0.10);
-    border-radius: 16px;
-    padding: 10px 12px;
-}
-
-/* SEGAV ERP estilo dinámico/profesional */
 .stApp {
-    background: linear-gradient(135deg, #f8fafc 0%, #eef4ff 44%, #f8fafc 100%);
+    background: linear-gradient(160deg, #f8fafc 0%, #eef2ff 50%, #f8fafc 100%);
 }
 .block-container {
     max-width: 1500px;
+    padding-top: 1.2rem;
+    padding-bottom: 2rem;
 }
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(241,245,249,.98));
-    border-right: 1px solid rgba(15,23,42,.10);
+
+/* ── Cards ────────────────────────────────────────────────── */
+.segav-card {
+    background: rgba(255,255,255,0.85);
+    border: 1px solid rgba(49,51,63,0.08);
+    border-radius: 18px;
+    padding: 16px 20px;
+    box-shadow: 0 4px 20px rgba(15,23,42,0.05);
+    backdrop-filter: blur(12px);
+    margin-bottom: 14px;
 }
-section[data-testid="stSidebar"] img {
-    display:block !important;
-    margin-left:auto !important;
-    margin-right:auto !important;
+.segav-muted { opacity: 0.68; font-size: 0.92em; }
+
+/* ── Buttons ──────────────────────────────────────────────── */
+div.stButton > button, div.stDownloadButton > button {
+    border-radius: 14px !important;
+    padding: 0.55rem 0.9rem !important;
+    font-weight: 500;
+    transition: all 0.15s ease;
 }
-[data-testid="stTabs"] button[data-baseweb="tab"] {
-    font-weight: 750;
+div.stButton > button:hover, div.stDownloadButton > button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+button[data-baseweb="tab"] {
+    border-radius: 12px;
+    margin-right: 4px;
+    padding: 8px 16px;
+    font-weight: 650;
+}
+
+/* ── Data elements ────────────────────────────────────────── */
 [data-testid="stDataFrame"], [data-testid="stTable"] {
-    box-shadow: 0 10px 22px rgba(15,23,42,.045);
+    border-radius: 14px;
+    border: 1px solid rgba(49,51,63,0.08);
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(15,23,42,0.04);
+}
+[data-testid="stMetric"] {
+    border: 1px solid rgba(49,51,63,0.08);
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.6);
+}
+details[data-testid="stExpander"] {
+    border: 1px solid rgba(49,51,63,0.08);
+    border-radius: 14px;
+    padding: 4px 8px;
 }
 div[data-testid="stAlert"] {
+    border-radius: 14px;
+}
+
+/* ── Sidebar base ─────────────────────────────────────────── */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+    border-right: 1px solid rgba(15,23,42,0.08);
+}
+section[data-testid="stSidebar"] .block-container {
+    padding-top: 0.8rem;
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+}
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+section[data-testid="stSidebar"] .stCaption,
+section[data-testid="stSidebar"] label {
+    text-align: center !important;
+}
+section[data-testid="stSidebar"] img {
+    display: block !important;
+    margin: 0 auto !important;
+}
+section[data-testid="stSidebar"] .segav-sidebar-center {
+    text-align: center !important;
+}
+
+/* ── Sidebar info cards ───────────────────────────────────── */
+section[data-testid="stSidebar"] .segav-sidecard {
+    border: 1px solid rgba(49,51,63,0.08);
     border-radius: 16px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.9);
+    box-shadow: 0 2px 12px rgba(15,23,42,0.04);
+    margin: 0.2rem 0 0.6rem 0;
+}
+section[data-testid="stSidebar"] .segav-sidegrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.45rem;
+    margin-top: 0.35rem;
+}
+section[data-testid="stSidebar"] .segav-sidepill {
+    border-radius: 12px;
+    padding: 0.5rem 0.3rem;
+    border: 1px solid rgba(49,51,63,0.06);
+    background: rgba(248,250,252,0.95);
+    text-align: center;
+}
+section[data-testid="stSidebar"] .segav-sidepill strong {
+    display: block;
+    font-size: 1rem;
+}
+
+/* ── Sidebar section headers (colored) ────────────────────── */
+.segav-section-header {
+    padding: 10px 14px;
+    border-radius: 12px;
+    margin: 6px 0 2px 0;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    user-select: none;
+    letter-spacing: 0.01em;
+}
+.segav-section-header:hover {
+    filter: brightness(0.96);
+}
+.segav-section-admin_area {
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+.segav-section-prev {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
+    border: 1px solid #fcd34d;
+}
+.segav-section-docs {
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+.segav-section-superadmin {
+    background: linear-gradient(135deg, #fce7f3, #fbcfe8);
+    color: #9d174d;
+    border: 1px solid #f9a8d4;
+}
+
+/* ── Sidebar buttons ──────────────────────────────────────── */
+section[data-testid="stSidebar"] .stButton > button {
+    border-radius: 10px;
+    min-height: 36px;
+    font-weight: 500;
+    font-size: 0.87rem;
+    transition: all 0.12s ease;
+}
+section[data-testid="stSidebar"] .stButton > button:hover {
+    transform: none;
+    box-shadow: none;
+}
+section[data-testid="stSidebar"] .segav-quick-title {
+    text-align: center;
+    font-weight: 700;
+    margin: 0.2rem 0 0.4rem 0;
+}
+section[data-testid="stSidebar"] .segav-sidehint {
+    text-align: center;
+    font-size: 0.82rem;
+    opacity: 0.65;
+    margin-top: -0.1rem;
+    margin-bottom: 0.3rem;
+}
+
+/* ── Logout button ────────────────────────────────────────── */
+.segav-logout-btn > button {
+    background: linear-gradient(135deg, #fee2e2, #fecaca) !important;
+    color: #991b1b !important;
+    border: 1px solid #fca5a5 !important;
+    font-weight: 600 !important;
+    margin-top: 8px;
 }
 
         </style>
@@ -6803,7 +6874,9 @@ with st.sidebar:
         _active = st.session_state.get("nav_page") == page_name
         _label = PAGE_LABELS.get(page_name, page_name)
         if _active:
-            _label = f"▸ {_label}"
+            _label = f"  ▸ {_label}"
+        else:
+            _label = f"    {_label}"
         if st.button(_label, key=f"sidebar_nav_{key_suffix}", use_container_width=True, disabled=_disabled):
             st.session_state["nav_page"] = page_name
             st.rerun()
@@ -6859,10 +6932,18 @@ with st.sidebar:
 
     _open_section = st.session_state.get("_sidebar_open_section")
 
+    _SECTION_EMOJIS = {
+        "admin_area": "🏢",
+        "prev": "🦺",
+        "docs": "🗂️",
+        "superadmin": "🔐",
+    }
+
     for _sec_key, (_sec_label, _sec_pages) in _NAV_SECTIONS.items():
         _is_open = (_open_section == _sec_key)
-        _header_icon = "▼" if _is_open else "▶"
-        if st.button(f"{_header_icon} {_sec_label}", key=f"sidebar_section_{_sec_key}", use_container_width=True):
+        _arrow = "▼" if _is_open else "▶"
+
+        if st.button(f"{_arrow} {_sec_label}", key=f"sidebar_section_{_sec_key}", use_container_width=True):
             if _is_open:
                 st.session_state["_sidebar_open_section"] = None
             else:
@@ -6872,8 +6953,11 @@ with st.sidebar:
             for _page in _sec_pages:
                 if _page in VISIBLE_PAGES:
                     _sidebar_nav_button(_page, f"{_sec_key}_{_page}")
+            st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
 
-    if u and st.button("Cerrar sesión", use_container_width=True, key="sidebar_logout_main"):
+    # Logout
+    st.markdown('<div style="margin-top:12px;"></div>', unsafe_allow_html=True)
+    if u and st.button("🚪 Cerrar sesión", use_container_width=True, key="sidebar_logout_main"):
         auth_logout()
 
 current_section = st.session_state.get("nav_page", "Dashboard")
