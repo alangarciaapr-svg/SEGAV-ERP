@@ -1509,9 +1509,9 @@ section[data-testid="stSidebar"] .segav-sidepill span {
     font-size: 0.75rem; opacity: 0.7;
 }
 
-/* Sidebar: PRIMARY buttons = ORANGE section headers */
+/* ── Sidebar: SECTION HEADERS (primary) = ORANGE ──────── */
 section[data-testid="stSidebar"] button[kind="primary"],
-section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"] {
+section[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] {
     border-radius: 10px !important;
     min-height: 42px !important;
     font-weight: 700 !important;
@@ -1519,38 +1519,38 @@ section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"] {
     background: linear-gradient(135deg, #f59e0b, #d97706) !important;
     border: 1px solid rgba(245,158,11,0.5) !important;
     color: white !important;
-    transition: all 0.15s ease;
     letter-spacing: 0.02em;
     text-shadow: 0 1px 2px rgba(0,0,0,0.15);
-    padding-left: 14px !important;
+    padding: 0 14px !important;
+    margin-bottom: 2px;
 }
-section[data-testid="stSidebar"] button[kind="primary"]:hover,
-section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:hover {
+section[data-testid="stSidebar"] button[kind="primary"]:hover {
     background: linear-gradient(135deg, #d97706, #b45309) !important;
     box-shadow: 0 4px 16px rgba(245,158,11,0.3) !important;
-    transform: none;
 }
 
-/* Sidebar: NON-PRIMARY buttons = flat transparent sub-items */
-section[data-testid="stSidebar"] button:not([kind="primary"]),
-section[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
+/* ── Sidebar: SUB-ITEMS (secondary) = FLAT like expanders ─ */
+section[data-testid="stSidebar"] button[kind="secondary"],
+section[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"],
+section[data-testid="stSidebar"] .stButton > button:not([kind="primary"]) {
     border-radius: 8px !important;
-    min-height: 34px !important;
-    font-weight: 450 !important;
+    min-height: 36px !important;
+    font-weight: 500 !important;
     font-size: 0.84rem !important;
-    background: transparent !important;
-    border: none !important;
-    color: rgba(255,255,255,0.72) !important;
-    transition: all 0.12s ease;
-    padding-left: 20px !important;
+    background: rgba(255,255,255,0.04) !important;
+    border: 1px solid rgba(255,255,255,0.06) !important;
+    color: rgba(255,255,255,0.75) !important;
+    padding: 0 12px 0 20px !important;
+    margin-bottom: 1px;
+    box-shadow: none !important;
+    text-shadow: none !important;
 }
-section[data-testid="stSidebar"] button:not([kind="primary"]):hover,
-section[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
+section[data-testid="stSidebar"] button[kind="secondary"]:hover,
+section[data-testid="stSidebar"] .stButton > button:not([kind="primary"]):hover {
     background: rgba(255,255,255,0.10) !important;
-    border: none !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
     color: white !important;
-    box-shadow: none;
-    transform: none;
+    box-shadow: none !important;
 }
 
 /* Sidebar selectbox */
@@ -6967,12 +6967,17 @@ with st.sidebar:
         _active = st.session_state.get("nav_page") == page_name
         _label = PAGE_LABELS.get(page_name, page_name)
         if _active:
-            _label = f"  ▸ {_label}"
+            # Active page: show with orange left border via HTML before button
+            st.markdown(
+                f'<div style="border-left:3px solid #f59e0b; border-radius:6px; margin:1px 0; '
+                f'padding:6px 12px; background:rgba(245,158,11,0.08); '
+                f'color:white; font-weight:600; font-size:0.84rem;">▸ {_label}</div>',
+                unsafe_allow_html=True,
+            )
         else:
-            _label = f"    {_label}"
-        if st.button(_label, key=f"sidebar_nav_{key_suffix}", use_container_width=True, disabled=_disabled):
-            st.session_state["nav_page"] = page_name
-            st.rerun()
+            if st.button(f"   {_label}", key=f"sidebar_nav_{key_suffix}", use_container_width=True, disabled=_disabled):
+                st.session_state["nav_page"] = page_name
+                st.rerun()
 
     # ── Accordion sidebar: 3 áreas + administración ──────────────────────
     _NAV_SECTIONS = {
@@ -7059,8 +7064,23 @@ with st.sidebar:
             '<span style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; opacity:0.4;">───────────────</span></div>',
             unsafe_allow_html=True,
         )
-        if st.button("🔴  Cerrar sesión", use_container_width=True, key="sidebar_logout_main"):
+        if st.button("🚪 Cerrar sesión", use_container_width=True, key="sidebar_logout_main", type="primary"):
             auth_logout()
+        # Red override: targets the LAST primary button in the sidebar
+        st.markdown("""<style>
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:last-of-type button[kind="primary"],
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-last-child(1) button[kind="primary"],
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-last-child(2) button[kind="primary"] {
+            background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+            border: 1px solid rgba(239,68,68,0.5) !important;
+        }
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:last-of-type button[kind="primary"]:hover,
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-last-child(1) button[kind="primary"]:hover,
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-last-child(2) button[kind="primary"]:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+            box-shadow: 0 4px 16px rgba(239,68,68,0.35) !important;
+        }
+        </style>""", unsafe_allow_html=True)
 
 current_section = st.session_state.get("nav_page", "Dashboard")
 st.title(str(current_section))

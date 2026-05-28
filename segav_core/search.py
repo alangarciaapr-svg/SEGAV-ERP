@@ -163,51 +163,66 @@ def global_search(
 
 
 def render_search_sidebar(st_module, fetch_df_fn: Callable, tenant_key: str, allowed_mandante_ids=None, go_fn=None):
-    """Render a global search widget in the Streamlit sidebar.
-
-    Parameters
-    ----------
-    st_module : streamlit
-    fetch_df_fn : callable for DB queries
-    tenant_key : current tenant
-    allowed_mandante_ids : mandante scope for lectores
-    go_fn : navigation function go(page, faena_id=None)
-    """
+    """Render a professional global search widget in the Streamlit sidebar."""
     st = st_module
     with st.expander("🔍 Búsqueda global", expanded=False):
-        q = st.text_input("Buscar trabajador, faena, mandante…", key="global_search_input", placeholder="RUT, nombre, faena…")
+        q = st.text_input(
+            "Buscar",
+            key="global_search_input",
+            placeholder="RUT, nombre, faena, documento…",
+            label_visibility="collapsed",
+        )
         if q and len(q.strip()) >= 2:
             results = global_search(fetch_df_fn, tenant_key, q, allowed_mandante_ids=allowed_mandante_ids)
             if not results:
-                st.caption("Sin resultados")
+                st.markdown(
+                    '<div style="text-align:center; padding:12px; opacity:0.5;">'
+                    '🔍 Sin resultados para esta búsqueda</div>',
+                    unsafe_allow_html=True,
+                )
             else:
-                for r in results[:15]:
-                    col1, col2 = st.columns([0.08, 0.92])
-                    with col1:
-                        st.markdown(r["icon"])
-                    with col2:
-                        btn_label = f"**{r['label']}**  \n{r['detail']}"
-                        entity = r["entity"]
+                # Group by entity type
+                grouped = {}
+                for r in results[:20]:
+                    grouped.setdefault(r["entity"], []).append(r)
+
+                entity_labels = {
+                    "trabajador": ("👷 Trabajadores", "Trabajadores"),
+                    "faena": ("🛠️ Faenas", "Faenas"),
+                    "mandante": ("🏢 Mandantes", "Mandantes"),
+                    "doc_trabajador": ("📎 Documentos", "Documentos Trabajador"),
+                    "doc_empresa": ("🏛️ Docs Empresa", "Documentos Empresa (Faena)"),
+                }
+
+                for entity_type, items in grouped.items():
+                    label_info = entity_labels.get(entity_type, ("📋 Otros", "Dashboard"))
+                    category_label, nav_target = label_info
+
+                    st.markdown(
+                        f'<div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; '
+                        f'letter-spacing:0.06em; opacity:0.5; margin:8px 0 4px 0; '
+                        f'border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:3px;">'
+                        f'{category_label} ({len(items)})</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    for r in items[:5]:
                         rid = r["id"]
-                        # Navigation button
-                        nav_map = {
-                            "trabajador": "Trabajadores",
-                            "faena": "Faenas",
-                            "mandante": "Mandantes",
-                            "doc_trabajador": "Documentos Trabajador",
-                            "doc_empresa": "Documentos Empresa",
-                        }
-                        target_page = nav_map.get(entity, "Dashboard")
                         if st.button(
-                            f"{r['icon']} {r['label']} — {r['detail']}",
-                            key=f"gsearch_{entity}_{rid}",
+                            f"{r['icon']} {r['label']}",
+                            key=f"gsearch_{entity_type}_{rid}",
                             use_container_width=True,
+                            help=r["detail"],
                         ):
-                            st.session_state["nav_page"] = target_page
-                            if entity == "faena":
+                            st.session_state["nav_page"] = nav_target
+                            if entity_type == "faena":
                                 st.session_state["selected_faena_id"] = rid
-                            elif entity == "trabajador":
+                            elif entity_type == "trabajador":
                                 st.session_state["_search_trabajador_id"] = rid
                             st.rerun()
-                if len(results) >= 15:
-                    st.caption(f"Mostrando 15 de {len(results)} resultados")
+
+                total = len(results)
+                if total > 20:
+                    st.caption(f"Mostrando 20 de {total} resultados")
+        elif q and len(q.strip()) < 2:
+            st.caption("Escribe al menos 2 caracteres")
