@@ -9626,6 +9626,15 @@ from segav_core import ops_architecture as _ops_architecture
 
 
 def page_dashboard():
+    # SuperAdmin → app-wide dashboard; Company admin → company dashboard
+    if is_superadmin():
+        from segav_core.ops_superadmin_dashboard import render_superadmin_dashboard
+        return render_superadmin_dashboard(
+            fetch_df=fetch_df,
+            fetch_value=fetch_value,
+            execute=execute,
+            ui_header=ui_header,
+        )
     return _ops_dashboard.page_dashboard(st=st, ui_header=ui_header, ui_tip=ui_tip, get_global_counts=get_global_counts, fetch_df=fetch_df, fetch_value=fetch_value, DB_BACKEND=DB_BACKEND, conn=conn, execute=execute, PG_DSN_FINGERPRINT=PG_DSN_FINGERPRINT, current_segav_client_key=current_segav_client_key, segav_clientes_df=segav_clientes_df, current_user=current_user, get_empresa_monthly_doc_types=get_empresa_monthly_doc_types, worker_required_docs=worker_required_docs, doc_tipo_label=doc_tipo_label, go=go, clear_app_caches=clear_app_caches)
 
 
