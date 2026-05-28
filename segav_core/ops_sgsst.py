@@ -124,31 +124,40 @@ def page_sgsst(
     st.progress(_compliance_pct / 100)
     st.caption("Módulos: Ficha Empresa · Matriz Legal · Programa Anual · MIPER · DS 594 · Incidentes · Capacitaciones · CPHS")
 
-    tabs = st.tabs([
-        "🏢 Resumen",
-        "📋 Cumplimiento Legal",
-        "📊 Estadísticas",
-        "💰 Cotización Adicional",
-        "⚙️ Config ERP",
-        "🏭 Ficha empresa",
-        "🧩 Catálogos",
-        "⚖️ Matriz legal",
-        "📅 Programa anual",
-        "⚠️ MIPER",
-        "🧯 Inspecciones",
-        "📋 Checklist 594",
-        "🩹 Incidentes",
-        "🎓 Capacitaciones",
-        "🦺 EPP",
-        "🧾 Auditoría",
-        "👷 CPHS",
-        "📝 DIAT/DIEP",
-        "🔬 Vigilancia",
-        "🏗️ Subcontratistas",
-        "📕 RIOHS",
-    ])
+    # ── Two-level navigation: selectbox + tabs ──────────────────────
+    _SGSST_SECTIONS = {
+        "📋 Cumplimiento y Estadísticas": ["🏢 Resumen", "📋 Cumplimiento Legal", "📊 Estadísticas", "💰 Cotización"],
+        "🏭 Configuración Empresa": ["⚙️ Config ERP", "🏭 Ficha empresa", "🧩 Catálogos"],
+        "⚠️ Riesgo Operacional": ["⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER", "🧯 Inspecciones", "📋 Checklist 594", "🩹 Incidentes", "📝 DIAT/DIEP"],
+        "👷 Personal y Documentos": ["🎓 Capacitaciones", "🦺 EPP", "🧾 Auditoría", "👷 CPHS", "🔬 Vigilancia", "🏗️ Subcontratistas", "📕 RIOHS"],
+    }
+    _sgsst_section = st.selectbox(
+        "Sección SGSST",
+        list(_SGSST_SECTIONS.keys()),
+        key=K("sgsst_section_sel"),
+        label_visibility="collapsed",
+    )
+    _section_tabs = _SGSST_SECTIONS[_sgsst_section]
+    tabs_visible = st.tabs(_section_tabs)
 
-    with tabs[0]:
+    # Map visible tab index to original tab index
+    _ALL_TABS = [
+        "🏢 Resumen", "📋 Cumplimiento Legal", "📊 Estadísticas", "💰 Cotización",
+        "⚙️ Config ERP", "🏭 Ficha empresa", "🧩 Catálogos",
+        "⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER", "🧯 Inspecciones",
+        "📋 Checklist 594", "🩹 Incidentes", "🎓 Capacitaciones", "🦺 EPP",
+        "🧾 Auditoría", "👷 CPHS", "📝 DIAT/DIEP", "🔬 Vigilancia",
+        "🏗️ Subcontratistas", "📕 RIOHS",
+    ]
+
+    # Create a dict mapping original index to visible tab
+    tabs = {}
+    for vi, tab_name in enumerate(_section_tabs):
+        orig_idx = _ALL_TABS.index(tab_name)
+        tabs[orig_idx] = tabs_visible[vi]
+
+    if 0 in tabs:
+      with tabs[0]:
         cfg = segav_erp_config_map()
         clientes_df = segav_clientes_df()
         current_client_key = current_segav_client_key()
@@ -225,7 +234,8 @@ def page_sgsst(
         st.dataframe(dash_rows, use_container_width=True, hide_index=True)
 
     # ── Tab 1: Cumplimiento Legal ──────────────────────────────────────────
-    with tabs[1]:
+    if 1 in tabs:
+      with tabs[1]:
         try:
             ensure_estadisticas_tables(execute, DB_BACKEND)
             _ck_legal = str(current_segav_client_key() or "")
@@ -234,7 +244,8 @@ def page_sgsst(
             st.error(f"Error al cargar cumplimiento legal: {_exc}")
 
     # ── Tab 2: Estadísticas ────────────────────────────────────────────────
-    with tabs[2]:
+    if 2 in tabs:
+      with tabs[2]:
         try:
             ensure_estadisticas_tables(execute, DB_BACKEND)
             _ck_est = str(current_segav_client_key() or "")
@@ -243,7 +254,8 @@ def page_sgsst(
             st.error(f"Error al cargar estadísticas: {_exc}")
 
     # ── Tab 3: Cotización Adicional ────────────────────────────────────────
-    with tabs[3]:
+    if 3 in tabs:
+      with tabs[3]:
         try:
             ensure_estadisticas_tables(execute, DB_BACKEND)
             _ck_cot = str(current_segav_client_key() or "")
@@ -251,7 +263,8 @@ def page_sgsst(
         except Exception as _exc:
             st.error(f"Error al cargar cotización: {_exc}")
 
-    with tabs[4]:
+    if 4 in tabs:
+      with tabs[4]:
         st.markdown("### Configuración ERP")
         cfg = segav_erp_config_map()
         z1, z2 = st.columns(2)
@@ -319,7 +332,8 @@ def page_sgsst(
         else:
             st.info("La gestión multiempresa y de administradores está disponible solo para **SUPERADMIN** en la sección **SuperAdmin / Empresas**.", icon="🔒")
 
-    with tabs[6]:
+    if 6 in tabs:
+      with tabs[6]:
         st.markdown("### Catálogos configurables")
         st.write("#### Cargos del ERP")
         cargos_df = segav_cargos_df()
@@ -371,7 +385,8 @@ def page_sgsst(
             st.success("Documentos empresa/faena actualizados.")
             st.rerun()
 
-    with tabs[5]:
+    if 5 in tabs:
+      with tabs[5]:
         st.markdown("### Ficha empresa")
         e1, e2 = st.columns(2)
         with e1:
@@ -412,7 +427,8 @@ def page_sgsst(
             st.success("Ficha empresa guardada.")
             st.rerun()
 
-    with tabs[7]:
+    if 7 in tabs:
+      with tabs[7]:
         st.markdown("### Matriz legal")
         f1, f2 = st.columns([1, 1])
         norma_sel = f1.selectbox("Norma", ["(Todas)"] + SGSST_NORMAS, key=K("sgsst_matriz_norma"))
@@ -487,7 +503,8 @@ def page_sgsst(
                     st.success("Requisito eliminado.")
                     st.rerun()
 
-    with tabs[8]:
+    if 8 in tabs:
+      with tabs[8]:
         st.markdown("### Programa anual preventivo")
         anio_view = st.number_input("Año", min_value=2024, max_value=2100, value=date.today().year, step=1, key=K("sgsst_prog_anio_view"))
         df_prog = fetch_df(
@@ -527,7 +544,8 @@ def page_sgsst(
                 st.success("Actividad incorporada al programa anual.")
                 st.rerun()
 
-    with tabs[9]:
+    if 9 in tabs:
+      with tabs[9]:
         st.markdown("### MIPER por faena, proceso y cargo")
         faenas_df = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
         faena_opts = [None] + faenas_df["id"].tolist() if not faenas_df.empty else [None]
@@ -601,7 +619,8 @@ def page_sgsst(
                         st.success("Riesgo eliminado.")
                         st.rerun()
 
-    with tabs[10]:
+    if 10 in tabs:
+      with tabs[10]:
         st.markdown("### Inspecciones DS 594")
         faenas_df = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
         faena_opts = [None] + faenas_df["id"].tolist() if not faenas_df.empty else [None]
@@ -638,7 +657,8 @@ def page_sgsst(
                 st.rerun()
 
     # ── TAB 8: CHECKLIST DS 594 ───────────────────────────────────────────
-    with tabs[11]:
+    if 11 in tabs:
+      with tabs[11]:
         st.markdown("### 📋 Checklist DS 594 — Inspección digital")
         st.caption("Checklist estandarizado para verificar cumplimiento de condiciones sanitarias y ambientales según DS 594.")
         _checklist_items = DS594_CHECKLIST_ITEMS or {}
@@ -725,7 +745,8 @@ def page_sgsst(
             else:
                 st.info("Aún no hay inspecciones registradas.")
 
-    with tabs[12]:
+    if 12 in tabs:
+      with tabs[12]:
         st.markdown("### Accidentes e incidentes")
         trab_df = fetch_df("SELECT id, rut, apellidos, nombres FROM trabajadores ORDER BY apellidos, nombres")
         faenas_df = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
@@ -790,7 +811,8 @@ def page_sgsst(
                         st.success("Eliminado.")
                         st.rerun()
 
-    with tabs[13]:
+    if 13 in tabs:
+      with tabs[13]:
         st.markdown("### Capacitaciones y ODI")
         trab_df = fetch_df("SELECT id, rut, apellidos, nombres FROM trabajadores ORDER BY apellidos, nombres")
         faenas_df = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
@@ -835,7 +857,8 @@ def page_sgsst(
                 st.rerun()
 
     # ── TAB 11: EPP POR TRABAJADOR ────────────────────────────────────────
-    with tabs[14]:
+    if 14 in tabs:
+      with tabs[14]:
         st.markdown("### 🦺 Entrega de EPP por Trabajador")
         st.caption("Registro de entrega de Elementos de Protección Personal según DS 594 Art. 53-55. Trazabilidad completa por trabajador.")
 
@@ -902,14 +925,16 @@ def page_sgsst(
                 st.success("Entrega de EPP registrada.")
                 st.rerun()
 
-    with tabs[15]:
+    if 15 in tabs:
+      with tabs[15]:
         st.markdown("### Bitácora de auditoría")
         aud_df = fetch_df("SELECT id, created_at, modulo, accion, detalle, usuario FROM sgsst_auditoria ORDER BY id DESC LIMIT 200")
         st.dataframe(aud_df, use_container_width=True, hide_index=True)
         st.caption("Esta bitácora registra acciones realizadas dentro del nuevo módulo ERP / SGSST.")
 
     # ── TAB 13: CPHS ─────────────────────────────────────────────────────
-    with tabs[16]:
+    if 16 in tabs:
+      with tabs[16]:
         st.markdown("### 👷 Comité Paritario de Higiene y Seguridad (CPHS)")
         st.caption("Ley 16.744 Art. 65-71: obligatorio para empresas con ≥25 trabajadores. Gestiona elecciones, miembros y actas de reunión.")
 
@@ -973,7 +998,8 @@ def page_sgsst(
                 st.rerun()
 
     # ── TAB 14: DIAT / DIEP ──────────────────────────────────────────────
-    with tabs[17]:
+    if 17 in tabs:
+      with tabs[17]:
         st.markdown("### 📝 Denuncia Individual de Accidente del Trabajo (DIAT) / Enfermedad Profesional (DIEP)")
         st.caption("Ley 16.744 Art. 76: toda empresa debe denunciar accidentes dentro de 24 horas al organismo administrador.")
 
@@ -1033,7 +1059,8 @@ def page_sgsst(
                 st.rerun()
 
     # ── TAB 15: VIGILANCIA OCUPACIONAL ────────────────────────────────────
-    with tabs[18]:
+    if 18 in tabs:
+      with tabs[18]:
         st.markdown("### 🔬 Protocolos de Vigilancia Ocupacional")
         st.caption("PREXOR (ruido), PLANESI (sílice), TMERT (trastornos musculoesqueléticos), y otros protocolos según DS 594.")
 
@@ -1086,7 +1113,8 @@ def page_sgsst(
                 st.rerun()
 
     # ── TAB 16: SUBCONTRATISTAS ───────────────────────────────────────────
-    with tabs[19]:
+    if 19 in tabs:
+      with tabs[19]:
         st.markdown("### 🏗️ Coordinación de Subcontratistas")
         st.caption("Ley 20.123 / Art. 66 bis Ley 16.744: coordinación obligatoria con empresas contratistas y subcontratistas.")
 
@@ -1143,7 +1171,8 @@ def page_sgsst(
                     st.rerun()
 
     # ── TAB 17: RIOHS ────────────────────────────────────────────────────
-    with tabs[20]:
+    if 20 in tabs:
+      with tabs[20]:
         st.markdown("### 📕 Reglamento Interno de Orden, Higiene y Seguridad (RIOHS)")
         st.caption("DS 44 Art. 12: toda empresa debe mantener un RIOHS actualizado y entregado a cada trabajador con cargo de recepción.")
 

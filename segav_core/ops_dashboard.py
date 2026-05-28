@@ -369,6 +369,39 @@ def page_dashboard(
         {"label": "Docs críticos vencidos", "value": legal_vencidos, "subtitle": "Bloquean operaciones sensibles", "icon": "⚖️", "tone": tone_for_count(legal_vencidos, danger_at=1), "status": "Legal" if legal_vencidos else "OK"},
     ], columns=4)
 
+    # ── Acciones pendientes con links directos ──────────────────────
+    _pendientes = []
+    if crit_faenas > 0:
+        _pendientes.append(("🔴", f"{crit_faenas} faena(s) en estado CRÍTICO", "Faenas"))
+    if legal_vencidos > 0:
+        _pendientes.append(("🔴", f"{legal_vencidos} documento(s) legal(es) vencidos", "Aprobaciones / Auditoría legal"))
+    if trabajadores_activos > 0 and habilitacion < 100:
+        _no_ok = trabajadores_activos - trabajadores_ok
+        _pendientes.append(("🟠", f"{_no_ok} trabajador(es) sin documentación completa", "Documentos Trabajador"))
+    if cobertura < 80:
+        _pendientes.append(("🟠", f"Cobertura documental: {cobertura:.0f}% (meta: 80%)", "Documentos Empresa (Faena)"))
+    if float(program['cerradas_pct']) < 80 and int(program['total']) > 0:
+        _pend_prog = int(program['total']) - int(program['cerradas'])
+        _pendientes.append(("🟡", f"{_pend_prog} actividad(es) del programa anual pendientes", "Mi Empresa / SGSST"))
+    if int(cap.get('vencidas', 0)) > 0:
+        _pendientes.append(("🟡", f"{int(cap['vencidas'])} capacitación(es) vencida(s)", "Mi Empresa / SGSST"))
+    if int(actions.get('vencidas', 0)) > 0:
+        _pendientes.append(("🟠", f"{int(actions['vencidas'])} plan(es) de acción vencido(s)", "Cumplimiento / Alertas"))
+
+    if _pendientes:
+        st.markdown("#### ⚡ Acciones pendientes")
+        for _pi, (_icon, _text, _target) in enumerate(_pendientes):
+            c1, c2 = st.columns([0.92, 0.08])
+            with c1:
+                st.markdown(f"{_icon} {_text}")
+            with c2:
+                if st.button("→", key=f"dash_pend_{_pi}", help=f"Ir a {_target}"):
+                    go(_target)
+        st.divider()
+    else:
+        st.success("✅ Sin acciones pendientes. La empresa está al día.")
+        st.divider()
+
     tabs = st.tabs(["🏢 Resumen ejecutivo", "🚦 Operación y cumplimiento", "💼 Comercial / multiempresa", "📊 Tendencias", "⚡ Acciones"])
 
     with tabs[0]:
