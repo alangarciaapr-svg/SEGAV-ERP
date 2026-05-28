@@ -1509,32 +1509,8 @@ section[data-testid="stSidebar"] .segav-sidepill span {
     font-size: 0.75rem; opacity: 0.7;
 }
 
-/* Sidebar: Section headers (primary buttons) = ORANGE */
-section[data-testid="stSidebar"] .stButton > button[kind="primary"],
-section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"] {
-    border-radius: 10px;
-    min-height: 40px;
-    font-weight: 700 !important;
-    font-size: 0.88rem;
-    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
-    border: 1px solid rgba(245,158,11,0.5) !important;
-    color: white !important;
-    transition: all 0.15s ease;
-    letter-spacing: 0.02em;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.15);
-}
-section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover,
-section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"]:hover {
-    background: linear-gradient(135deg, #d97706, #b45309) !important;
-    border-color: rgba(217,119,6,0.6) !important;
-    transform: none;
-    box-shadow: 0 4px 16px rgba(245,158,11,0.25);
-}
-
-/* Sidebar: Sub-items (secondary/default buttons) = FLAT transparent */
-section[data-testid="stSidebar"] .stButton > button[kind="secondary"],
-section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-secondary"],
-section[data-testid="stSidebar"] .stButton > button:not([kind="primary"]):not([data-testid="stBaseButton-primary"]) {
+/* Sidebar: ALL buttons = flat transparent by default */
+section[data-testid="stSidebar"] .stButton > button {
     border-radius: 8px;
     min-height: 34px;
     font-weight: 450;
@@ -1545,9 +1521,7 @@ section[data-testid="stSidebar"] .stButton > button:not([kind="primary"]):not([d
     transition: all 0.12s ease;
     padding-left: 16px !important;
 }
-section[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover,
-section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-secondary"]:hover,
-section[data-testid="stSidebar"] .stButton > button:not([kind="primary"]):not([data-testid="stBaseButton-primary"]):hover {
+section[data-testid="stSidebar"] .stButton > button:hover {
     background: rgba(255,255,255,0.08) !important;
     border: none !important;
     color: white !important;
@@ -1585,6 +1559,24 @@ section[data-testid="stSidebar"] .segav-sidehint {
 [data-testid="stProgress"] > div > div {
     background: linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa) !important;
     border-radius: 8px;
+}
+
+/* Hide Streamlit header toolbar */
+header[data-testid="stHeader"] {
+    background: transparent !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    visibility: hidden;
+}
+div[data-testid="stToolbar"] {
+    display: none !important;
+}
+div[data-testid="stDecoration"] {
+    display: none !important;
+}
+.stApp > header {
+    display: none !important;
 }
 
         </style>
@@ -7020,12 +7012,27 @@ with st.sidebar:
         _is_open = (_open_section == _sec_key)
         _arrow = "▼" if _is_open else "▶"
 
-        if st.button(f"{_arrow} {_sec_label}", key=f"sidebar_section_{_sec_key}", use_container_width=True, type="primary"):
+        # Section header as clickable styled button
+        if st.button(f"{_arrow} {_sec_label}", key=f"sidebar_section_{_sec_key}", use_container_width=True):
             if _is_open:
                 st.session_state["_sidebar_open_section"] = None
             else:
                 st.session_state["_sidebar_open_section"] = _sec_key
             st.rerun()
+        # Inject CSS to make THIS specific button orange
+        st.markdown(f"""<style>
+        section[data-testid="stSidebar"] button[key="sidebar_section_{_sec_key}"],
+        section[data-testid="stSidebar"] div:has(button[key="sidebar_section_{_sec_key}"]) button {{
+            background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+            border: 1px solid rgba(245,158,11,0.5) !important;
+            color: white !important;
+            font-weight: 700 !important;
+            font-size: 0.88rem !important;
+            min-height: 40px !important;
+            letter-spacing: 0.02em;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+        }}
+        </style>""", unsafe_allow_html=True)
         if _is_open:
             for _page in _sec_pages:
                 if _page in VISIBLE_PAGES:
@@ -7040,27 +7047,27 @@ with st.sidebar:
             '<span style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; opacity:0.4;">───────────────</span></div>',
             unsafe_allow_html=True,
         )
-        if st.button("🚪 Cerrar sesión", use_container_width=True, key="sidebar_logout_main", type="primary"):
+        if st.button("🚪 Cerrar sesión", use_container_width=True, key="sidebar_logout_main"):
             auth_logout()
-        # Red logout button override
-        st.markdown(
-            """<style>
-            section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:last-child .stButton > button,
-            section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:last-child .stButton > button:hover {
-                background: linear-gradient(135deg, #ef4444, #dc2626) !important;
-                border: 1px solid rgba(239,68,68,0.4) !important;
-                color: white !important;
-                font-weight: 650 !important;
-                min-height: 40px;
-                letter-spacing: 0.02em;
-            }
-            section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:last-child .stButton > button:hover {
-                background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
-                box-shadow: 0 4px 20px rgba(239,68,68,0.35) !important;
-            }
-            </style>""",
-            unsafe_allow_html=True,
-        )
+        st.markdown("""<style>
+        section[data-testid="stSidebar"] button[key="sidebar_logout_main"],
+        section[data-testid="stSidebar"] div:has(> div > button[key="sidebar_logout_main"]) button {
+            background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+            border: 1px solid rgba(239,68,68,0.4) !important;
+            color: white !important;
+            font-weight: 700 !important;
+            min-height: 42px !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            font-size: 0.9rem !important;
+            padding-left: 0 !important;
+            text-align: center !important;
+            justify-content: center !important;
+        }
+        section[data-testid="stSidebar"] button[key="sidebar_logout_main"]:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+            box-shadow: 0 4px 20px rgba(239,68,68,0.4) !important;
+        }
+        </style>""", unsafe_allow_html=True)
 
 current_section = st.session_state.get("nav_page", "Dashboard")
 st.title(str(current_section))
