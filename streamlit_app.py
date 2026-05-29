@@ -7656,6 +7656,334 @@ def page_admin_usuarios():
                 st.error(f"No fue posible cargar las sesiones activas: {e}")
 
 # ----------------------------
+# Sidebar navigation (restaurado)
+# ----------------------------
+PAGES = [
+    # Administrativa
+    "Dashboard",
+    "Mandantes",
+    "Contratos de Faena",
+    "Faenas",
+    "Trabajadores",
+    "Asignar Trabajadores",
+    "Mi Perfil",
+    # Prevención de Riesgos
+    "Mi Empresa / SGSST",
+    "Cumplimiento / Alertas",
+    "Aprobaciones / Auditoría legal",
+    # Documentación
+    "Documentos Empresa (Faena)",
+    "Documentos Trabajador",
+    "Exportar (ZIP)",
+    # Administración del Sistema
+    "Admin Usuarios",
+    "SuperAdmin / Empresas",
+    "Backup / Restore",
+    "Auditoría de acciones",
+    "Arquitectura / Escalabilidad",
+]
+
+VISIBLE_PAGES = list(PAGES)
+if is_superadmin():
+    VISIBLE_PAGES = ["SuperAdmin / Empresas", *VISIBLE_PAGES]
+if has_perm("manage_users"):
+    VISIBLE_PAGES.append("Admin Usuarios")
+
+
+# Aplica navegación solicitada por botones (antes de crear el widget del sidebar)
+if st.session_state.get("nav_request") is not None:
+    _req = st.session_state.get("nav_request")
+    if _req in VISIBLE_PAGES:
+        st.session_state["nav_page"] = _req
+    if st.session_state.get("nav_request_faena_id") is not None:
+        st.session_state["selected_faena_id"] = int(st.session_state.get("nav_request_faena_id"))
+    st.session_state.pop("nav_request", None)
+    st.session_state.pop("nav_request_faena_id", None)
+
+# Normaliza nav_page por si quedó un valor antiguo en session_state
+if st.session_state.get("nav_page") not in VISIBLE_PAGES:
+    st.session_state["nav_page"] = "Dashboard"
+
+
+if "nav_page" not in st.session_state:
+    st.session_state["nav_page"] = "Dashboard"
+# Si quedó algo inválido tras login/permisos, fuerza el primero visible
+if st.session_state.get("nav_page") not in VISIBLE_PAGES:
+    st.session_state["nav_page"] = VISIBLE_PAGES[0] if VISIBLE_PAGES else "Dashboard"
+ensure_ui_tenant_access()
+
+try:
+    if current_user():
+        touch_user_session(current_tenant_key())
+except Exception as _exc:
+    _record_soft_error("user_sessions.touch", _exc)
+
+with st.sidebar:
+    # Title first
+    st.markdown(
+        '<div style="text-align:center; margin:10px 0 6px 0;">'
+        '<span style="font-size:1.3rem; font-weight:800; '
+        'background:linear-gradient(135deg, #a78bfa, #818cf8, #6366f1); '
+        '-webkit-background-clip:text; -webkit-text-fill-color:transparent; '
+        'background-clip:text;">SEGAV ERP</span></div>',
+        unsafe_allow_html=True,
+    )
+    u = current_user()
+    if u:
+        _role_colors = {"SUPERADMIN": "#f59e0b", "ADMIN": "#10b981", "OPERADOR": "#6366f1", "LECTOR": "#8b5cf6"}
+        _role_color = _role_colors.get(str(u.get("role", "")).upper(), "#8b5cf6")
+        st.markdown(
+            f'<div class="segav-sidecard segav-sidebar-center">'
+            f'<strong style="color:white !important;">{u.get("full_name") or u["username"]}</strong><br>'
+            f'<span style="background:{_role_color}; color:white; padding:2px 10px; border-radius:20px; font-size:0.75rem; font-weight:600;">{u["role"]}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    try:
+        ensure_user_client_access_table_once(DB_BACKEND, PG_DSN_FINGERPRINT)
+        _cli_df = visible_clientes_df()
+        if _cli_df is not None and not _cli_df.empty:
+            _cli_df = _cli_df[_cli_df["activo"].fillna(1).astype(int) == 1] if "activo" in _cli_df.columns else _cli_df
+            _cli_keys = _cli_df["cliente_key"].astype(str).tolist()
+            if _cli_keys:
+                _current_cli = current_segav_client_key() or _cli_keys[0]
+                if _current_cli not in _cli_keys:
+                    _current_cli = _cli_keys[0]
+                _cli_name_map = {str(r["cliente_key"]): str(r["cliente_nombre"]) for _, r in _cli_df.iterrows()}
+                _cli_row_map = {str(r["cliente_key"]): r for _, r in _cli_df.iterrows()}
+                _fixed_cli = str((current_user() or {}).get('fixed_cliente_key') or '').strip()
+                if len(_cli_keys) == 1 or (_fixed_cli and _fixed_cli in _cli_keys):
+                    _cli_selected = _fixed_cli if (_fixed_cli and _fixed_cli in _cli_keys) else _current_cli
+                    st.session_state['active_cliente_key'] = _cli_selected
+                    st.caption("Empresa fija para este usuario")
+                else:
+                    _cli_selected = st.selectbox(
+                        "Empresa activa",
+                        _cli_keys,
+                        index=_cli_keys.index(_current_cli),
+                        key="sidebar_cliente_activo",
+                        format_func=lambda x: _cli_name_map.get(str(x), str(x)),
+                    )
+                    if _cli_selected != _current_cli:
+                        st.session_state['active_cliente_key'] = _cli_selected
+                        clear_app_caches()
+                        st.rerun()
+                _current_row = _cli_row_map.get(str(_cli_selected), _cli_df.iloc[0])
+                _vertical = str(_current_row.get("vertical") or segav_erp_value("erp_vertical", "General"))
+                # Company logo (associated with selected company)
+                try:
+                    _company_logo = get_company_logo_bytes(str(_cli_selected))
+                    if _company_logo:
+                        _cl_b64 = base64.b64encode(_company_logo).decode('ascii')
+                        st.markdown(
+                            f'<div style="text-align:center !important; display:flex; justify-content:center; margin:6px 0 8px 0;">'
+                            f'<img src="data:image/png;base64,{_cl_b64}" style="max-width:150px; height:auto; border-radius:12px; '
+                            f'box-shadow:0 4px 16px rgba(0,0,0,0.25); display:block;" alt="Logo empresa">'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        # Fallback to SEGAV logo centered
+                        try:
+                            render_brand_logo(width=120)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                st.markdown(f'<div class="segav-sidecard segav-sidebar-center"><div style="font-weight:700;">🏢 {_current_row["cliente_nombre"]}</div><div class="segav-muted">{_vertical}</div></div>', unsafe_allow_html=True)
+                try:
+                    _side_kpis = get_sidebar_kpis(DB_BACKEND, PG_DSN_FINGERPRINT, str(_cli_selected))
+                    st.markdown(f"""<div class="segav-sidecard segav-sidebar-center"><div style="font-weight:700; margin-bottom:0.15rem;">Resumen rápido</div><div class="segav-sidegrid"><div class="segav-sidepill"><strong>{int(_side_kpis.get('faenas_total', 0))}</strong><span>Faenas</span></div><div class="segav-sidepill"><strong>{int(_side_kpis.get('faenas_activas', 0))}</strong><span>Activas</span></div><div class="segav-sidepill"><strong>{int(_side_kpis.get('trabajadores_total', 0))}</strong><span>Trabajadores</span></div><div class="segav-sidepill"><strong>{int(_side_kpis.get('docs_vencidos', 0))}</strong><span>Docs vencidos</span></div></div></div>""", unsafe_allow_html=True)
+                    _faenas_recent = get_sidebar_faena_context_df(DB_BACKEND, PG_DSN_FINGERPRINT, str(_cli_selected))
+                    if _faenas_recent is not None and not _faenas_recent.empty:
+                        _faenas_recent = _faenas_recent.head(5).copy()
+                        _faenas_recent['Etiqueta'] = _faenas_recent['nombre'].astype(str) + ' · ' + _faenas_recent['estado'].astype(str)
+                        with st.expander('Últimas faenas', expanded=False):
+                            for _lbl in _faenas_recent['Etiqueta'].tolist():
+                                st.caption(_lbl)
+                    if is_superadmin():
+                        _sess = get_active_sessions_summary(str(_cli_selected), minutes=20)
+                        st.markdown(f"""<div class="segav-sidecard segav-sidebar-center"><div style="font-weight:700; margin-bottom:0.15rem;">Usuarios conectados</div><div class="segav-sidegrid"><div class="segav-sidepill"><strong>{int(_sess.get('users', 0))}</strong><span>Usuarios</span></div><div class="segav-sidepill"><strong>{int(_sess.get('sessions', 0))}</strong><span>Sesiones</span></div></div></div>""", unsafe_allow_html=True)
+                except Exception as _exc2:
+                    _record_soft_error("sidebar.kpis", _exc2)
+    except Exception as _exc:
+        _record_soft_error("select", _exc)
+
+    # --- Phase 9: Notifications badge ---
+    try:
+        ensure_notifications_table(execute, DB_BACKEND)
+        _notif_uid = int((current_user() or {}).get("id") or 0)
+        _notif_count = get_unread_count(fetch_value, _notif_uid, is_superadmin())
+        if _notif_count > 0:
+            render_notification_badge(st, _notif_count)
+        with st.expander(f"🔔 Notificaciones ({_notif_count})", expanded=False):
+            render_notification_panel(st, fetch_df_uncached, execute, _notif_uid, is_superadmin(), go_fn=go)
+    except Exception as _exc_notif:
+        _record_soft_error("sidebar.notifications", _exc_notif)
+
+    # --- Phase 7: Global search ---
+    try:
+        _search_tenant = current_tenant_key() if 'current_tenant_key' in dir() else ""
+        _search_mands = current_user_mandante_scope_ids() if 'current_user_mandante_scope_ids' in dir() else None
+        render_search_sidebar(st, fetch_df_uncached, _search_tenant, allowed_mandante_ids=_search_mands, go_fn=go)
+    except Exception as _exc_search:
+        _record_soft_error("sidebar.search", _exc_search)
+
+    st.markdown(
+        '<div style="text-align:center; font-weight:700; margin:0.3rem 0 0.1rem 0; font-size:0.8rem; '
+        'text-transform:uppercase; letter-spacing:0.08em; opacity:0.5; color:rgba(255,255,255,0.5) !important;">Navegación</div>',
+        unsafe_allow_html=True,
+    )
+
+    PAGE_LABELS = {
+        "Dashboard": "📊 Dashboard",
+        "Mandantes": "🏢 Mandantes",
+        "Contratos de Faena": "📄 Contratos de Faena",
+        "Faenas": "🛠️ Faenas",
+        "Trabajadores": "👷 Trabajadores",
+        "Asignar Trabajadores": "🧩 Asignar Trabajadores",
+        "Mi Perfil": "👤 Mi Perfil",
+        "Mi Empresa / SGSST": "🦺 SGSST",
+        "Cumplimiento / Alertas": "🚨 Cumplimiento / Alertas",
+        "Aprobaciones / Auditoría legal": "✅ Aprobaciones Legales",
+        "Documentos Empresa (Faena)": "🏛️ Docs Empresa por Faena",
+        "Documentos Trabajador": "📎 Docs Trabajador",
+        "Exportar (ZIP)": "📦 Exportar ZIP",
+        "Admin Usuarios": "🔐 Usuarios",
+        "SuperAdmin / Empresas": "🌐 SuperAdmin / Empresas",
+        "Backup / Restore": "💾 Backup / Restore",
+        "Auditoría de acciones": "📋 Auditoría de Acciones",
+        "Arquitectura / Escalabilidad": "🧱 Arquitectura",
+    }
+
+    def _sidebar_nav_button(page_name: str, key_suffix: str):
+        _disabled = page_name not in VISIBLE_PAGES
+        _active = st.session_state.get("nav_page") == page_name
+        _label = PAGE_LABELS.get(page_name, page_name)
+        if _active:
+            # Active page: show with orange left border via HTML before button
+            st.markdown(
+                f'<div style="border-left:3px solid #f59e0b; border-radius:6px; margin:1px 0; '
+                f'padding:6px 12px; background:rgba(245,158,11,0.08); '
+                f'color:white; font-weight:600; font-size:0.84rem;">▸ {_label}</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            if st.button(f"   {_label}", key=f"sidebar_nav_{key_suffix}", use_container_width=True, disabled=_disabled):
+                st.session_state["nav_page"] = page_name
+                st.rerun()
+
+    # ── Accordion sidebar: 3 áreas + administración ──────────────────────
+    _NAV_SECTIONS = {
+        "admin_area": ("🏢 Administrativa", [
+            "Dashboard",
+            "Mandantes",
+            "Contratos de Faena",
+            "Faenas",
+            "Trabajadores",
+            "Asignar Trabajadores",
+            "Mi Perfil",
+        ]),
+        "prev": ("🦺 Prevención de Riesgos", [
+            "Mi Empresa / SGSST",
+            "Cumplimiento / Alertas",
+            "Aprobaciones / Auditoría legal",
+        ]),
+        "docs": ("🗂️ Documentación", [
+            "Documentos Empresa (Faena)",
+            "Documentos Trabajador",
+            "Exportar (ZIP)",
+        ]),
+    }
+    if is_superadmin() or has_perm("manage_users"):
+        _NAV_SECTIONS["superadmin"] = ("🔐 Administración del Sistema", [
+            "Admin Usuarios",
+            "SuperAdmin / Empresas",
+            "Backup / Restore",
+            "Auditoría de acciones",
+            "Arquitectura / Escalabilidad",
+        ])
+
+    # Detect which section the current page belongs to
+    _current_page = st.session_state.get("nav_page", "Dashboard")
+    _auto_section = None
+    for _sec_key, (_sec_label, _sec_pages) in _NAV_SECTIONS.items():
+        if _current_page in _sec_pages:
+            _auto_section = _sec_key
+            break
+
+    # Only auto-switch when user navigated to a NEW page (not on every rerun)
+    _prev_page = st.session_state.get("_sidebar_prev_page", "")
+    if "_sidebar_open_section" not in st.session_state:
+        # First load: open the section of the current page
+        st.session_state["_sidebar_open_section"] = _auto_section
+    elif _current_page != _prev_page and _auto_section:
+        # User navigated to a page in a different section: auto-switch
+        st.session_state["_sidebar_open_section"] = _auto_section
+    st.session_state["_sidebar_prev_page"] = _current_page
+
+    _open_section = st.session_state.get("_sidebar_open_section")
+
+    _SECTION_EMOJIS = {
+        "admin_area": "🏢",
+        "prev": "🦺",
+        "docs": "🗂️",
+        "superadmin": "🔐",
+    }
+
+    for _sec_key, (_sec_label, _sec_pages) in _NAV_SECTIONS.items():
+        _is_open = (_open_section == _sec_key)
+        _arrow = "▼" if _is_open else "▶"
+
+        # Section header as clickable styled button
+        if st.button(f"{_arrow} {_sec_label}", key=f"sidebar_section_{_sec_key}", use_container_width=True, type="primary"):
+            if _is_open:
+                st.session_state["_sidebar_open_section"] = None
+            else:
+                st.session_state["_sidebar_open_section"] = _sec_key
+            st.rerun()
+        # Inject CSS to make THIS specific button orange
+
+        if _is_open:
+            for _page in _sec_pages:
+                if _page in VISIBLE_PAGES:
+                    _sidebar_nav_button(_page, f"{_sec_key}_{_page}")
+            st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
+
+    # Logout - red button
+    st.markdown('<div style="margin-top:16px;"></div>', unsafe_allow_html=True)
+    if u:
+        st.markdown(
+            '<div style="text-align:center; margin-bottom:4px;">'
+            '<span style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; opacity:0.4;">───────────────</span></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("🚪 Cerrar sesión", use_container_width=True, key="sidebar_logout_main", type="primary"):
+            auth_logout()
+        # Red override: targets the LAST primary button in the sidebar
+        st.markdown("""<style>
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:last-of-type button[kind="primary"],
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-last-child(1) button[kind="primary"],
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-last-child(2) button[kind="primary"] {
+            background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+            border: 1px solid rgba(239,68,68,0.5) !important;
+        }
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:last-of-type button[kind="primary"]:hover,
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-last-child(1) button[kind="primary"]:hover,
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-last-child(2) button[kind="primary"]:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+            box-shadow: 0 4px 16px rgba(239,68,68,0.35) !important;
+        }
+        </style>""", unsafe_allow_html=True)
+
+try:
+    ensure_active_tenant_scaffold_once(DB_BACKEND, PG_DSN_FINGERPRINT, current_tenant_key())
+except Exception as exc:
+    _record_soft_error("ensure_active_tenant_scaffold_once", exc)
+
+
+# ----------------------------
 # Route
 # ----------------------------
 p = st.session_state.get("nav_page", "Dashboard")
