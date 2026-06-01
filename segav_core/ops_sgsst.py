@@ -8,6 +8,7 @@ import streamlit as st
 from segav_core.ui import ui_header
 from segav_core.kpi_ui import kpi_card
 from segav_core import ds44 as _ds44
+from segav_core import miper as _miper
 from segav_core.personal_utils import rut_input
 from segav_core.ops_estadisticas import (
     render_tab_estadisticas as _render_estadisticas_new,
@@ -886,13 +887,14 @@ def page_sgsst(
 
     if 9 in tabs:
       with tabs[9]:
-        st.markdown("### MIPER por faena, proceso y cargo")
+        st.markdown("### MIPER — Matriz de Identificación de Peligros y Evaluación de Riesgos")
+        st.caption("Metodología Guía ISP (DS 44): VEP = Probabilidad × Consecuencia, con evaluación inicial y residual, enfoque de género y jerarquía de controles.")
         faenas_df = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
         faena_opts = [None] + faenas_df["id"].tolist() if not faenas_df.empty else [None]
         faena_filter = st.selectbox("Filtrar por faena", faena_opts, key=K("sgsst_miper_filter"), format_func=lambda x: "(Todas)" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
         q = """
-            SELECT m.id, COALESCE(f.nombre,'(Empresa)') AS faena, m.proceso, m.tarea, m.cargo, m.peligro, m.riesgo, m.consecuencia,
-                   m.probabilidad, m.severidad, m.nivel_riesgo, m.responsable, m.plazo, m.estado
+            SELECT m.id, COALESCE(f.nombre,'(Empresa)') AS faena, m.tipo_riesgo, m.proceso, m.tarea, m.cargo, m.genero, m.peligro, m.riesgo,
+                   m.probabilidad, m.severidad, m.nivel_riesgo AS vep, m.vep_residual, m.responsable, m.plazo, m.estado
             FROM sgsst_miper m
             LEFT JOIN faenas f ON f.id=m.faena_id
         """
@@ -902,40 +904,81 @@ def page_sgsst(
             params = (int(faena_filter),)
         q += " ORDER BY m.nivel_riesgo DESC, m.id DESC"
         df_miper = fetch_df(q, params)
-        st.dataframe(df_miper, use_container_width=True, hide_index=True)
-        m1, m2, m3 = st.columns(3)
+        if df_miper is not None and not df_miper.empty:
+            _df_show = df_miper.copy()
+            _df_show["nivel"] = _df_show["vep"].apply(lambda v: _miper.nivel(v)["color"] + " " + _miper.nivel(v)["nivel"])
+            st.dataframe(_df_show, use_container_width=True, hide_index=True)
+        else:
+            st.info("Aún no hay riesgos registrados en la MIPER.")
+
+        st.divider()
+        st.markdown("#### ➕ Identificar y evaluar un riesgo")
+
+        m1, m2 = st.columns(2)
         with m1:
             m_faena = st.selectbox("Faena", faena_opts, key=K("sgsst_miper_faena"), format_func=lambda x: "(Empresa)" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
+            tipo_riesgo = st.selectbox("Tipo de riesgo", _miper.TIPOS_RIESGO, key=K("sgsst_miper_tipo"))
             proceso = st.text_input("Proceso", key=K("sgsst_miper_proceso"))
-            tarea = st.text_input("Tarea", key=K("sgsst_miper_tarea"))
+            tarea = st.text_input("Tarea / puesto de trabajo", key=K("sgsst_miper_tarea"))
             cargo = st.selectbox("Cargo", segav_cargo_labels(active_only=True), key=K("sgsst_miper_cargo"))
+            genero = st.selectbox("Género involucrado (enfoque de género)", _miper.GENEROS, key=K("sgsst_miper_genero"))
         with m2:
-            peligro = st.text_area("Peligro", key=K("sgsst_miper_peligro"), height=80)
-            riesgo = st.text_area("Riesgo", key=K("sgsst_miper_riesgo"), height=80)
-            consecuencia = st.text_area("Consecuencia", key=K("sgsst_miper_consecuencia"), height=80)
-            controles = st.text_area("Controles existentes", key=K("sgsst_miper_controles"), height=80)
-        with m3:
-            prob = st.slider("Probabilidad", 1, 5, 3, key=K("sgsst_miper_prob"))
-            sev = st.slider("Severidad", 1, 5, 3, key=K("sgsst_miper_sev"))
-            nivel = int(prob) * int(sev)
-            riesgo_tone = "danger" if nivel >= 16 else ("warning" if nivel >= 9 else "success")
-            riesgo_status = "Alto" if nivel >= 16 else ("Medio" if nivel >= 9 else "Controlado")
-            kpi_card("Nivel de riesgo", nivel, subtitle=f"Probabilidad {int(prob)} × Severidad {int(sev)}", icon="⚠️", tone=riesgo_tone, status=riesgo_status, progress=min(100, (nivel / 25) * 100))
-            medidas = st.text_area("Medidas / acciones", key=K("sgsst_miper_medidas"), height=80)
-            responsable = st.text_input("Responsable", key=K("sgsst_miper_resp"))
-            plazo = st.date_input("Plazo", value=date.today(), key=K("sgsst_miper_plazo"))
+            peligro = st.text_area("Peligro / factor de riesgo", key=K("sgsst_miper_peligro"), height=70)
+            riesgo = st.text_area("Riesgo", key=K("sgsst_miper_riesgo"), height=70)
+            consecuencia = st.text_area("Consecuencia (qué puede pasar)", key=K("sgsst_miper_consecuencia"), height=70)
+            controles = st.text_area("Medida(s) de control existente(s)", key=K("sgsst_miper_controles"), height=70)
+
+        st.markdown("##### 1) Evaluación inicial (con controles actuales)")
+        ev1, ev2, ev3 = st.columns([2, 2, 3])
+        with ev1:
+            prob = st.select_slider("Probabilidad", options=[1, 2, 3, 4], value=2, key=K("sgsst_miper_prob"), format_func=lambda x: f"{x} · {_miper.PROBABILIDAD[x].split(' — ')[0]}")
+            st.caption(_miper.PROBABILIDAD[int(prob)])
+        with ev2:
+            sev = st.select_slider("Consecuencia", options=[1, 2, 3, 4], value=2, key=K("sgsst_miper_sev"), format_func=lambda x: f"{x} · {_miper.CONSECUENCIA[x].split(' — ')[0]}")
+            st.caption(_miper.CONSECUENCIA[int(sev)])
+        with ev3:
+            _eval_ini = _miper.evaluacion(int(prob), int(sev))
+            kpi_card("VEP inicial", _eval_ini["vep"], subtitle=f"{_eval_ini['color']} {_eval_ini['nivel']} · P{int(prob)}×C{int(sev)}", icon="⚠️", tone=_eval_ini["tone"], status=_eval_ini["nivel"], progress=min(100, (_eval_ini["vep"] / 16) * 100))
+            st.caption(_eval_ini["accion"])
+
+        st.markdown("##### 2) Nueva medida de control o eliminación")
+        st.caption("Jerarquía obligatoria de control (de mayor a menor prioridad): " + " → ".join(j.split(') ')[1] for j in _miper.JERARQUIA_CONTROLES))
+        medidas = st.text_area("Nueva medida de control / eliminación", key=K("sgsst_miper_medidas"), height=70)
+
+        st.markdown("##### 3) Evaluación residual (con la nueva medida)")
+        rv1, rv2, rv3 = st.columns([2, 2, 3])
+        with rv1:
+            prob_r = st.select_slider("Probabilidad residual", options=[1, 2, 3, 4], value=1, key=K("sgsst_miper_prob_r"), format_func=lambda x: f"{x} · {_miper.PROBABILIDAD[x].split(' — ')[0]}")
+        with rv2:
+            sev_r = st.select_slider("Consecuencia residual", options=[1, 2, 3, 4], value=1, key=K("sgsst_miper_sev_r"), format_func=lambda x: f"{x} · {_miper.CONSECUENCIA[x].split(' — ')[0]}")
+        with rv3:
+            _eval_res = _miper.evaluacion(int(prob_r), int(sev_r))
+            kpi_card("VEP residual", _eval_res["vep"], subtitle=f"{_eval_res['color']} {_eval_res['nivel']} · P{int(prob_r)}×C{int(sev_r)}", icon="✅", tone=_eval_res["tone"], status=_eval_res["nivel"], progress=min(100, (_eval_res["vep"] / 16) * 100))
+
+        st.markdown("##### 4) Seguimiento")
+        sg1, sg2, sg3 = st.columns(3)
+        with sg1:
+            requisito_legal = st.text_input("Requisito legal asociado", key=K("sgsst_miper_reqlegal"), placeholder="Ej: DS 594 Art. 53")
+            responsable = st.text_input("Responsable de ejecución", key=K("sgsst_miper_resp"))
+        with sg2:
+            resp_seg = st.text_input("Responsable de seguimiento", key=K("sgsst_miper_resp_seg"))
+            plazo = st.date_input("Fecha / plazo de control", value=date.today(), key=K("sgsst_miper_plazo"))
+        with sg3:
             estado = st.selectbox("Estado", SGSST_ESTADOS, key=K("sgsst_miper_estado"))
-        if st.button("Agregar riesgo a la MIPER", key=K("sgsst_add_miper")):
+
+        if st.button("Agregar riesgo a la MIPER", type="primary", key=K("sgsst_add_miper")):
             if not peligro.strip() or not riesgo.strip():
                 st.error("Peligro y riesgo son obligatorios.")
             else:
                 now = datetime.now().isoformat(timespec='seconds')
+                _vep_ini = _miper.vep(int(prob), int(sev))
+                _vep_res = _miper.vep(int(prob_r), int(sev_r))
                 execute(
-                    "INSERT INTO sgsst_miper(faena_id, proceso, tarea, cargo, peligro, riesgo, consecuencia, controles_existentes, probabilidad, severidad, nivel_riesgo, medidas, responsable, plazo, estado, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (m_faena, proceso.strip(), tarea.strip(), cargo, peligro.strip(), riesgo.strip(), consecuencia.strip(), controles.strip(), int(prob), int(sev), int(nivel), medidas.strip(), responsable.strip(), plazo.isoformat(), estado, now, now),
+                    "INSERT INTO sgsst_miper(faena_id, proceso, tarea, cargo, tipo_riesgo, genero, peligro, riesgo, consecuencia, controles_existentes, probabilidad, severidad, nivel_riesgo, medidas, prob_residual, severidad_residual, vep_residual, requisito_legal, responsable, resp_seguimiento, plazo, estado, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (m_faena, proceso.strip(), tarea.strip(), cargo, tipo_riesgo, genero, peligro.strip(), riesgo.strip(), consecuencia.strip(), controles.strip(), int(prob), int(sev), int(_vep_ini), medidas.strip(), int(prob_r), int(sev_r), int(_vep_res), requisito_legal.strip(), responsable.strip(), resp_seg.strip(), plazo.isoformat(), estado, now, now),
                 )
-                sgsst_log("MIPER", "Agregar", f"{cargo} · riesgo {nivel}")
-                st.success("Riesgo incorporado a la MIPER.")
+                sgsst_log("MIPER", "Agregar", f"{cargo} · {tipo_riesgo} · VEP {_vep_ini}→{_vep_res}")
+                st.success(f"Riesgo incorporado. VEP inicial {_vep_ini} ({_miper.nivel(_vep_ini)['nivel']}) → residual {_vep_res} ({_miper.nivel(_vep_res)['nivel']}).")
                 st.rerun()
 
         # ── Editar / Eliminar riesgo MIPER ────────────────────────────────
