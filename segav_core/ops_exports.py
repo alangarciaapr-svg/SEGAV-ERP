@@ -157,6 +157,36 @@ def page_export_zip(
         st.markdown("### 📦 Selecciona los documentos para el ZIP")
         st.caption("Expande cada sección, revisa los documentos disponibles y desmarca los que no quieras incluir.")
 
+        # ── Controles globales: marcar todo / ninguno ──────────────────────
+        _bulk_keys = [
+            "exp2_contrato", "exp2_anexos_sel", "exp2_emp_global_sel",
+            "exp2_emp_faena_sel", "exp2_trab_sel",
+        ]
+        _bc1, _bc2, _bc3 = st.columns([1, 1, 3])
+        with _bc1:
+            if st.button("☑️ Seleccionar todo", use_container_width=True, key="exp2_select_all"):
+                for _k in list(st.session_state.keys()):
+                    if _k in _bulk_keys or _k.startswith(f"exp2_tdocs_{int(faena_id)}_"):
+                        del st.session_state[_k]
+                st.session_state["exp2_bulk_mode"] = "all"
+                st.rerun()
+        with _bc2:
+            if st.button("⬜ Ninguno", use_container_width=True, key="exp2_select_none"):
+                for _k in list(st.session_state.keys()):
+                    if _k in _bulk_keys or _k.startswith(f"exp2_tdocs_{int(faena_id)}_"):
+                        del st.session_state[_k]
+                st.session_state["exp2_bulk_mode"] = "none"
+                st.rerun()
+        _bulk_mode = st.session_state.pop("exp2_bulk_mode", None)
+
+        def _bulk_default(all_ids):
+            """Default para multiselects según el último botón global pulsado."""
+            if _bulk_mode == "all":
+                return list(all_ids)
+            if _bulk_mode == "none":
+                return []
+            return list(all_ids)
+
         # ── Collect all documents by category ──────────────────────────────
         _total_selected = 0
 
@@ -170,7 +200,7 @@ def page_export_zip(
         if _has_contrato:
             with st.expander("📑 Contrato de faena (1 archivo)", expanded=False):
                 _cname = os.path.basename(str(contrato_row.iloc[0].get("file_path") or contrato_row.iloc[0].get("object_path") or "contrato"))
-                inc_contrato = st.checkbox(f"Incluir: {_cname}", value=True, key="exp2_contrato")
+                inc_contrato = st.checkbox(f"Incluir: {_cname}", value=(_bulk_mode != "none"), key="exp2_contrato")
                 if inc_contrato:
                     _total_selected += 1
 
@@ -191,7 +221,7 @@ def page_export_zip(
                 sel_anexo_ids = st.multiselect(
                     "Anexos a incluir",
                     a_ids,
-                    default=a_ids,
+                    default=_bulk_default(a_ids),
                     format_func=lambda x, lb=anexo_labels: lb.get(int(x), str(x)),
                     key="exp2_anexos_sel",
                 )
@@ -222,7 +252,7 @@ def page_export_zip(
                 sel_emp_global_ids = st.multiselect(
                     "Documentos empresa global a incluir",
                     eg_ids,
-                    default=eg_ids,
+                    default=_bulk_default(eg_ids),
                     format_func=lambda x, lb=eg_labels: lb.get(int(x), str(x)),
                     key="exp2_emp_global_sel",
                 )
@@ -248,7 +278,7 @@ def page_export_zip(
                 emp_faena_doc_sel_ids = st.multiselect(
                     "Documentos empresa (faena) a incluir",
                     ef_ids,
-                    default=ef_ids,
+                    default=_bulk_default(ef_ids),
                     format_func=lambda x, lb=ef_labels: lb.get(int(x), str(x)),
                     key="exp2_emp_faena_sel",
                 )
@@ -294,7 +324,7 @@ def page_export_zip(
                 selected_trab_ids = st.multiselect(
                     "Selecciona los trabajadores que deseas incluir en el ZIP",
                     worker_ids,
-                    default=worker_ids,
+                    default=_bulk_default(worker_ids),
                     format_func=lambda x, lb=worker_labels: lb.get(int(x), str(x)),
                     key="exp2_trab_sel",
                     label_visibility="collapsed",
@@ -322,7 +352,7 @@ def page_export_zip(
                     selected_trab_doc_map[int(tid)] = st.multiselect(
                         f"📄 {wlabel}",
                         doc_ids,
-                        default=doc_ids,
+                        default=_bulk_default(doc_ids),
                         format_func=lambda x, lb=doc_labels: lb.get(int(x), str(x)),
                         key=f"exp2_tdocs_{int(faena_id)}_{int(tid)}",
                     )
@@ -362,12 +392,14 @@ def page_export_zip(
                 st.button("🚫 Generar ZIP", type="primary", use_container_width=True, disabled=True)
                 st.caption("Exportación bloqueada por documentos críticos vencidos.")
             elif st.button("📦 Generar ZIP y guardar en historial", type="primary", use_container_width=True, disabled=_disabled):
+                _prog = st.progress(0, text="Preparando exportación…")
                 try:
                     # Build selection flags from user choices
                     _inc_emp_global = len(sel_emp_global_ids) > 0
                     _inc_emp_faena = emp_faena_doc_sel_ids is not None and len(emp_faena_doc_sel_ids) > 0
                     _inc_trab = selected_trab_ids is not None and len(selected_trab_ids) > 0
 
+                    _prog.progress(25, text="📦 Recolectando y comprimiendo documentos…")
                     result = export_zip_for_faena(
                         int(faena_id),
                         include_global_empresa_docs=_inc_emp_global,
@@ -385,7 +417,9 @@ def page_export_zip(
                         selected_anexo_ids=sel_anexo_ids if sel_anexo_ids else None,
                     )
                     zip_bytes, name, _inc, _skip, _skip_names = result
+                    _prog.progress(70, text="☁️ Guardando ZIP en el historial…")
                     path = persist_export(int(faena_id), zip_bytes, name)
+                    _prog.progress(100, text="✅ Exportación completada.")
                     st.success(f"✅ ZIP generado: **{_inc} documentos** incluidos")
                     if _skip > 0:
                         st.warning(f"⚠️ {_skip} documento(s) no pudieron incluirse (archivo no encontrado): {', '.join(_skip_names[:10])}")
@@ -398,6 +432,7 @@ def page_export_zip(
                         use_container_width=True,
                     )
                 except Exception as e:
+                    _prog.empty()
                     st.error(f"No se pudo generar ZIP: {e}")
         with col_info:
             st.caption("El ZIP se guarda en Supabase Storage para que persista entre reinicios.")

@@ -5,7 +5,7 @@ from datetime import date, datetime
 import pandas as pd
 import streamlit as st
 
-from segav_core.ui import ui_header, ui_tip, add_availability_column
+from segav_core.ui import ui_header, ui_tip, add_availability_column, render_doc_uploader
 from segav_core.kpi_ui import kpi_card, tone_for_percentage
 
 def page_trabajadores(
@@ -965,63 +965,48 @@ def page_documentos_trabajador(
                 key="doc_tipo_otro",
             )
 
-        up = st.file_uploader("Archivo", key="up_doc_trabajador", type=None)
+        ups = render_doc_uploader("up_doc_trabajador")
         render_upload_help()
-        if st.button("Guardar documento", type="primary"):
-            if up is None:
-                st.error("Debes subir un archivo primero.")
+        if st.button("Guardar documento(s)", type="primary"):
+            if not ups:
+                st.error("Debes subir al menos un archivo.")
                 st.stop()
 
             doc_tipo = tipo if tipo != "OTRO" else (tipo_otro.strip() or "OTRO")
-            payload = prepare_upload_payload(up.name, up.getvalue(), getattr(up, 'type', None) or 'application/octet-stream')
-            folder = ["trabajadores", tid, safe_name(doc_tipo)]
-            file_path, bucket, object_path = save_file_online(folder, payload["file_name"], payload["file_bytes"], content_type=payload["content_type"])
-            sha = sha256_bytes(payload["file_bytes"])
-            if payload["compressed"] and payload.get("compression_note"):
-                st.info(payload["compression_note"])
-
-            try:
-
-                execute(
-
-                    "INSERT INTO trabajador_documentos(trabajador_id, doc_tipo, nombre_archivo, file_path, bucket, object_path, sha256, created_at) VALUES(?,?,?,?,?,?,?,?)",
-
-                    (int(tid), doc_tipo, payload["file_name"], file_path, bucket, object_path, sha, datetime.utcnow().isoformat(timespec="seconds")),
-
-                )
-
-            except Exception:
-
-                # Manejo de duplicados (UniqueViolation): actualiza el registro existente sin romper la app
-
-                if DB_BACKEND == "postgres":
-
-                    rc = execute_rowcount(
-
-                        "UPDATE trabajador_documentos SET file_path=?, bucket=?, object_path=?, sha256=?, created_at=? "
-
-                        "WHERE trabajador_id=? AND doc_tipo=? AND nombre_archivo=?",
-
-                        (file_path, bucket, object_path, sha, datetime.utcnow().isoformat(timespec="seconds"), int(tid), doc_tipo, payload["file_name"]),
-
+            _saved = 0
+            _notes = []
+            for up in ups:
+                payload = prepare_upload_payload(up.name, up.getvalue(), getattr(up, 'type', None) or 'application/octet-stream')
+                folder = ["trabajadores", tid, safe_name(doc_tipo)]
+                file_path, bucket, object_path = save_file_online(folder, payload["file_name"], payload["file_bytes"], content_type=payload["content_type"])
+                sha = sha256_bytes(payload["file_bytes"])
+                if payload["compressed"] and payload.get("compression_note"):
+                    _notes.append(payload["compression_note"])
+                try:
+                    execute(
+                        "INSERT INTO trabajador_documentos(trabajador_id, doc_tipo, nombre_archivo, file_path, bucket, object_path, sha256, created_at) VALUES(?,?,?,?,?,?,?,?)",
+                        (int(tid), doc_tipo, payload["file_name"], file_path, bucket, object_path, sha, datetime.utcnow().isoformat(timespec="seconds")),
                     )
-
-                    if rc == 0:
-
-                        execute_rowcount(
-
-                            "UPDATE trabajador_documentos SET nombre_archivo=?, file_path=?, bucket=?, object_path=?, sha256=?, created_at=? "
-
-                            "WHERE trabajador_id=? AND doc_tipo=?",
-
-                            (payload["file_name"], file_path, bucket, object_path, sha, datetime.utcnow().isoformat(timespec="seconds"), int(tid), doc_tipo),
-
+                except Exception:
+                    # Manejo de duplicados (UniqueViolation): actualiza el registro existente sin romper la app
+                    if DB_BACKEND == "postgres":
+                        rc = execute_rowcount(
+                            "UPDATE trabajador_documentos SET file_path=?, bucket=?, object_path=?, sha256=?, created_at=? "
+                            "WHERE trabajador_id=? AND doc_tipo=? AND nombre_archivo=?",
+                            (file_path, bucket, object_path, sha, datetime.utcnow().isoformat(timespec="seconds"), int(tid), doc_tipo, payload["file_name"]),
                         )
-
-                else:
-
-                    raise
-            st.success("Documento guardado.")
+                        if rc == 0:
+                            execute_rowcount(
+                                "UPDATE trabajador_documentos SET nombre_archivo=?, file_path=?, bucket=?, object_path=?, sha256=?, created_at=? "
+                                "WHERE trabajador_id=? AND doc_tipo=?",
+                                (payload["file_name"], file_path, bucket, object_path, sha, datetime.utcnow().isoformat(timespec="seconds"), int(tid), doc_tipo),
+                            )
+                    else:
+                        raise
+                _saved += 1
+            for _n in _notes:
+                st.info(_n)
+            st.success(f"{_saved} documento(s) guardado(s).")
             auto_backup_db("doc_trabajador")
             st.rerun()
 

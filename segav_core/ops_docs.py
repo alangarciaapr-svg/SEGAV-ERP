@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from segav_core.ui import ui_header, add_availability_column
+from segav_core.ui import ui_header, add_availability_column, render_doc_uploader
 
 
 def page_documentos_empresa(
@@ -78,24 +78,30 @@ def page_documentos_empresa(
                 help='Global se ve para toda la empresa. Si eliges Treimun, lectores restringidos a Treimun podrán verlo.'
             )
 
-        up = st.file_uploader("Archivo", key="up_doc_empresa", type=None)
+        ups = render_doc_uploader("up_doc_empresa")
         render_upload_help()
-        if st.button("Guardar documento empresa", type="primary"):
-            if up is None:
-                st.error("Debes subir un archivo.")
+        if st.button("Guardar documento(s) empresa", type="primary"):
+            if not ups:
+                st.error("Debes subir al menos un archivo.")
                 st.stop()
             doc_tipo = tipo if tipo != "OTRO" else (tipo_otro.strip() or "OTRO")
-            payload = prepare_upload_payload(up.name, up.getvalue(), getattr(up, 'type', None) or 'application/octet-stream')
-            folder = ["empresa", safe_name(doc_tipo)]
-            file_path, bucket, object_path = save_file_online(folder, payload["file_name"], payload["file_bytes"], content_type=payload["content_type"])
-            sha = sha256_bytes(payload["file_bytes"])
-            execute(
-                "INSERT INTO empresa_documentos(mandante_id, doc_tipo, nombre_archivo, file_path, bucket, object_path, sha256, created_at) VALUES(?,?,?,?,?,?,?,?)",
-                (int(mandante_doc_id or 0) or None, doc_tipo, payload["file_name"], file_path, bucket, object_path, sha, datetime.utcnow().isoformat(timespec="seconds")),
-            )
-            if payload["compressed"] and payload.get("compression_note"):
-                st.info(payload["compression_note"])
-            st.success("Documento empresa guardado.")
+            _saved = 0
+            _notes = []
+            for up in ups:
+                payload = prepare_upload_payload(up.name, up.getvalue(), getattr(up, 'type', None) or 'application/octet-stream')
+                folder = ["empresa", safe_name(doc_tipo)]
+                file_path, bucket, object_path = save_file_online(folder, payload["file_name"], payload["file_bytes"], content_type=payload["content_type"])
+                sha = sha256_bytes(payload["file_bytes"])
+                execute(
+                    "INSERT INTO empresa_documentos(mandante_id, doc_tipo, nombre_archivo, file_path, bucket, object_path, sha256, created_at) VALUES(?,?,?,?,?,?,?,?)",
+                    (int(mandante_doc_id or 0) or None, doc_tipo, payload["file_name"], file_path, bucket, object_path, sha, datetime.utcnow().isoformat(timespec="seconds")),
+                )
+                _saved += 1
+                if payload["compressed"] and payload.get("compression_note"):
+                    _notes.append(payload["compression_note"])
+            for _n in _notes:
+                st.info(_n)
+            st.success(f"{_saved} documento(s) empresa guardado(s).")
             auto_backup_db("doc_empresa")
             st.rerun()
 
@@ -312,36 +318,41 @@ def page_documentos_empresa_faena(
                 key="emp_faena_otro",
             )
 
-        up = st.file_uploader("Archivo", key="up_doc_emp_faena", type=None)
+        ups = render_doc_uploader("up_doc_emp_faena")
         render_upload_help()
-        if st.button("Guardar documento mensual (empresa por faena)", type="primary"):
-            if up is None:
-                st.error("Debes subir un archivo primero.")
+        if st.button("Guardar documento(s) mensual (empresa por faena)", type="primary"):
+            if not ups:
+                st.error("Debes subir al menos un archivo.")
                 st.stop()
 
             doc_tipo = tipo if tipo != "OTRO" else (tipo_otro.strip() or "OTRO")
-            payload = prepare_upload_payload(up.name, up.getvalue(), getattr(up, 'type', None) or 'application/octet-stream')
-            folder = [
-                "mandantes",
-                mandante_id,
-                safe_name(mandante_nombre),
-                "faenas",
-                faena_id,
-                safe_name(str(faena_row['nombre'])),
-                periodo_ym(anio_sel, mes_sel),
-                "empresa_mensual",
-                safe_name(doc_tipo),
-            ]
-            file_path, bucket, object_path = save_file_online(folder, payload["file_name"], payload["file_bytes"], content_type=payload["content_type"])
-            sha = sha256_bytes(payload["file_bytes"])
-
-            execute(
-                "INSERT INTO faena_empresa_documentos(faena_id, mandante_id, periodo_anio, periodo_mes, doc_tipo, nombre_archivo, file_path, bucket, object_path, sha256, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                (int(faena_id), int(mandante_id), int(anio_sel), int(mes_sel), doc_tipo, payload["file_name"], file_path, bucket, object_path, sha, datetime.utcnow().isoformat(timespec="seconds")),
-            )
-            if payload["compressed"] and payload.get("compression_note"):
-                st.info(payload["compression_note"])
-            st.success(f"Documento guardado para {mandante_nombre} / {faena_row['nombre']} / {periodo_label(anio_sel, mes_sel)}.")
+            _saved = 0
+            _notes = []
+            for up in ups:
+                payload = prepare_upload_payload(up.name, up.getvalue(), getattr(up, 'type', None) or 'application/octet-stream')
+                folder = [
+                    "mandantes",
+                    mandante_id,
+                    safe_name(mandante_nombre),
+                    "faenas",
+                    faena_id,
+                    safe_name(str(faena_row['nombre'])),
+                    periodo_ym(anio_sel, mes_sel),
+                    "empresa_mensual",
+                    safe_name(doc_tipo),
+                ]
+                file_path, bucket, object_path = save_file_online(folder, payload["file_name"], payload["file_bytes"], content_type=payload["content_type"])
+                sha = sha256_bytes(payload["file_bytes"])
+                execute(
+                    "INSERT INTO faena_empresa_documentos(faena_id, mandante_id, periodo_anio, periodo_mes, doc_tipo, nombre_archivo, file_path, bucket, object_path, sha256, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    (int(faena_id), int(mandante_id), int(anio_sel), int(mes_sel), doc_tipo, payload["file_name"], file_path, bucket, object_path, sha, datetime.utcnow().isoformat(timespec="seconds")),
+                )
+                _saved += 1
+                if payload["compressed"] and payload.get("compression_note"):
+                    _notes.append(payload["compression_note"])
+            for _n in _notes:
+                st.info(_n)
+            st.success(f"{_saved} documento(s) guardado(s) para {mandante_nombre} / {faena_row['nombre']} / {periodo_label(anio_sel, mes_sel)}.")
             auto_backup_db("doc_empresa_faena_mensual")
             st.rerun()
 

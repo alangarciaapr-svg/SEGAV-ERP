@@ -142,3 +142,61 @@ def ui_header(title: str, desc: str = ""):
 
 def ui_tip(text: str):
     st.info(text, icon="ℹ️")
+
+
+# ---------------------------------------------------------------------------
+# Carga de documentos: uploader multi-archivo con tipos visibles y vista previa
+# ---------------------------------------------------------------------------
+ALLOWED_UPLOAD_EXTS = [
+    "pdf", "jpg", "jpeg", "png", "gif", "webp",
+    "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+    "zip", "txt", "csv",
+]
+
+ALLOWED_UPLOAD_LABEL = "Tipos permitidos: PDF, imágenes (JPG/PNG), Word, Excel, PowerPoint, ZIP, TXT, CSV."
+
+
+def _fmt_file_size(num_bytes) -> str:
+    """Tamaño legible para humanos (NaN-safe)."""
+    try:
+        n = float(num_bytes or 0)
+    except (TypeError, ValueError):
+        n = 0.0
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{int(n)} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} GB"
+
+
+def render_doc_uploader(key: str, label: str = "Archivos (uno o varios)", multiple: bool = True, help_text: str | None = None):
+    """File uploader con tipos permitidos visibles y vista previa (nombre + peso).
+
+    Devuelve SIEMPRE una lista de archivos subidos (vacía si no hay ninguno),
+    así el código de guardado puede iterar de forma uniforme.
+    """
+    up = st.file_uploader(
+        label,
+        key=key,
+        type=ALLOWED_UPLOAD_EXTS,
+        accept_multiple_files=multiple,
+    )
+    st.caption("📎 " + ALLOWED_UPLOAD_LABEL)
+    if help_text:
+        st.caption("💡 " + help_text)
+
+    if not up:
+        return []
+    files = up if isinstance(up, list) else [up]
+
+    try:
+        import pandas as pd
+        preview = pd.DataFrame(
+            [{"Archivo": f.name, "Tamaño": _fmt_file_size(len(f.getvalue()))} for f in files]
+        )
+        st.dataframe(preview, use_container_width=True, hide_index=True)
+    except Exception:
+        for f in files:
+            st.caption(f"• {f.name} — {_fmt_file_size(len(f.getvalue()))}")
+    st.caption(f"✅ {len(files)} archivo(s) listo(s) para subir.")
+    return files
