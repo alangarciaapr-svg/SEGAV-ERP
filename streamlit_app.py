@@ -71,21 +71,22 @@ st.markdown(
     <style>
     div[data-testid="stToast"]{
         position: fixed !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        min-width: 300px;
-        max-width: 70vw;
-        padding: 16px 26px !important;
-        font-size: 1.05rem !important;
+        right: 24px !important;
+        bottom: 24px !important;
+        left: auto !important;
+        top: auto !important;
+        transform: none !important;
+        min-width: 280px;
+        max-width: 420px;
+        padding: 14px 20px !important;
+        font-size: 1rem !important;
         font-weight: 600 !important;
-        border-radius: 14px !important;
-        box-shadow: 0 18px 55px rgba(0,0,0,0.28) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.25) !important;
         z-index: 2147483000 !important;
-        text-align: center !important;
     }
-    div[data-testid="stToast"]:nth-of-type(2){ transform: translate(-50%, calc(-50% + 78px)) !important; }
-    div[data-testid="stToast"]:nth-of-type(3){ transform: translate(-50%, calc(-50% + 156px)) !important; }
+    div[data-testid="stToast"]:nth-of-type(2){ bottom: 96px !important; }
+    div[data-testid="stToast"]:nth-of-type(3){ bottom: 168px !important; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -8169,15 +8170,18 @@ def page_asignar_trabajadores():
 
 
 def page_documentos_empresa():
-    return _ops_docs.page_documentos_empresa(fetch_df=tenant_fetch_df, allowed_mandante_ids=current_user_mandante_scope_ids(), get_empresa_required_doc_types=get_empresa_required_doc_types, doc_tipo_join=doc_tipo_join, doc_tipo_label=doc_tipo_label, render_upload_help=render_upload_help, prepare_upload_payload=prepare_upload_payload, safe_name=safe_name, save_file_online=save_file_online, sha256_bytes=sha256_bytes, execute=tenant_execute, datetime=datetime, auto_backup_db=auto_backup_db, load_file_anywhere=load_file_anywhere, delete_uploaded_document_record=delete_uploaded_document_record, render_legal_doc_inline=render_legal_doc_inline)
+    _can_edit_tipo = str((current_user() or {}).get("role") or "").upper() in ("ADMIN", "SUPERADMIN")
+    return _ops_docs.page_documentos_empresa(fetch_df=tenant_fetch_df, allowed_mandante_ids=current_user_mandante_scope_ids(), get_empresa_required_doc_types=get_empresa_required_doc_types, doc_tipo_join=doc_tipo_join, doc_tipo_label=doc_tipo_label, render_upload_help=render_upload_help, prepare_upload_payload=prepare_upload_payload, safe_name=safe_name, save_file_online=save_file_online, sha256_bytes=sha256_bytes, execute=tenant_execute, datetime=datetime, auto_backup_db=auto_backup_db, load_file_anywhere=load_file_anywhere, delete_uploaded_document_record=delete_uploaded_document_record, render_legal_doc_inline=render_legal_doc_inline, can_edit_doc_type=_can_edit_tipo)
 
 
 def page_documentos_empresa_faena():
-    return _ops_docs.page_documentos_empresa_faena(fetch_df=tenant_fetch_df, allowed_mandante_ids=current_user_mandante_scope_ids(), ui_tip=ui_tip, periodo_label=periodo_label, periodo_ym=periodo_ym, get_empresa_monthly_doc_types=get_empresa_monthly_doc_types, doc_tipo_join=doc_tipo_join, doc_tipo_label=doc_tipo_label, render_upload_help=render_upload_help, prepare_upload_payload=prepare_upload_payload, safe_name=safe_name, save_file_online=save_file_online, sha256_bytes=sha256_bytes, execute=tenant_execute, datetime=datetime, auto_backup_db=auto_backup_db, load_file_anywhere=load_file_anywhere, delete_uploaded_document_record=delete_uploaded_document_record, MESES_ES=MESES_ES, render_legal_doc_inline=render_legal_doc_inline)
+    _can_edit_tipo = str((current_user() or {}).get("role") or "").upper() in ("ADMIN", "SUPERADMIN")
+    return _ops_docs.page_documentos_empresa_faena(fetch_df=tenant_fetch_df, allowed_mandante_ids=current_user_mandante_scope_ids(), ui_tip=ui_tip, periodo_label=periodo_label, periodo_ym=periodo_ym, get_empresa_monthly_doc_types=get_empresa_monthly_doc_types, doc_tipo_join=doc_tipo_join, doc_tipo_label=doc_tipo_label, render_upload_help=render_upload_help, prepare_upload_payload=prepare_upload_payload, safe_name=safe_name, save_file_online=save_file_online, sha256_bytes=sha256_bytes, execute=tenant_execute, datetime=datetime, auto_backup_db=auto_backup_db, load_file_anywhere=load_file_anywhere, delete_uploaded_document_record=delete_uploaded_document_record, MESES_ES=MESES_ES, render_legal_doc_inline=render_legal_doc_inline, can_edit_doc_type=_can_edit_tipo)
 
 
 def page_documentos_trabajador():
-    return _ops_personal.page_documentos_trabajador(DB_BACKEND=DB_BACKEND, allowed_mandante_ids=current_user_mandante_scope_ids(), fetch_df=tenant_fetch_df, fetch_df_uncached=tenant_fetch_df_uncached, execute=tenant_execute, execute_rowcount=tenant_execute_rowcount, auto_backup_db=auto_backup_db, fetch_assigned_workers=fetch_assigned_workers, prepare_upload_payload=prepare_upload_payload, render_upload_help=render_upload_help, save_file_online=save_file_online, sha256_bytes=sha256_bytes, load_file_anywhere=load_file_anywhere, worker_required_docs_for_record=worker_required_docs_for_record, doc_tipo_label=doc_tipo_label, doc_tipo_join=doc_tipo_join, safe_name=safe_name, canonical_cargo_label=canonical_cargo_label, cargo_docs_catalog_rows=cargo_docs_catalog_rows, pendientes_obligatorios=pendientes_obligatorios, delete_uploaded_document_record=delete_uploaded_document_record, render_legal_doc_inline=render_legal_doc_inline)
+    _can_edit_tipo = str((current_user() or {}).get("role") or "").upper() in ("ADMIN", "SUPERADMIN")
+    return _ops_personal.page_documentos_trabajador(DB_BACKEND=DB_BACKEND, allowed_mandante_ids=current_user_mandante_scope_ids(), fetch_df=tenant_fetch_df, fetch_df_uncached=tenant_fetch_df_uncached, execute=tenant_execute, execute_rowcount=tenant_execute_rowcount, auto_backup_db=auto_backup_db, fetch_assigned_workers=fetch_assigned_workers, prepare_upload_payload=prepare_upload_payload, render_upload_help=render_upload_help, save_file_online=save_file_online, sha256_bytes=sha256_bytes, load_file_anywhere=load_file_anywhere, worker_required_docs_for_record=worker_required_docs_for_record, doc_tipo_label=doc_tipo_label, doc_tipo_join=doc_tipo_join, safe_name=safe_name, canonical_cargo_label=canonical_cargo_label, cargo_docs_catalog_rows=cargo_docs_catalog_rows, pendientes_obligatorios=pendientes_obligatorios, delete_uploaded_document_record=delete_uploaded_document_record, render_legal_doc_inline=render_legal_doc_inline, can_edit_doc_type=_can_edit_tipo)
 
 
 def page_export_zip():

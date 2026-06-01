@@ -806,6 +806,7 @@ def page_documentos_trabajador(
     allowed_mandante_ids=None,
     **_ignored,
 ):
+    can_edit_doc_type = bool(_ignored.get("can_edit_doc_type", False))
     ui_header(
         "Documentos Trabajador",
         "Carga documentos obligatorios por trabajador. Puedes trabajar por FAENA: selecciona una faena y verás solo los trabajadores asignados.",
@@ -1070,6 +1071,30 @@ def page_documentos_trabajador(
 
             if render_legal_doc_inline:
                 render_legal_doc_inline('trabajador_documentos', int(pick_id), str(row.get('doc_tipo') or ''), str(fname or ''))
+
+            if can_edit_doc_type:
+                with st.expander("✏️ Cambiar tipo de documento (solo admin)"):
+                    _curr = str(row.get("doc_tipo") or "")
+                    _base = list(req_docs) + ["OTRO"]
+                    if _curr and _curr not in _base:
+                        _base = [_curr] + _base
+                    _new = st.selectbox(
+                        "Nuevo tipo",
+                        _base,
+                        index=_base.index(_curr) if _curr in _base else 0,
+                        format_func=lambda x: "OTRO" if x == "OTRO" else doc_tipo_label(x),
+                        key="trab_edit_tipo_sel",
+                    )
+                    _otro = st.text_input("Si eliges OTRO, escribe el nombre", key="trab_edit_tipo_otro", placeholder="Ej: Certificación operador, Licencia…")
+                    if st.button("Guardar tipo", type="primary", key="trab_edit_tipo_btn"):
+                        _final = _new if _new != "OTRO" else (_otro.strip() or "OTRO")
+                        try:
+                            execute("UPDATE trabajador_documentos SET doc_tipo=? WHERE id=?", (_final, int(pick_id)))
+                            st.success(f"Tipo actualizado a: {doc_tipo_label(_final)}")
+                            auto_backup_db("doc_trabajador_tipo_edit")
+                            st.rerun()
+                        except Exception:
+                            st.error("No se pudo cambiar el tipo (¿ya existe otro documento con ese tipo para este trabajador?).")
 
             confirm_del = st.checkbox(
                 "Confirmo que quiero eliminar este documento cargado.",

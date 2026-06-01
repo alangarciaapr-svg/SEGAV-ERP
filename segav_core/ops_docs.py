@@ -23,6 +23,7 @@ def page_documentos_empresa(
     delete_uploaded_document_record,
     render_legal_doc_inline=None,
     allowed_mandante_ids=None,
+    can_edit_doc_type=False,
 ):
     ui_header("Documentos Empresa", "Carga documentos corporativos (valen para todas las faenas) y se incluyen en el ZIP de exportación.")
     st.caption("Puedes subir múltiples archivos por tipo. Los tipos requeridos base son liquidaciones de sueldo, F30, F30-1 y certificado de accidentabilidad; además puedes crear tus propios tipos con OTRO.")
@@ -150,6 +151,30 @@ def page_documentos_empresa(
             if render_legal_doc_inline:
                 render_legal_doc_inline('empresa_documentos', int(pick_id), str(row.get('doc_tipo') or ''), str(fname or ''))
 
+            if can_edit_doc_type:
+                with st.expander("✏️ Cambiar tipo de documento (solo admin)"):
+                    _curr = str(row.get("doc_tipo") or "")
+                    _base = get_empresa_required_doc_types() + ["OTRO"]
+                    if _curr and _curr not in _base:
+                        _base = [_curr] + _base
+                    _new = st.selectbox(
+                        "Nuevo tipo",
+                        _base,
+                        index=_base.index(_curr) if _curr in _base else 0,
+                        format_func=lambda x: "OTRO" if x == "OTRO" else doc_tipo_label(x),
+                        key="emp_edit_tipo_sel",
+                    )
+                    _otro = st.text_input("Si eliges OTRO, escribe el nombre", key="emp_edit_tipo_otro", placeholder="Ej: Política SST, Organigrama…")
+                    if st.button("Guardar tipo", type="primary", key="emp_edit_tipo_btn"):
+                        _final = _new if _new != "OTRO" else (_otro.strip() or "OTRO")
+                        try:
+                            execute("UPDATE empresa_documentos SET doc_tipo=? WHERE id=?", (_final, int(pick_id)))
+                            st.success(f"Tipo actualizado a: {doc_tipo_label(_final)}")
+                            auto_backup_db("doc_empresa_tipo_edit")
+                            st.rerun()
+                        except Exception:
+                            st.error("No se pudo cambiar el tipo (¿ya existe otro documento con ese tipo?).")
+
             confirm_del = st.checkbox(
                 "Confirmo que quiero eliminar este documento cargado.",
                 key="emp_del_confirm",
@@ -195,6 +220,7 @@ def page_documentos_empresa_faena(
     allowed_mandante_ids=None,
     **_ignored,
 ):
+    can_edit_doc_type = bool(_ignored.get("can_edit_doc_type", False))
     if ui_tip is None:
         ui_tip = lambda msg: st.info(msg)
     if periodo_ym is None:
@@ -395,6 +421,30 @@ def page_documentos_empresa_faena(
 
             if render_legal_doc_inline:
                 render_legal_doc_inline('faena_empresa_documentos', int(pick_id), str(row.get('doc_tipo') or ''), str(fname or ''))
+
+            if can_edit_doc_type:
+                with st.expander("✏️ Cambiar tipo de documento (solo admin)"):
+                    _curr = str(row.get("doc_tipo") or "")
+                    _base = get_empresa_monthly_doc_types() + ["OTRO"]
+                    if _curr and _curr not in _base:
+                        _base = [_curr] + _base
+                    _new = st.selectbox(
+                        "Nuevo tipo",
+                        _base,
+                        index=_base.index(_curr) if _curr in _base else 0,
+                        format_func=lambda x: "OTRO" if x == "OTRO" else doc_tipo_label(x),
+                        key="empf_edit_tipo_sel",
+                    )
+                    _otro = st.text_input("Si eliges OTRO, escribe el nombre", key="empf_edit_tipo_otro", placeholder="Ej: respaldo adicional mensual…")
+                    if st.button("Guardar tipo", type="primary", key="empf_edit_tipo_btn"):
+                        _final = _new if _new != "OTRO" else (_otro.strip() or "OTRO")
+                        try:
+                            execute("UPDATE faena_empresa_documentos SET doc_tipo=? WHERE id=?", (_final, int(pick_id)))
+                            st.success(f"Tipo actualizado a: {doc_tipo_label(_final)}")
+                            auto_backup_db("doc_empresa_faena_tipo_edit")
+                            st.rerun()
+                        except Exception:
+                            st.error("No se pudo cambiar el tipo (¿ya existe otro documento con ese tipo en el período?).")
 
             confirm_del = st.checkbox(
                 "Confirmo que quiero eliminar este documento cargado.",
