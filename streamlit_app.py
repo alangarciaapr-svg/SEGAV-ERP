@@ -3018,6 +3018,11 @@ def ensure_sgsst_tables_postgres():
             razon_social TEXT,
             rut TEXT,
             direccion TEXT,
+            comuna TEXT,
+            region TEXT,
+            telefono TEXT,
+            email TEXT,
+            ciiu TEXT,
             actividad TEXT,
             organismo_admin TEXT,
             representantes TEXT,
@@ -3173,6 +3178,11 @@ def ensure_sgsst_tables_sqlite(c):
         razon_social TEXT,
         rut TEXT,
         direccion TEXT,
+        comuna TEXT,
+        region TEXT,
+        telefono TEXT,
+        email TEXT,
+        ciiu TEXT,
         actividad TEXT,
         organismo_admin TEXT,
         representantes TEXT,
@@ -4318,6 +4328,12 @@ def ensure_multiempresa_columns_postgres():
         "ALTER TABLE IF EXISTS trabajador_documentos ADD COLUMN IF NOT EXISTS vencimiento TEXT;",
         # sgsst_checklist_ds594 - estado de tres valores (CUMPLE/NO_CUMPLE/NO_APLICA)
         "ALTER TABLE IF EXISTS sgsst_checklist_ds594 ADD COLUMN IF NOT EXISTS estado TEXT DEFAULT 'CUMPLE';",
+        # sgsst_empresa - datos de contacto / ubicación / actividad para dashboard y fiscalización
+        "ALTER TABLE IF EXISTS sgsst_empresa ADD COLUMN IF NOT EXISTS comuna TEXT;",
+        "ALTER TABLE IF EXISTS sgsst_empresa ADD COLUMN IF NOT EXISTS region TEXT;",
+        "ALTER TABLE IF EXISTS sgsst_empresa ADD COLUMN IF NOT EXISTS telefono TEXT;",
+        "ALTER TABLE IF EXISTS sgsst_empresa ADD COLUMN IF NOT EXISTS email TEXT;",
+        "ALTER TABLE IF EXISTS sgsst_empresa ADD COLUMN IF NOT EXISTS ciiu TEXT;",
         # empresa_documentos - bucket, object_path, mandante_id
         "ALTER TABLE IF EXISTS empresa_documentos ADD COLUMN IF NOT EXISTS bucket TEXT;",
         "ALTER TABLE IF EXISTS empresa_documentos ADD COLUMN IF NOT EXISTS object_path TEXT;",
@@ -5259,6 +5275,7 @@ def ensure_storage_columns_sqlite(c):
         "export_historial_mes": {"bucket": "TEXT", "object_path": "TEXT"},
         "trabajador_documentos": {"bucket": "TEXT", "object_path": "TEXT", "vencimiento": "TEXT", "cliente_key": "TEXT"},
         "sgsst_checklist_ds594": {"estado": "TEXT DEFAULT 'CUMPLE'"},
+        "sgsst_empresa": {"comuna": "TEXT", "region": "TEXT", "telefono": "TEXT", "email": "TEXT", "ciiu": "TEXT"},
     }
     for table, cols in targets.items():
         try:

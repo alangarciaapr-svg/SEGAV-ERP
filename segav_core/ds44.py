@@ -15,6 +15,50 @@ from __future__ import annotations
 ESTADOS_AUTOEVAL = ["Cumple", "En proceso", "No cumple", "No aplica"]
 
 
+# Campos clave de la ficha de empresa para el dashboard de inicio.
+# (clave_en_bd, etiqueta_visible)
+COMPANY_PROFILE_FIELDS = [
+    ("razon_social", "Razón social"),
+    ("rut", "RUT"),
+    ("direccion", "Dirección"),
+    ("comuna", "Comuna"),
+    ("region", "Región"),
+    ("actividad", "Actividad / rubro"),
+    ("ciiu", "Código de actividad (CIIU)"),
+    ("organismo_admin", "Organismo administrador (mutualidad)"),
+    ("representantes", "Representante legal"),
+    ("prevencionista", "Prevencionista / Experto"),
+    ("telefono", "Teléfono"),
+    ("email", "Email de contacto"),
+    ("canal_denuncias", "Canal de denuncias"),
+    ("politica_version", "Política SST (versión)"),
+    ("politica_fecha", "Política SST (fecha)"),
+]
+
+
+def company_profile_status(company: dict | None) -> dict:
+    """Evalúa qué tan completa está la ficha de empresa.
+
+    Devuelve {pct, total, completos, filled (list (key,label,valor)),
+    missing (list (key,label))}. Un campo cuenta como completo si tiene un
+    valor no vacío (distinto de '', None, '0' para numéricos no aplica aquí).
+    """
+    company = company or {}
+    filled = []
+    missing = []
+    for key, label in COMPANY_PROFILE_FIELDS:
+        val = company.get(key)
+        sval = "" if val is None else str(val).strip()
+        if sval and sval.lower() not in ("none", "nan"):
+            filled.append((key, label, sval))
+        else:
+            missing.append((key, label))
+    total = len(COMPANY_PROFILE_FIELDS)
+    completos = len(filled)
+    pct = int(round((completos / total) * 100)) if total else 0
+    return {"pct": pct, "total": total, "completos": completos, "filled": filled, "missing": missing}
+
+
 def worker_tier(n: int) -> dict:
     """Devuelve el tramo DS 44 según número de trabajadores.
 

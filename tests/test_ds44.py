@@ -79,3 +79,33 @@ def test_summarize_vacio():
     s = ds44.summarize({})
     assert s["pct"] == 0
     assert s["aplicables"] == 0
+
+
+def test_company_profile_vacio():
+    s = ds44.company_profile_status({})
+    assert s["pct"] == 0
+    assert s["completos"] == 0
+    assert len(s["missing"]) == s["total"]
+
+
+def test_company_profile_parcial():
+    company = {
+        "razon_social": "ACME Ltda",
+        "rut": "76123456-7",
+        "direccion": "Av. Siempre Viva 123",
+        "telefono": "",
+        "email": None,
+        "organismo_admin": "ACHS",
+    }
+    s = ds44.company_profile_status(company)
+    assert s["completos"] == 4  # razon_social, rut, direccion, organismo_admin
+    keys_missing = {k for k, _ in s["missing"]}
+    assert "telefono" in keys_missing
+    assert "email" in keys_missing
+    assert "razon_social" not in keys_missing
+
+
+def test_company_profile_ignora_valores_basura():
+    company = {"razon_social": "  ", "rut": "none", "direccion": "nan"}
+    s = ds44.company_profile_status(company)
+    assert s["completos"] == 0

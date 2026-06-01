@@ -148,8 +148,59 @@ def page_sgsst(
         label_visibility="collapsed",
     )
 
-    # ── Pantalla de Inicio: accesos directos según pendientes ──────────
+    # ── Pantalla de Inicio: dashboard de empresa + accesos directos ────
     if _sgsst_section == "🏠 Inicio":
+        # Dashboard de empresa: identidad + completitud de la ficha
+        _prof = _ds44.company_profile_status(company)
+        _n_trab_home = int(fetch_value("SELECT COUNT(*) FROM trabajadores", default=0) or 0)
+        _tier_home = _ds44.worker_tier(_n_trab_home)
+        _faenas_act = int(fetch_value("SELECT COUNT(*) FROM faenas WHERE COALESCE(estado,'ACTIVA')='ACTIVA'", default=0) or 0)
+
+        _razon = company.get("razon_social") or "Empresa sin nombre definido"
+        st.markdown(f"### 🏢 {_razon}")
+        _id1, _id2, _id3, _id4 = st.columns(4)
+        _id1.metric("RUT", str(company.get("rut") or "—"))
+        _id2.metric("👷 Trabajadores", _n_trab_home)
+        _id3.metric("🏗️ Faenas activas", _faenas_act)
+        _id4.metric("📐 Tramo DS 44", _tier_home["rango"])
+
+        _info_cols = st.columns(3)
+        with _info_cols[0]:
+            st.markdown("**📍 Ubicación / contacto**")
+            st.caption(
+                f"Dirección: {company.get('direccion') or '—'}\n\n"
+                f"Comuna/Región: {(company.get('comuna') or '—')} / {(company.get('region') or '—')}\n\n"
+                f"Tel: {company.get('telefono') or '—'} · {company.get('email') or '—'}"
+            )
+        with _info_cols[1]:
+            st.markdown("**🏭 Actividad / mutualidad**")
+            st.caption(
+                f"Rubro: {company.get('actividad') or '—'}\n\n"
+                f"CIIU: {company.get('ciiu') or '—'}\n\n"
+                f"Organismo admin.: {company.get('organismo_admin') or '—'}"
+            )
+        with _info_cols[2]:
+            st.markdown("**👤 Responsables / política**")
+            st.caption(
+                f"Rep. legal: {company.get('representantes') or '—'}\n\n"
+                f"Prevencionista: {company.get('prevencionista') or '—'}\n\n"
+                f"Política SST: v{company.get('politica_version') or '—'} ({company.get('politica_fecha') or 's/fecha'})"
+            )
+
+        _pcolor = "🟢" if _prof["pct"] >= 80 else ("🟡" if _prof["pct"] >= 50 else "🔴")
+        st.markdown(f"#### {_pcolor} Ficha de empresa completa al {_prof['pct']}% ({_prof['completos']}/{_prof['total']} datos)")
+        st.progress(_prof["pct"] / 100)
+        if _prof["missing"]:
+            with st.expander(f"⚠️ Faltan {len(_prof['missing'])} dato(s) por completar"):
+                for _k, _lbl in _prof["missing"]:
+                    st.write("• " + _lbl)
+            if st.button("✏️ Completar ficha de empresa", key=K("home_goto_ficha"), use_container_width=True):
+                st.session_state[K("sgsst_jump_section")] = "🏭 Configuración Empresa"
+                st.rerun()
+        else:
+            st.success("✅ Ficha de empresa completa.")
+
+        st.divider()
         st.markdown("#### 🏠 Accesos directos")
         st.caption("Salta a las áreas que requieren tu atención. Los números reflejan lo pendiente ahora.")
 
@@ -548,17 +599,23 @@ def page_sgsst(
     if 5 in tabs:
       with tabs[5]:
         st.markdown("### Ficha empresa")
+        st.caption("Completa la mayor cantidad de datos: alimentan el dashboard de inicio y el expediente de fiscalización.")
         e1, e2 = st.columns(2)
         with e1:
             razon_social = st.text_input("Razón social", value=str(company.get("razon_social") or ""), key=K("sgsst_empresa_razon"))
             rut = rut_input("RUT empresa", value=clean_rut(company.get("rut") or ""), key=K("sgsst_empresa_rut"))
             direccion = st.text_input("Dirección", value=str(company.get("direccion") or ""), key=K("sgsst_empresa_direccion"))
+            comuna = st.text_input("Comuna", value=str(company.get("comuna") or ""), key=K("sgsst_empresa_comuna"))
+            region = st.text_input("Región", value=str(company.get("region") or ""), key=K("sgsst_empresa_region"))
+            telefono = st.text_input("Teléfono", value=str(company.get("telefono") or ""), key=K("sgsst_empresa_tel"))
+            email = st.text_input("Email de contacto", value=str(company.get("email") or ""), key=K("sgsst_empresa_email"))
             actividad = st.text_input("Actividad / rubro", value=str(company.get("actividad") or ""), key=K("sgsst_empresa_actividad"))
-            organismo_admin = st.text_input("Organismo administrador", value=str(company.get("organismo_admin") or ""), key=K("sgsst_empresa_oa"))
+            ciiu = st.text_input("Código de actividad (CIIU)", value=str(company.get("ciiu") or ""), key=K("sgsst_empresa_ciiu"))
+            organismo_admin = st.text_input("Organismo administrador (mutualidad)", value=str(company.get("organismo_admin") or ""), key=K("sgsst_empresa_oa"))
             dotacion_total = st.number_input("Dotación total", min_value=0, value=int(company.get("dotacion_total") or 0), step=1, key=K("sgsst_empresa_dotacion"))
         with e2:
             representantes = st.text_area("Representantes legales", value=str(company.get("representantes") or ""), height=90, key=K("sgsst_empresa_repr"))
-            prevencionista = st.text_input("Prevencionista de riesgos", value=str(company.get("prevencionista") or ""), key=K("sgsst_empresa_prev"))
+            prevencionista = st.text_input("Prevencionista de riesgos / Experto", value=str(company.get("prevencionista") or ""), key=K("sgsst_empresa_prev"))
             canal = st.text_input("Canal de denuncias", value=str(company.get("canal_denuncias") or ""), key=K("sgsst_empresa_canal"))
             politica_version = st.text_input("Versión política SST", value=str(company.get("politica_version") or "1.0"), key=K("sgsst_empresa_politica_v"))
             politica_fecha = st.date_input("Fecha política SST", value=parse_date_maybe(company.get("politica_fecha")) or date.today(), key=K("sgsst_empresa_politica_f"))
@@ -569,19 +626,19 @@ def page_sgsst(
                 execute(
                     """
                     UPDATE sgsst_empresa
-                       SET razon_social=?, rut=?, direccion=?, actividad=?, organismo_admin=?, representantes=?, prevencionista=?, canal_denuncias=?,
+                       SET razon_social=?, rut=?, direccion=?, comuna=?, region=?, telefono=?, email=?, ciiu=?, actividad=?, organismo_admin=?, representantes=?, prevencionista=?, canal_denuncias=?,
                            dotacion_total=?, politica_version=?, politica_fecha=?, observaciones=?, updated_at=?
                      WHERE id=?
                     """,
-                    (razon_social.strip(), clean_rut(rut), direccion.strip(), actividad.strip(), organismo_admin.strip(), representantes.strip(), prevencionista.strip(), canal.strip(), int(dotacion_total), politica_version.strip(), politica_fecha.isoformat(), observaciones.strip(), now, int(company.get("id"))),
+                    (razon_social.strip(), clean_rut(rut), direccion.strip(), comuna.strip(), region.strip(), telefono.strip(), email.strip(), ciiu.strip(), actividad.strip(), organismo_admin.strip(), representantes.strip(), prevencionista.strip(), canal.strip(), int(dotacion_total), politica_version.strip(), politica_fecha.isoformat(), observaciones.strip(), now, int(company.get("id"))),
                 )
             else:
                 execute(
                     """
-                    INSERT INTO sgsst_empresa(razon_social, rut, direccion, actividad, organismo_admin, representantes, prevencionista, canal_denuncias, dotacion_total, politica_version, politica_fecha, observaciones, created_at, updated_at)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    INSERT INTO sgsst_empresa(razon_social, rut, direccion, comuna, region, telefono, email, ciiu, actividad, organismo_admin, representantes, prevencionista, canal_denuncias, dotacion_total, politica_version, politica_fecha, observaciones, created_at, updated_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
-                    (razon_social.strip(), clean_rut(rut), direccion.strip(), actividad.strip(), organismo_admin.strip(), representantes.strip(), prevencionista.strip(), canal.strip(), int(dotacion_total), politica_version.strip(), politica_fecha.isoformat(), observaciones.strip(), now, now),
+                    (razon_social.strip(), clean_rut(rut), direccion.strip(), comuna.strip(), region.strip(), telefono.strip(), email.strip(), ciiu.strip(), actividad.strip(), organismo_admin.strip(), representantes.strip(), prevencionista.strip(), canal.strip(), int(dotacion_total), politica_version.strip(), politica_fecha.isoformat(), observaciones.strip(), now, now),
                 )
             sgsst_log("Ficha empresa", "Guardar", f"Ficha empresa actualizada: {razon_social.strip()}")
             st.success("Ficha empresa guardada.")
