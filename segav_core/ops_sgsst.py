@@ -727,66 +727,89 @@ def page_sgsst(
             ck_fecha = st.date_input("Fecha inspección", value=date.today(), key=K("ck594_fecha"))
 
             st.divider()
+            st.caption("Marca cada ítem como **Cumple**, **No cumple** o **No aplica**. Los ítems 'No aplica' no afectan el porcentaje de cumplimiento.")
             results = {}
             obs_dict = {}
             _total_items = 0
             _cumple_count = 0
+            _aplica_count = 0
             for _cat_idx, (cat, items) in enumerate(_checklist_items.items()):
                 with st.expander(f"**{cat}** ({len(items)} ítems)", expanded=False):
                     for idx_item, item in enumerate(items):
                         _total_items += 1
                         # Use purely numeric index-based key — no truncated names
                         _base_key = f"ck594_cat{_cat_idx}_it{idx_item}"
-                        c1, c2, c3 = st.columns([3, 1, 2])
+                        c1, c2, c3 = st.columns([3, 2, 2])
                         with c1:
                             st.caption(item)
                         with c2:
-                            cumple = st.checkbox("Cumple", value=True, key=K(_base_key))
-                            results[(cat, item)] = cumple
-                            if cumple:
-                                _cumple_count += 1
+                            estado = st.radio(
+                                "Estado",
+                                ["Cumple", "No cumple", "No aplica"],
+                                horizontal=True,
+                                key=K(_base_key),
+                                label_visibility="collapsed",
+                            )
+                            results[(cat, item)] = estado
+                            if estado != "No aplica":
+                                _aplica_count += 1
+                                if estado == "Cumple":
+                                    _cumple_count += 1
                         with c3:
                             obs = st.text_input("Obs.", key=K(f"{_base_key}_obs"), placeholder="Observación", label_visibility="collapsed")
                             if obs:
                                 obs_dict[(cat, item)] = obs
 
-            # Show compliance score before save button
+            # Show compliance score before save button (excluye 'No aplica')
             if _total_items > 0:
-                _pct = int((_cumple_count / _total_items) * 100)
+                _na_count = _total_items - _aplica_count
+                _pct = int((_cumple_count / _aplica_count) * 100) if _aplica_count > 0 else 0
                 _color = "🟢" if _pct >= 80 else ("🟡" if _pct >= 50 else "🔴")
-                st.markdown(f"#### {_color} Cumplimiento: {_cumple_count}/{_total_items} ({_pct}%)")
+                st.markdown(f"#### {_color} Cumplimiento: {_cumple_count}/{_aplica_count} aplicables ({_pct}%)")
+                if _na_count:
+                    st.caption(f"{_na_count} ítem(s) marcados como 'No aplica' (excluidos del cálculo).")
                 st.progress(_pct / 100)
 
             if st.button("💾 Guardar checklist completo", type="primary", use_container_width=True, key=K("ck594_save")):
                 now = datetime.now().isoformat(timespec='seconds')
+                _estado_db = {"Cumple": "CUMPLE", "No cumple": "NO_CUMPLE", "No aplica": "NO_APLICA"}
                 saved = 0
-                for (cat, item), cumple in results.items():
+                for (cat, item), estado in results.items():
+                    estado_code = _estado_db.get(estado, "CUMPLE")
+                    cumple_int = 1 if estado == "Cumple" else 0
                     try:
                         obs_text = obs_dict.get((cat, item), "")
                         execute(
-                            "INSERT INTO sgsst_checklist_ds594(faena_id, fecha_inspeccion, inspector, categoria, item, cumple, observacion, created_at) VALUES(?,?,?,?,?,?,?,?)",
-                            (int(ck_faena), ck_fecha.isoformat(), ck_inspector.strip(), cat, item, 1 if cumple else 0, obs_text, now),
+                            "INSERT INTO sgsst_checklist_ds594(faena_id, fecha_inspeccion, inspector, categoria, item, cumple, estado, observacion, created_at) VALUES(?,?,?,?,?,?,?,?,?)",
+                            (int(ck_faena), ck_fecha.isoformat(), ck_inspector.strip(), cat, item, cumple_int, estado_code, obs_text, now),
                         )
                         saved += 1
                     except Exception:
                         try:
-                            # Fallback if 'observacion' column doesn't exist yet
+                            # Fallback si la columna 'estado' aún no existe en esta BD
                             execute(
-                                "INSERT INTO sgsst_checklist_ds594(faena_id, fecha_inspeccion, inspector, categoria, item, cumple, created_at) VALUES(?,?,?,?,?,?,?)",
-                                (int(ck_faena), ck_fecha.isoformat(), ck_inspector.strip(), cat, item, 1 if cumple else 0, now),
+                                "INSERT INTO sgsst_checklist_ds594(faena_id, fecha_inspeccion, inspector, categoria, item, cumple, observacion, created_at) VALUES(?,?,?,?,?,?,?,?)",
+                                (int(ck_faena), ck_fecha.isoformat(), ck_inspector.strip(), cat, item, cumple_int, obs_dict.get((cat, item), ""), now),
                             )
                             saved += 1
                         except Exception:
                             pass
-                sgsst_log("Checklist DS 594", "Guardar", f"Faena {ck_faena} · {saved} ítems · {_cumple_count}/{_total_items} cumple")
-                st.success(f"Checklist guardado: {saved} ítems registrados. Cumplimiento: {_cumple_count}/{_total_items}")
+                sgsst_log("Checklist DS 594", "Guardar", f"Faena {ck_faena} · {saved} ítems · {_cumple_count}/{_aplica_count} cumple")
+                st.success(f"Checklist guardado: {saved} ítems. Cumplimiento: {_cumple_count}/{_aplica_count} aplicables.")
                 st.rerun()
 
             st.divider()
             st.markdown("#### Historial de inspecciones")
             hist = fetch_df("""
                 SELECT c.fecha_inspeccion, COALESCE(f.nombre,'?') AS faena, c.inspector,
-                       c.categoria, c.item, CASE WHEN c.cumple THEN '✅' ELSE '❌' END AS resultado
+                       c.categoria, c.item,
+                       CASE
+                           WHEN COALESCE(c.estado,'') = 'NO_APLICA' THEN '➖ No aplica'
+                           WHEN COALESCE(c.estado,'') = 'NO_CUMPLE' THEN '❌ No cumple'
+                           WHEN COALESCE(c.estado,'') = 'CUMPLE' THEN '✅ Cumple'
+                           WHEN c.cumple THEN '✅ Cumple'
+                           ELSE '❌ No cumple'
+                       END AS resultado
                 FROM sgsst_checklist_ds594 c
                 LEFT JOIN faenas f ON f.id=c.faena_id
                 ORDER BY c.id DESC LIMIT 100

@@ -4316,6 +4316,8 @@ def ensure_multiempresa_columns_postgres():
         "ALTER TABLE IF EXISTS trabajador_documentos ADD COLUMN IF NOT EXISTS bucket TEXT;",
         "ALTER TABLE IF EXISTS trabajador_documentos ADD COLUMN IF NOT EXISTS object_path TEXT;",
         "ALTER TABLE IF EXISTS trabajador_documentos ADD COLUMN IF NOT EXISTS vencimiento TEXT;",
+        # sgsst_checklist_ds594 - estado de tres valores (CUMPLE/NO_CUMPLE/NO_APLICA)
+        "ALTER TABLE IF EXISTS sgsst_checklist_ds594 ADD COLUMN IF NOT EXISTS estado TEXT DEFAULT 'CUMPLE';",
         # empresa_documentos - bucket, object_path, mandante_id
         "ALTER TABLE IF EXISTS empresa_documentos ADD COLUMN IF NOT EXISTS bucket TEXT;",
         "ALTER TABLE IF EXISTS empresa_documentos ADD COLUMN IF NOT EXISTS object_path TEXT;",
@@ -4384,6 +4386,7 @@ def ensure_multiempresa_columns_postgres():
             categoria TEXT NOT NULL,
             item TEXT NOT NULL,
             cumple BOOLEAN DEFAULT FALSE,
+            estado TEXT DEFAULT 'CUMPLE',
             observacion TEXT,
             accion_correctiva TEXT,
             responsable TEXT,
@@ -4538,6 +4541,7 @@ def ensure_multiempresa_columns_sqlite(c):
             categoria TEXT NOT NULL,
             item TEXT NOT NULL,
             cumple BOOLEAN DEFAULT 0,
+            estado TEXT DEFAULT 'CUMPLE',
             observacion TEXT, accion_correctiva TEXT,
             responsable TEXT, plazo TEXT,
             cliente_key TEXT, created_at TEXT
@@ -5238,6 +5242,7 @@ def ensure_storage_columns_sqlite(c):
         "export_historial": {"bucket": "TEXT", "object_path": "TEXT"},
         "export_historial_mes": {"bucket": "TEXT", "object_path": "TEXT"},
         "trabajador_documentos": {"bucket": "TEXT", "object_path": "TEXT", "vencimiento": "TEXT", "cliente_key": "TEXT"},
+        "sgsst_checklist_ds594": {"estado": "TEXT DEFAULT 'CUMPLE'"},
     }
     for table, cols in targets.items():
         try:
@@ -8162,7 +8167,7 @@ def page_faenas():
 
 
 def page_trabajadores():
-    return _ops_personal.page_trabajadores(fetch_df=tenant_fetch_df, conn=conn, execute=tenant_execute, auto_backup_db=auto_backup_db, build_trabajadores_template_xlsx=build_trabajadores_template_xlsx, clean_rut=clean_rut, split_nombre_completo=split_nombre_completo, norm_col=norm_col, rut_input=rut_input, segav_cargo_labels=segav_cargo_labels, parse_date_maybe=parse_date_maybe, fetch_file_refs=tenant_fetch_file_refs, cleanup_deleted_file_refs=cleanup_deleted_file_refs, trabajador_insert_or_update=_trabajador_insert_or_update, apply_pending_trabajador_create_reset=_apply_pending_trabajador_create_reset, show_pending_trabajador_create_flash=_show_pending_trabajador_create_flash)
+    return _ops_personal.page_trabajadores(fetch_df=tenant_fetch_df, conn=conn, execute=tenant_execute, auto_backup_db=auto_backup_db, build_trabajadores_template_xlsx=build_trabajadores_template_xlsx, clean_rut=clean_rut, split_nombre_completo=split_nombre_completo, norm_col=norm_col, rut_input=rut_input, segav_cargo_labels=segav_cargo_labels, parse_date_maybe=parse_date_maybe, fetch_file_refs=tenant_fetch_file_refs, cleanup_deleted_file_refs=cleanup_deleted_file_refs, trabajador_insert_or_update=_trabajador_insert_or_update, apply_pending_trabajador_create_reset=_apply_pending_trabajador_create_reset, show_pending_trabajador_create_flash=_show_pending_trabajador_create_flash, clear_app_caches=clear_app_caches)
 
 
 def page_asignar_trabajadores():

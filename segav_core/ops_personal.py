@@ -26,6 +26,7 @@ def page_trabajadores(
     trabajador_insert_or_update,
     apply_pending_trabajador_create_reset,
     show_pending_trabajador_create_flash,
+    clear_app_caches=lambda: None,
 ):
     ui_header("Trabajadores", "Carga masiva por Excel o gestión manual. Puedes crear, editar o eliminar trabajadores. Luego asigna a faenas y adjunta documentos.")
     tab_list, tab_gestion, tab_import, tab_mass_docs = st.tabs(["📋 Listado", "🧩 Gestión", "📥 Importar Excel", "📦 Importar Docs Masivo"])
@@ -65,6 +66,7 @@ def page_trabajadores(
                         existing_set = set(fetch_df("SELECT rut FROM trabajadores")["rut"].astype(str).tolist())
 
                         rows = inserted = updated = skipped = 0
+                        skipped_detail = []
                         has_cargo = "cargo" in df.columns
                         has_cc = "centro_costo" in df.columns
                         has_email = "email" in df.columns
@@ -88,9 +90,11 @@ def page_trabajadores(
 
                                 if not rut or rut.lower() in ("nan", "none"):
                                     skipped += 1
+                                    skipped_detail.append(f"Fila {rows}: RUT vacío o inválido")
                                     continue
                                 if not nombre or nombre.lower() in ("nan", "none"):
                                     skipped += 1
+                                    skipped_detail.append(f"Fila {rows} (RUT {rut}): nombre vacío")
                                     continue
 
                                 nombres, apellidos = split_nombre_completo(nombre)
@@ -119,11 +123,18 @@ def page_trabajadores(
                                     updated += 1
                                 else:
                                     skipped += 1
+                                    skipped_detail.append(f"RUT {rut}: ya existe y 'Sobrescribir' está desactivado")
                                 existing_set.add(rut)
 
                             c.commit()
 
+                        clear_app_caches()
                         st.success(f"Importación lista. Filas leídas: {rows} | Insertados: {inserted} | Actualizados: {updated} | Omitidos: {skipped}")
+                        if skipped_detail:
+                            with st.expander(f"⚠️ Ver los {len(skipped_detail)} registro(s) omitido(s) y por qué"):
+                                for _d in skipped_detail:
+                                    st.write("• " + _d)
+                                st.caption("Sugerencia: si un RUT 'ya existe', activa 'Sobrescribir si el RUT ya existe' y vuelve a importar.")
                         auto_backup_db("import_excel")
                         st.rerun()
             except Exception as e:
@@ -178,6 +189,7 @@ def page_trabajadores(
                             existing_id=None,
                         )
                         c.commit()
+                    clear_app_caches()
                     st.session_state["_trabajador_create_reset_pending"] = True
                     st.session_state["_trabajador_create_flash"] = "Trabajador guardado."
                     auto_backup_db("trabajador")
