@@ -101,13 +101,26 @@ def install_action_feedback() -> None:
     original_warning = st.warning
     original_info = st.info
 
+    def _flash(body: Any, icon: str, fallback: Callable[..., Any]) -> Any:
+        # Muestra el aviso como toast flotante (centrado por CSS en la app).
+        # Si st.toast no estuviera disponible, cae al alert en línea de siempre.
+        try:
+            return st.toast(str(body), icon=icon)
+        except Exception:
+            try:
+                return fallback(body, icon=icon)
+            except Exception:
+                return fallback(body)
+
     def success(body: Any = None, *args: Any, **kwargs: Any) -> Any:
+        icon = kwargs.get("icon")
         if _looks_destructive(body):
-            return _call_with_default_icon(original_error, body, "🟥", *args, **kwargs)
-        return _call_with_default_icon(original_success, body, "✅", *args, **kwargs)
+            return _flash(body, icon or "🟥", original_error)
+        return _flash(body, icon or "✅", original_success)
 
     def error(body: Any = None, *args: Any, **kwargs: Any) -> Any:
-        return _call_with_default_icon(original_error, body, "❌", *args, **kwargs)
+        icon = kwargs.get("icon")
+        return _flash(body, icon or "❌", original_error)
 
     def warning(body: Any = None, *args: Any, **kwargs: Any) -> Any:
         return _call_with_default_icon(original_warning, body, "⚠️", *args, **kwargs)

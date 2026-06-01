@@ -64,6 +64,33 @@ else:
 
 install_action_feedback()
 
+# Avisos flotantes centrados: los mensajes de éxito (verde) y error/rechazo (rojo)
+# se muestran como toast en el centro de la ventana, no incrustados en el contenido.
+st.markdown(
+    """
+    <style>
+    div[data-testid="stToast"]{
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        min-width: 300px;
+        max-width: 70vw;
+        padding: 16px 26px !important;
+        font-size: 1.05rem !important;
+        font-weight: 600 !important;
+        border-radius: 14px !important;
+        box-shadow: 0 18px 55px rgba(0,0,0,0.28) !important;
+        z-index: 2147483000 !important;
+        text-align: center !important;
+    }
+    div[data-testid="stToast"]:nth-of-type(2){ transform: translate(-50%, calc(-50% + 78px)) !important; }
+    div[data-testid="stToast"]:nth-of-type(3){ transform: translate(-50%, calc(-50% + 156px)) !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 APP_NAME = "SEGAV ERP"
 DB_PATH = "app.db"
 UPLOAD_ROOT = "uploads"  # En Streamlit Community Cloud: filesystem NO es persistente garantizado entre reboots.
