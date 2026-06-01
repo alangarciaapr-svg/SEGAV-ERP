@@ -64,6 +64,11 @@ def page_sgsst(
     is_company_admin_for_active_tenant=None,
     save_company_logo_for_cliente=None,
     get_company_logo_bytes=None,
+    save_file_online=None,
+    prepare_upload_payload=None,
+    load_file_anywhere=None,
+    sha256_bytes=None,
+    safe_name=None,
 ):
     ui_header("Mi Empresa / SGSST", "Núcleo comercializable de SEGAV ERP: configurable para cualquier empresa, sin reemplazar lo ya existente.")
     ensure_sgsst_seed_data()
@@ -131,7 +136,7 @@ def page_sgsst(
         "📋 Cumplimiento y Estadísticas": ["🏢 Resumen", "📋 Cumplimiento Legal", "🧭 Autoevaluación DS 44", "📊 Estadísticas", "💰 Cotización"],
         "🏭 Configuración Empresa": ["⚙️ Config ERP", "🏭 Ficha empresa", "🧩 Catálogos"],
         "⚠️ Riesgo Operacional": ["⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER", "🧯 Inspecciones", "📋 Checklist 594", "🩹 Incidentes", "📝 DIAT/DIEP"],
-        "👷 Personal y Documentos": ["🎓 Capacitaciones", "🦺 EPP", "🧾 Auditoría", "👷 CPHS", "🔬 Vigilancia", "🏗️ Subcontratistas", "📕 RIOHS"],
+        "👷 Personal y Documentos": ["🎓 Capacitaciones", "🦺 EPP", "🧾 Auditoría", "👷 CPHS", "🔬 Vigilancia", "🏗️ Subcontratistas", "📕 RIOHS", "📎 Evidencias"],
     }
     _section_names = list(_SGSST_SECTIONS.keys())
 
@@ -255,6 +260,7 @@ def page_sgsst(
         "🧾 Auditoría", "👷 CPHS", "📝 DIAT/DIEP", "🔬 Vigilancia",
         "🏗️ Subcontratistas", "📕 RIOHS",
         "🧭 Autoevaluación DS 44",
+        "📎 Evidencias",
     ]
 
     # Create a dict mapping original index to visible tab
@@ -453,6 +459,123 @@ def page_sgsst(
             _nombres = {e["key"]: e["nombre"] for e in _elementos}
             for _fk in _summary["faltantes"]:
                 st.write("• " + _nombres.get(_fk, _fk))
+
+    # ── Tab 22: Evidencias del SGSST ───────────────────────────────────────
+    if 22 in tabs:
+      with tabs[22]:
+        from segav_core.ui import render_doc_uploader
+        _ck_ev = str(current_segav_client_key() or "")
+        _u_ev = current_user() or {}
+        _is_admin_ev = str(_u_ev.get("role") or "").upper() in ("ADMIN", "SUPERADMIN")
+        _MODULOS_EV = [
+            "MIPER / Matriz de riesgos", "Inspección", "Checklist DS 594",
+            "Incidente / Accidente", "Capacitación", "CPHS / Acta",
+            "Programa de trabajo", "Política SST", "ODI / Derecho a saber",
+            "EPP", "Vigilancia de la salud", "Otro",
+        ]
+
+        st.markdown("### 📎 Evidencias del SGSST")
+        st.caption("Adjunta fotos y documentos (actas, registros, certificados) como respaldo de cada actividad del sistema de gestión. Quedan disponibles para fiscalización.")
+
+        if not (save_file_online and prepare_upload_payload and sha256_bytes and safe_name):
+            st.warning("La carga de evidencias no está disponible en este momento.")
+        else:
+            _faenas_ev = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
+            _faena_opts = [0] + (_faenas_ev["id"].tolist() if _faenas_ev is not None and not _faenas_ev.empty else [])
+
+            def _faena_lbl(x):
+                if x == 0:
+                    return "(Sin faena / general)"
+                try:
+                    return str(_faenas_ev[_faenas_ev["id"] == x].iloc[0]["nombre"])
+                except Exception:
+                    return f"Faena {x}"
+
+            with st.expander("➕ Subir nueva evidencia", expanded=True):
+                ev1, ev2 = st.columns(2)
+                with ev1:
+                    ev_modulo = st.selectbox("Módulo / actividad", _MODULOS_EV, key=K("ev_modulo"))
+                    ev_faena = st.selectbox("Faena (opcional)", _faena_opts, format_func=_faena_lbl, key=K("ev_faena"))
+                with ev2:
+                    ev_ref = st.text_input("Referencia del registro", key=K("ev_ref"), placeholder="Ej: MIPER fila 12, Acta CPHS N°5, Inspección 05-03")
+                    ev_desc = st.text_input("Descripción", key=K("ev_desc"), placeholder="Breve descripción de la evidencia")
+                ev_files = render_doc_uploader(K("ev_files"))
+                if st.button("📎 Guardar evidencia(s)", type="primary", key=K("ev_save")):
+                    if not ev_files:
+                        st.error("Sube al menos un archivo.")
+                    else:
+                        _now = datetime.now().isoformat(timespec="seconds")
+                        _saved = 0
+                        for _f in ev_files:
+                            try:
+                                _payload = prepare_upload_payload(_f.name, _f.getvalue(), getattr(_f, "type", None) or "application/octet-stream")
+                                _folder = ["sgsst_evidencias", safe_name(ev_modulo), (str(int(ev_faena)) if ev_faena else "general")]
+                                _fp, _bkt, _obj = save_file_online(_folder, _payload["file_name"], _payload["file_bytes"], content_type=_payload["content_type"])
+                                _sha = sha256_bytes(_payload["file_bytes"])
+                                execute(
+                                    "INSERT INTO sgsst_evidencias(modulo, faena_id, referencia, descripcion, nombre_archivo, file_path, bucket, object_path, sha256, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                                    (ev_modulo, (int(ev_faena) or None), ev_ref.strip(), ev_desc.strip(), _payload["file_name"], _fp, _bkt, _obj, _sha, str(_u_ev.get("username") or ""), _now),
+                                )
+                                _saved += 1
+                            except Exception as _exc:
+                                st.error(f"No se pudo guardar {_f.name}: {_exc}")
+                        if _saved:
+                            sgsst_log("Evidencias", "Subir", f"{ev_modulo} · {_saved} archivo(s)")
+                            st.success(f"{_saved} evidencia(s) guardada(s).")
+                            st.rerun()
+
+            st.divider()
+            st.markdown("#### 📁 Evidencias registradas")
+            _fcol1, _fcol2 = st.columns(2)
+            with _fcol1:
+                _filtro_mod = st.selectbox("Filtrar por módulo", ["(Todos)"] + _MODULOS_EV, key=K("ev_filtro_mod"))
+            with _fcol2:
+                _filtro_faena = st.selectbox("Filtrar por faena", _faena_opts + [-1], format_func=lambda x: "(Todas)" if x == -1 else _faena_lbl(x), index=len(_faena_opts), key=K("ev_filtro_faena"))
+
+            _q = "SELECT id, modulo, faena_id, referencia, descripcion, nombre_archivo, file_path, bucket, object_path, created_by, created_at FROM sgsst_evidencias WHERE 1=1"
+            _params = []
+            if _filtro_mod != "(Todos)":
+                _q += " AND modulo=?"
+                _params.append(_filtro_mod)
+            if _filtro_faena != -1 and _filtro_faena != 0:
+                _q += " AND faena_id=?"
+                _params.append(int(_filtro_faena))
+            _q += " ORDER BY id DESC LIMIT 200"
+            _evs = fetch_df(_q, tuple(_params))
+
+            if _evs is None or _evs.empty:
+                st.info("Aún no hay evidencias registradas con estos filtros.")
+            else:
+                st.caption(f"{len(_evs)} evidencia(s).")
+                for _, _ev in _evs.iterrows():
+                    with st.container():
+                        cc1, cc2, cc3 = st.columns([4, 2, 2])
+                        with cc1:
+                            st.markdown(f"**{_ev['modulo']}** — {_ev.get('nombre_archivo') or 'archivo'}")
+                            _meta = []
+                            if _ev.get("referencia"):
+                                _meta.append(f"Ref: {_ev['referencia']}")
+                            if _ev.get("descripcion"):
+                                _meta.append(str(_ev["descripcion"]))
+                            if _ev.get("faena_id"):
+                                _meta.append(_faena_lbl(int(_ev["faena_id"])))
+                            _meta.append(f"{_ev.get('created_at') or ''} · {_ev.get('created_by') or ''}")
+                            st.caption(" · ".join([m for m in _meta if m]))
+                        with cc2:
+                            if load_file_anywhere:
+                                try:
+                                    _bytes = load_file_anywhere(_ev.get("file_path"), _ev.get("bucket"), _ev.get("object_path"))
+                                    st.download_button("⬇️ Descargar", data=_bytes, file_name=str(_ev.get("nombre_archivo") or "evidencia"), mime="application/octet-stream", key=K(f"ev_dl_{_ev['id']}"), use_container_width=True)
+                                except Exception:
+                                    st.caption("⚠️ Archivo no disponible")
+                        with cc3:
+                            if _is_admin_ev:
+                                if st.button("🗑️ Eliminar", key=K(f"ev_del_{_ev['id']}"), use_container_width=True):
+                                    execute("DELETE FROM sgsst_evidencias WHERE id=?", (int(_ev["id"]),))
+                                    sgsst_log("Evidencias", "Eliminar", f"id {_ev['id']}")
+                                    st.success("Evidencia eliminada.")
+                                    st.rerun()
+                        st.divider()
 
     # ── Tab 2: Estadísticas ────────────────────────────────────────────────
     if 2 in tabs:
