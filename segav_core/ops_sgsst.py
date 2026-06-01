@@ -7,6 +7,7 @@ import streamlit as st
 
 from segav_core.ui import ui_header
 from segav_core.kpi_ui import kpi_card
+from segav_core import ds44 as _ds44
 from segav_core.personal_utils import rut_input
 from segav_core.ops_estadisticas import (
     render_tab_estadisticas as _render_estadisticas_new,
@@ -127,7 +128,7 @@ def page_sgsst(
     # ── Navegación: pantalla de inicio + secciones tipo botón ──────────
     _SGSST_SECTIONS = {
         "🏠 Inicio": ["🏠 Inicio"],
-        "📋 Cumplimiento y Estadísticas": ["🏢 Resumen", "📋 Cumplimiento Legal", "📊 Estadísticas", "💰 Cotización"],
+        "📋 Cumplimiento y Estadísticas": ["🏢 Resumen", "📋 Cumplimiento Legal", "🧭 Autoevaluación DS 44", "📊 Estadísticas", "💰 Cotización"],
         "🏭 Configuración Empresa": ["⚙️ Config ERP", "🏭 Ficha empresa", "🧩 Catálogos"],
         "⚠️ Riesgo Operacional": ["⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER", "🧯 Inspecciones", "📋 Checklist 594", "🩹 Incidentes", "📝 DIAT/DIEP"],
         "👷 Personal y Documentos": ["🎓 Capacitaciones", "🦺 EPP", "🧾 Auditoría", "👷 CPHS", "🔬 Vigilancia", "🏗️ Subcontratistas", "📕 RIOHS"],
@@ -202,6 +203,7 @@ def page_sgsst(
         "📋 Checklist 594", "🩹 Incidentes", "🎓 Capacitaciones", "🦺 EPP",
         "🧾 Auditoría", "👷 CPHS", "📝 DIAT/DIEP", "🔬 Vigilancia",
         "🏗️ Subcontratistas", "📕 RIOHS",
+        "🧭 Autoevaluación DS 44",
     ]
 
     # Create a dict mapping original index to visible tab
@@ -296,6 +298,110 @@ def page_sgsst(
             _render_cumplimiento_new(st, fetch_df, fetch_value, execute, K, cliente_key=_ck_legal)
         except Exception as _exc:
             st.error(f"Error al cargar cumplimiento legal: {_exc}")
+
+    # ── Tab 21: Autoevaluación DS 44 ───────────────────────────────────────
+    if 21 in tabs:
+      with tabs[21]:
+        _ck_ds44 = str(current_segav_client_key() or "")
+        _n_trab = int(fetch_value("SELECT COUNT(*) FROM trabajadores", default=0) or 0)
+        _tier = _ds44.worker_tier(_n_trab)
+        _elementos = _ds44.required_elements(_n_trab)
+
+        st.markdown("### 🧭 Autoevaluación DS 44")
+        st.caption("Reglamento de Gestión Preventiva de los Riesgos Laborales (vigente desde feb-2025). Las exigencias se ajustan al número de trabajadores de la empresa activa.")
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("👷 Trabajadores", _n_trab)
+        c2.metric("📐 Tramo DS 44", _tier["rango"])
+        c3.metric("📋 Elementos exigibles", len(_elementos))
+        st.info(f"Tramo: **{_tier['label']}**. La autoevaluación se guarda por empresa y queda disponible para fiscalización.")
+
+        # Detección automática de presencia (best-effort) por tabla existente
+        def _has_rows(sql: str) -> bool:
+            try:
+                return int(fetch_value(sql, default=0) or 0) > 0
+            except Exception:
+                return False
+
+        _auto_detect = {
+            "iper": _has_rows("SELECT COUNT(*) FROM sgsst_miper"),
+            "pdtp": _has_rows("SELECT COUNT(*) FROM sgsst_programa_anual"),
+            "capacitaciones": _has_rows("SELECT COUNT(*) FROM sgsst_capacitaciones"),
+            "riohs": _has_rows("SELECT COUNT(*) FROM sgsst_riohs"),
+            "cphs": _has_rows("SELECT COUNT(*) FROM sgsst_cphs"),
+            "cphs_actas": _has_rows("SELECT COUNT(*) FROM sgsst_cphs_actas"),
+        }
+
+        # Cargar estados guardados
+        _saved = {}
+        try:
+            _df_saved = fetch_df("SELECT elemento, estado FROM sgsst_ds44_autoeval WHERE cliente_key=?", (_ck_ds44,))
+            if _df_saved is not None and not _df_saved.empty:
+                _saved = dict(zip(_df_saved["elemento"].astype(str), _df_saved["estado"].astype(str)))
+        except Exception:
+            _saved = {}
+
+        st.divider()
+        _estados_now = {}
+        for _el in _elementos:
+            _k = _el["key"]
+            # valor por defecto: lo guardado; si no, sugerir según auto-detección
+            if _k in _saved:
+                _default = _saved[_k]
+            elif _el["auto"]:
+                _default = "Cumple" if _auto_detect.get(_k) else "No cumple"
+            else:
+                _default = "No cumple"
+            _opts = _ds44.ESTADOS_AUTOEVAL
+            _idx = _opts.index(_default) if _default in _opts else 2
+
+            cc1, cc2 = st.columns([3, 2])
+            with cc1:
+                _badge = ""
+                if _el["auto"]:
+                    _badge = " · 🔎 detectado en el sistema" if _auto_detect.get(_k) else " · 🔎 no detectado"
+                st.markdown(f"**{_el['nombre']}**")
+                st.caption(f"{_el['norma']} — {_el['detalle']}{_badge}")
+            with cc2:
+                _estados_now[_k] = st.radio(
+                    _el["nombre"], _opts, index=_idx, horizontal=True,
+                    key=K(f"ds44_{_k}"), label_visibility="collapsed",
+                )
+
+        _summary = _ds44.summarize(_estados_now)
+        st.divider()
+        _color = "🟢" if _summary["pct"] >= 80 else ("🟡" if _summary["pct"] >= 50 else "🔴")
+        st.markdown(f"#### {_color} Avance DS 44: {_summary['pct']}%  ·  {_summary['cumple']} cumple · {_summary['en_proceso']} en proceso · {_summary['no_cumple']} no cumple · {_summary['no_aplica']} no aplica")
+        st.progress(_summary["pct"] / 100)
+
+        if st.button("💾 Guardar autoevaluación DS 44", type="primary", use_container_width=True, key=K("ds44_save")):
+            _now = datetime.now().isoformat(timespec="seconds")
+            _ok = 0
+            for _k, _estado in _estados_now.items():
+                try:
+                    if DB_BACKEND == "postgres":
+                        execute(
+                            "INSERT INTO sgsst_ds44_autoeval(cliente_key, elemento, estado, updated_at) VALUES(?,?,?,?) "
+                            "ON CONFLICT (cliente_key, elemento) DO UPDATE SET estado=EXCLUDED.estado, updated_at=EXCLUDED.updated_at",
+                            (_ck_ds44, _k, _estado, _now),
+                        )
+                    else:
+                        execute(
+                            "INSERT OR REPLACE INTO sgsst_ds44_autoeval(cliente_key, elemento, estado, updated_at) VALUES(?,?,?,?)",
+                            (_ck_ds44, _k, _estado, _now),
+                        )
+                    _ok += 1
+                except Exception:
+                    pass
+            sgsst_log("Autoevaluación DS 44", "Guardar", f"{_ok} elementos · {_summary['pct']}%")
+            st.success(f"Autoevaluación DS 44 guardada ({_ok} elementos). Avance: {_summary['pct']}%.")
+            st.rerun()
+
+        if _summary["faltantes"]:
+            st.markdown("##### ⚠️ Lo que te falta para cumplir")
+            _nombres = {e["key"]: e["nombre"] for e in _elementos}
+            for _fk in _summary["faltantes"]:
+                st.write("• " + _nombres.get(_fk, _fk))
 
     # ── Tab 2: Estadísticas ────────────────────────────────────────────────
     if 2 in tabs:

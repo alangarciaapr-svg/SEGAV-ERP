@@ -4394,6 +4394,14 @@ def ensure_multiempresa_columns_postgres():
             cliente_key TEXT,
             created_at TEXT
         );""",
+        """CREATE TABLE IF NOT EXISTS sgsst_ds44_autoeval (
+            cliente_key TEXT NOT NULL,
+            elemento TEXT NOT NULL,
+            estado TEXT DEFAULT 'No cumple',
+            nota TEXT,
+            updated_at TEXT,
+            PRIMARY KEY (cliente_key, elemento)
+        );""",
     ]
     for s in p2_stmts:
         try:
@@ -4550,6 +4558,14 @@ def ensure_multiempresa_columns_sqlite(c):
         pass
     # ── P3: Legal compliance tables (SQLite) ──────────────────────────────
     p3_sqlite = [
+        """CREATE TABLE IF NOT EXISTS sgsst_ds44_autoeval (
+            cliente_key TEXT NOT NULL,
+            elemento TEXT NOT NULL,
+            estado TEXT DEFAULT 'No cumple',
+            nota TEXT,
+            updated_at TEXT,
+            PRIMARY KEY (cliente_key, elemento)
+        );""",
         """CREATE TABLE IF NOT EXISTS sgsst_cphs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             fecha_eleccion TEXT, vigencia_hasta TEXT,
