@@ -1000,6 +1000,66 @@ def load_file_anywhere(file_path: str | None, bucket: str | None, object_path: s
     raise FileNotFoundError("Archivo no disponible (ni Storage ni disco local).")
 
 
+def reconcile_local_files_to_storage(*, limit: int = 300):
+    """Sube a Supabase Storage los documentos que quedaron solo en local.
+
+    Recorre las tablas de documentos buscando filas sin referencia de Storage
+    (bucket/object_path vacíos) cuyo archivo físico aún exista en disco, los
+    sube y actualiza la fila para que queden '✅ En línea'. Es idempotente:
+    si no hay nada pendiente, no hace trabajo. Solo procesa el tenant activo.
+
+    Devuelve un dict: {ran, recovered, missing, errors, missing_names}.
+    """
+    summary = {"ran": False, "recovered": 0, "missing": 0, "errors": 0, "missing_names": []}
+    if not storage_admin_enabled():
+        return summary
+    import mimetypes
+    tkey = current_tenant_key()
+    if not tkey:
+        return summary
+    summary["ran"] = True
+    for table in ("empresa_documentos", "faena_empresa_documentos", "trabajador_documentos"):
+        try:
+            rows = fetch_df_uncached(
+                f"SELECT id, nombre_archivo, file_path FROM {table} "
+                "WHERE (bucket IS NULL OR bucket='' OR object_path IS NULL OR object_path='') "
+                "AND file_path IS NOT NULL AND file_path<>'' "
+                "AND (cliente_key=? OR cliente_key='' OR cliente_key IS NULL) "
+                f"LIMIT {int(limit)}",
+                (tkey,),
+            )
+        except Exception as exc:
+            _record_soft_error(f"reconcile.query.{table}", exc)
+            continue
+        if rows is None or rows.empty:
+            continue
+        for _, r in rows.iterrows():
+            rid = int(r["id"])
+            fpath = str(r.get("file_path") or "").strip()
+            fname = str(r.get("nombre_archivo") or (os.path.basename(fpath) if fpath else "") or "archivo")
+            if not fpath or not os.path.exists(fpath):
+                summary["missing"] += 1
+                if len(summary["missing_names"]) < 50:
+                    summary["missing_names"].append(fname)
+                continue
+            try:
+                with open(fpath, "rb") as fh:
+                    data = fh.read()
+                cands = _storage_path_candidates_from_record(fpath, None)
+                object_path = cands[0] if cands else _storage_object_path(["clientes", storage_safe_segment(tkey)], fname)
+                ctype = mimetypes.guess_type(fname)[0] or "application/octet-stream"
+                storage_upload(object_path, data, content_type=ctype, upsert=True)
+                execute(
+                    f"UPDATE {table} SET bucket=?, object_path=? WHERE id=?",
+                    (STORAGE_BUCKET, object_path, rid),
+                )
+                summary["recovered"] += 1
+            except Exception as exc:
+                summary["errors"] += 1
+                _record_soft_error(f"reconcile.upload.{table}", exc)
+    return summary
+
+
 
 ESTADOS_FAENA = ["ACTIVA", "TERMINADA"]
 DOC_TIPO_LABELS = {
@@ -6993,6 +7053,38 @@ def page_backup_restore():
                     st.success(f"Subida OK: {test_path}")
                 except Exception as e:
                     st.error(f"Falló prueba: {e}")
+
+            st.divider()
+            st.markdown("#### ☁️ Migrar documentos locales a la nube")
+            st.caption(
+                "Sube a Supabase los documentos que quedaron marcados '💾 Local'. "
+                "Nota: en Streamlit Cloud el disco se borra al reiniciar, así que solo se "
+                "pueden recuperar los archivos cuyo original siga en disco; el resto deberá "
+                "volver a cargarse manualmente."
+            )
+            if st.button("☁️ Subir ahora los documentos locales pendientes", type="primary", use_container_width=True, key="btn_reconcile_local"):
+                if not storage_admin_enabled():
+                    st.error("El Storage no está en modo administrador. Revisa SUPABASE_SERVICE_ROLE_KEY.")
+                else:
+                    with st.spinner("Subiendo documentos locales a la nube…"):
+                        res = reconcile_local_files_to_storage()
+                    if res.get("recovered"):
+                        st.success(f"✅ {res['recovered']} documento(s) subido(s) a la nube. Ahora aparecen '✅ En línea'.")
+                    if res.get("errors"):
+                        st.warning(f"⚠️ {res['errors']} documento(s) dieron error al subir. Revisa el diagnóstico de Storage.")
+                    if res.get("missing"):
+                        st.warning(
+                            f"⚠️ {res['missing']} documento(s) ya no están en disco (se perdieron en un reinicio) "
+                            "y deben volver a cargarse manualmente."
+                        )
+                        with st.expander("Ver documentos que hay que volver a cargar"):
+                            for _nm in res.get("missing_names", []):
+                                st.write(f"• {_nm}")
+                            if res["missing"] > len(res.get("missing_names", [])):
+                                st.caption(f"…y {res['missing'] - len(res.get('missing_names', []))} más.")
+                    if not any((res.get("recovered"), res.get("errors"), res.get("missing"))):
+                        st.info("No hay documentos locales pendientes. Todo está en la nube. ✅")
+
         st.markdown("### 2) Restaurar Backup completo")
         up = st.file_uploader("Sube backup ZIP", type=["zip"], key="up_backup_zip")
         if st.button("Restaurar ahora", type="primary", use_container_width=True):
@@ -7981,6 +8073,19 @@ try:
     ensure_active_tenant_scaffold_once(DB_BACKEND, PG_DSN_FINGERPRINT, current_tenant_key())
 except Exception as exc:
     _record_soft_error("ensure_active_tenant_scaffold_once", exc)
+
+# Migración automática: si el Storage está en línea, sube los documentos que
+# hayan quedado solo en local. Se ejecuta una vez por sesión y por tenant; si
+# no hay nada pendiente no hace trabajo perceptible.
+try:
+    _recon_flag = f"_reconcile_done_{current_tenant_key()}"
+    if storage_admin_enabled() and not st.session_state.get(_recon_flag):
+        _recon = reconcile_local_files_to_storage()
+        st.session_state[_recon_flag] = True
+        if _recon.get("recovered"):
+            st.toast(f"☁️ {_recon['recovered']} documento(s) local(es) se subieron a la nube.", icon="✅")
+except Exception as exc:
+    _record_soft_error("reconcile_local_files_to_storage.auto", exc)
 
 
 # ----------------------------
