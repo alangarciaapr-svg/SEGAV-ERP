@@ -29,9 +29,10 @@ def page_trabajadores(
     clear_app_caches=lambda: None,
     fetch_df_all=None,
     current_tenant_key=None,
+    fetch_df_fresh=None,
 ):
     ui_header("Trabajadores", "Carga masiva por Excel o gestión manual. Puedes crear, editar o eliminar trabajadores. Luego asigna a faenas y adjunta documentos.")
-    tab_list, tab_gestion, tab_import, tab_mass_docs = st.tabs(["📋 Listado", "🧩 Gestión", "📥 Importar Excel", "📦 Importar Docs Masivo"])
+    tab_list, tab_gestion, tab_import = st.tabs(["📋 Listado", "🧩 Gestión", "📥 Importar Excel"])
 
     # -------------------------
     # Tab 1: Importación Excel
@@ -330,7 +331,8 @@ def page_trabajadores(
     # Tab 3: Listado
     # -------------------------
     with tab_list:
-        df = fetch_df(
+        _list_fetch = fetch_df_fresh if callable(fetch_df_fresh) else fetch_df
+        df = _list_fetch(
             """
             SELECT
                 t.id,
@@ -462,89 +464,6 @@ def page_trabajadores(
             except Exception as _e:
                 st.caption(f"⚠️ No se pudo generar Excel: {_e}")
 
-    # ── Tab: Importar documentos masivo ───────────────────────────────────
-    with tab_mass_docs:
-        st.markdown("### 📦 Importación masiva de documentos")
-        st.caption(
-            "Sube un archivo ZIP con carpetas nombradas por **RUT** del trabajador. "
-            "Dentro de cada carpeta, los archivos se asignarán como documentos del trabajador correspondiente."
-        )
-        st.markdown("""
-**Estructura esperada del ZIP:**
-```
-documentos/
-├── 12345678-9/
-│   ├── contrato.pdf
-│   ├── ODI.pdf
-│   └── examen.pdf
-├── 98765432-1/
-│   ├── contrato.pdf
-│   └── certificado.pdf
-```
-        """)
-
-        up_zip = st.file_uploader("Sube archivo ZIP", type=["zip"], key="mass_docs_zip")
-        if up_zip is not None and st.button("📥 Procesar ZIP", type="primary", use_container_width=True, key="mass_docs_process"):
-            import zipfile, io, os as _os
-            try:
-                zf = zipfile.ZipFile(io.BytesIO(up_zip.getvalue()))
-                names = zf.namelist()
-
-                # Group files by RUT folder
-                rut_files = {}
-                for name in names:
-                    parts = name.replace("\\", "/").strip("/").split("/")
-                    if len(parts) >= 2 and not name.endswith("/"):
-                        rut_candidate = clean_rut(parts[-2]) if len(parts[-2]) > 5 else None
-                        if rut_candidate:
-                            rut_files.setdefault(rut_candidate, []).append(name)
-
-                if not rut_files:
-                    st.error("No se encontraron carpetas con RUT válidos en el ZIP.")
-                else:
-                    # Match with existing workers
-                    existing = fetch_df("SELECT id, rut FROM trabajadores")
-                    rut_to_id = {}
-                    if existing is not None and not existing.empty:
-                        for _, r in existing.iterrows():
-                            rut_to_id[clean_rut(str(r["rut"]))] = int(r["id"])
-
-                    imported = skipped = not_found = 0
-                    for rut, files in rut_files.items():
-                        tid = rut_to_id.get(rut)
-                        if tid is None:
-                            not_found += len(files)
-                            continue
-                        for fname in files:
-                            try:
-                                file_bytes = zf.read(fname)
-                                basename = _os.path.basename(fname)
-                                doc_tipo = _os.path.splitext(basename)[0].upper().replace(" ", "_")
-                                # Save to disk
-                                save_dir = _os.path.join("uploads", "trabajadores", rut)
-                                _os.makedirs(save_dir, exist_ok=True)
-                                save_path = _os.path.join(save_dir, basename)
-                                with open(save_path, "wb") as fp:
-                                    fp.write(file_bytes)
-                                from hashlib import sha256
-                                sha = sha256(file_bytes).hexdigest()
-                                execute(
-                                    "INSERT INTO trabajador_documentos(trabajador_id, doc_tipo, nombre_archivo, file_path, sha256, created_at) VALUES(?,?,?,?,?,?)",
-                                    (tid, doc_tipo, basename, save_path, sha,
-                                     __import__('datetime').datetime.now().isoformat(timespec='seconds')),
-                                )
-                                imported += 1
-                            except Exception:
-                                skipped += 1
-
-                    auto_backup_db("mass_docs_import")
-                    st.success(f"✅ Importación completa: {imported} documentos importados, {skipped} omitidos, {not_found} sin RUT coincidente.")
-                    if not_found:
-                        missing_ruts = [r for r in rut_files if r not in rut_to_id]
-                        st.warning(f"RUTs no encontrados: {', '.join(missing_ruts[:10])}")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Error al procesar ZIP: {e}")
 
 
 def page_asignar_trabajadores(
