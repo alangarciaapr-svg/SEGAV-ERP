@@ -55,9 +55,11 @@ def page_trabajadores(
 
                 colmap = {c: norm_col(str(c)) for c in raw.columns}
                 df = raw.rename(columns=colmap).copy()
+                df = df.dropna(how="all").reset_index(drop=True)
 
-                st.caption("Vista previa (primeras 10 filas)")
-                st.dataframe(df.head(10), use_container_width=True)
+                st.success(f"Se leyeron **{len(df)}** fila(s) del Excel (hoja '{sheet}').")
+                st.caption("Vista previa — todas las filas que se importarán:")
+                st.dataframe(df, use_container_width=True, height=min(600, 80 + 35 * max(1, len(df))))
 
                 if "rut" not in df.columns or "nombre" not in df.columns:
                     st.error("El Excel debe tener columnas 'RUT' y 'NOMBRE'.")
@@ -148,7 +150,9 @@ def page_trabajadores(
                                     skipped_detail.append(f"Fila {rows} (RUT {rut}): error al guardar — {type(_row_exc).__name__}")
 
                         clear_app_caches()
-                        st.success(f"Importación lista. Filas leídas: {rows} | Insertados: {inserted} | Actualizados: {updated} | Omitidos: {skipped}")
+                        st.success(f"Importación lista. Filas leídas: {rows} | ✅ Insertados (nuevos): {inserted} | 🔁 Actualizados (RUT ya existía): {updated} | ⏭️ Omitidos: {skipped}")
+                        if updated and not inserted:
+                            st.warning(f"Ojo: las {updated} fila(s) tenían RUTs que YA existían en esta empresa, así que se actualizaron y NO se sumaron trabajadores nuevos. Si esperabas trabajadores nuevos, revisa que los RUTs del Excel no estén ya cargados.")
                         if skipped_detail:
                             with st.expander(f"⚠️ Ver los {len(skipped_detail)} registro(s) omitido(s) y por qué"):
                                 for _d in skipped_detail:
@@ -665,9 +669,11 @@ def page_asignar_trabajadores(
 
                 colmap = {c: norm_col(str(c)) for c in raw.columns}
                 df = raw.rename(columns=colmap).copy()
+                df = df.dropna(how="all").reset_index(drop=True)
 
-                st.caption("Vista previa (primeras 10 filas)")
-                st.dataframe(df.head(10), use_container_width=True)
+                st.success(f"Se leyeron **{len(df)}** fila(s) del Excel (hoja '{sheet}').")
+                st.caption("Vista previa — todas las filas que se importarán y asignarán:")
+                st.dataframe(df, use_container_width=True, height=min(600, 80 + 35 * max(1, len(df))))
 
                 if "rut" not in df.columns or "nombre" not in df.columns:
                     st.error("El Excel debe tener columnas 'RUT' y 'NOMBRE'.")
