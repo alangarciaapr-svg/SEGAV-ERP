@@ -28,6 +28,7 @@ def page_trabajadores(
     show_pending_trabajador_create_flash,
     clear_app_caches=lambda: None,
     fetch_df_all=None,
+    current_tenant_key=None,
 ):
     ui_header("Trabajadores", "Carga masiva por Excel o gestión manual. Puedes crear, editar o eliminar trabajadores. Luego asigna a faenas y adjunta documentos.")
     tab_list, tab_gestion, tab_import, tab_mass_docs = st.tabs(["📋 Listado", "🧩 Gestión", "📥 Importar Excel", "📦 Importar Docs Masivo"])
@@ -380,22 +381,27 @@ def page_trabajadores(
         # ── Diagnóstico (ayuda a detectar trabajadores que no aparecen) ──────
         with st.expander("🔧 Diagnóstico de conteo"):
             try:
-                _total_emp = int(fetch_value("SELECT COUNT(*) FROM trabajadores", default=0) or 0)
-                st.write(f"En esta empresa (cuenta activa): **{_total_emp}** trabajadores.")
+                st.write(f"En esta empresa (cuenta activa): **{len(df)}** trabajadores visibles en el listado.")
                 _df_all = fetch_df_all("SELECT COALESCE(cliente_key,'(vacío)') AS empresa, COUNT(*) AS n FROM trabajadores GROUP BY COALESCE(cliente_key,'(vacío)') ORDER BY n DESC") if fetch_df_all else None
                 if _df_all is not None and not _df_all.empty:
-                    st.caption("Trabajadores por empresa (clave) en toda la base:")
+                    st.caption("Trabajadores por empresa (clave cliente_key) en TODA la base:")
                     st.dataframe(_df_all, use_container_width=True, hide_index=True)
+                    _total_global = int(_df_all["n"].sum())
+                    st.caption(f"Total global (todas las empresas): {_total_global}")
                     _huerfanos = int(_df_all[_df_all["empresa"] == "(vacío)"]["n"].sum()) if "(vacío)" in _df_all["empresa"].values else 0
                     if _huerfanos:
-                        st.warning(f"Hay {_huerfanos} trabajador(es) SIN empresa asignada (cliente_key vacío). No aparecen en el listado. Pulsa el botón para asignarlos a esta empresa.")
+                        st.warning(f"Hay {_huerfanos} trabajador(es) SIN empresa asignada (cliente_key vacío). No aparecen en el listado porque el listado filtra por tu empresa. Pulsa el botón para asignarlos a esta empresa.")
                         if st.button("🔗 Asignar trabajadores sin empresa a esta cuenta", key="fix_huerfanos_trab"):
-                            from_key = ""
-                            _ck = current_tenant_key()
-                            execute("UPDATE trabajadores SET cliente_key=? WHERE COALESCE(cliente_key,'')=''", (_ck,))
-                            clear_app_caches()
-                            st.success("Trabajadores reasignados a esta empresa.")
-                            st.rerun()
+                            _ck_fix = str(current_tenant_key() if callable(current_tenant_key) else (current_tenant_key or "")).strip()
+                            if not _ck_fix:
+                                st.error("No se pudo determinar la empresa activa. Recarga la página e inténtalo de nuevo.")
+                            else:
+                                execute("UPDATE trabajadores SET cliente_key=? WHERE COALESCE(cliente_key,'')=''", (_ck_fix,))
+                                clear_app_caches()
+                                st.success("Trabajadores reasignados a esta empresa.")
+                                st.rerun()
+                else:
+                    st.caption("No se pudo leer el desglose por empresa.")
             except Exception as _e:
                 st.caption(f"No se pudo generar el diagnóstico: {_e}")
 
