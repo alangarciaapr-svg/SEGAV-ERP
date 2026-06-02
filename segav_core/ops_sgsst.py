@@ -9,6 +9,7 @@ from segav_core.ui import ui_header
 from segav_core.kpi_ui import kpi_card
 from segav_core import ds44 as _ds44
 from segav_core import miper as _miper
+from segav_core import alertas as _alertas
 from segav_core.personal_utils import rut_input
 from segav_core.ops_estadisticas import (
     render_tab_estadisticas as _render_estadisticas_new,
@@ -205,6 +206,51 @@ def page_sgsst(
                 st.rerun()
         else:
             st.success("✅ Ficha de empresa completa.")
+
+        # ── Alertas de vencimiento ─────────────────────────────────────────
+        st.divider()
+        st.markdown("#### 🔔 Alertas de vencimiento")
+        _alert_items = []
+        # Exámenes ocupacionales de trabajadores
+        try:
+            _ex = fetch_df("SELECT apellidos, nombres, vigencia_examen FROM trabajadores WHERE vigencia_examen IS NOT NULL AND vigencia_examen<>''")
+            if _ex is not None and not _ex.empty:
+                for _, _r in _ex.iterrows():
+                    _st = _alertas.estado_vencimiento(_r.get("vigencia_examen"))
+                    if _st["estado"] in ("vencido", "por_vencer"):
+                        _alert_items.append({"tipo": "Examen ocupacional", "ref": f"{_r.get('apellidos','')} {_r.get('nombres','')}", **_st})
+        except Exception:
+            pass
+        # EPP por vencer
+        try:
+            _epp = fetch_df("SELECT epp_tipo, fecha_vencimiento FROM sgsst_epp_entrega WHERE fecha_vencimiento IS NOT NULL AND fecha_vencimiento<>''")
+            if _epp is not None and not _epp.empty:
+                for _, _r in _epp.iterrows():
+                    _st = _alertas.estado_vencimiento(_r.get("fecha_vencimiento"))
+                    if _st["estado"] in ("vencido", "por_vencer"):
+                        _alert_items.append({"tipo": "EPP", "ref": str(_r.get("epp_tipo") or ""), **_st})
+        except Exception:
+            pass
+        # Revisión anual de la MIPER (última actualización)
+        try:
+            _mfecha = fetch_value("SELECT MAX(COALESCE(updated_at, created_at)) FROM sgsst_miper", default=None)
+            if _mfecha:
+                _st = _alertas.revision_anual(_mfecha)
+                if _st["estado"] in ("vencido", "por_vencer"):
+                    _alert_items.append({"tipo": "Revisión anual MIPER", "ref": "Matriz de riesgos", **_st})
+        except Exception:
+            pass
+
+        _res = _alertas.resumen_alertas(_alert_items)
+        if _res["atencion"] == 0:
+            st.success("✅ Sin vencimientos próximos ni vencidos.")
+        else:
+            _ac1, _ac2 = st.columns(2)
+            _ac1.metric("🔴 Vencidos", _res["vencido"])
+            _ac2.metric("🟡 Por vencer (30 días)", _res["por_vencer"])
+            _alert_items.sort(key=lambda x: (x.get("dias") if x.get("dias") is not None else 9999))
+            for _a in _alert_items[:30]:
+                st.write(f"{_a['color']} **{_a['tipo']}** — {_a['ref']} · {_a['etiqueta']}")
 
         st.divider()
         st.markdown("#### 🏠 Accesos directos")
@@ -966,6 +1012,40 @@ def page_sgsst(
                         sgsst_log("MIPER", "Eliminar", f"#{_sel_mid}")
                         st.success("Riesgo eliminado.")
                         st.rerun()
+
+        # ── Mapa de riesgos (DS 44 art. 62) ────────────────────────────────
+        st.divider()
+        st.markdown("#### 🗺️ Mapa de riesgos")
+        st.caption("Vista de criticidad de los riesgos de la MIPER por faena y tipo, según niveles VEP de la Guía ISP. Exigido por el DS 44 junto con la matriz.")
+        _map_df = fetch_df("""
+            SELECT COALESCE(f.nombre,'(Empresa)') AS faena, COALESCE(m.tipo_riesgo,'Sin tipo') AS tipo,
+                   m.nivel_riesgo AS vep, COALESCE(m.estado,'PENDIENTE') AS estado
+            FROM sgsst_miper m LEFT JOIN faenas f ON f.id=m.faena_id
+        """)
+        if _map_df is None or _map_df.empty:
+            st.info("Agrega riesgos a la MIPER para generar el mapa de riesgos.")
+        else:
+            def _banda(v):
+                return _miper.nivel(int(v or 1))["nivel"]
+            _map_df["nivel"] = _map_df["vep"].apply(_banda)
+            # Conteo por faena × nivel
+            _orden = ["Intolerable", "Importante", "Moderado", "Tolerable", "Trivial"]
+            _piv = _map_df.pivot_table(index="faena", columns="nivel", values="vep", aggfunc="count", fill_value=0)
+            for _col in _orden:
+                if _col not in _piv.columns:
+                    _piv[_col] = 0
+            _piv = _piv[_orden]
+            _emoji = {"Intolerable": "🔴", "Importante": "🟠", "Moderado": "🟡", "Tolerable": "🟢", "Trivial": "🟢"}
+            _piv.columns = [f"{_emoji[c]} {c}" for c in _piv.columns]
+            st.dataframe(_piv, use_container_width=True)
+            # Resumen global
+            _crit = int((_map_df["nivel"].isin(["Intolerable", "Importante"])).sum())
+            _abiertos_crit = int(((_map_df["nivel"].isin(["Intolerable", "Importante"])) & (_map_df["estado"] != "CERRADO")).sum())
+            _mm1, _mm2, _mm3 = st.columns(3)
+            _mm1.metric("Riesgos totales", len(_map_df))
+            _mm2.metric("🔴 Críticos (Int.+Imp.)", _crit)
+            _mm3.metric("⚠️ Críticos sin cerrar", _abiertos_crit)
+            st.caption("Tip: el detalle de cada riesgo y su evidencia está en la tabla y en la pestaña 📎 Evidencias.")
 
     if 10 in tabs:
       with tabs[10]:
