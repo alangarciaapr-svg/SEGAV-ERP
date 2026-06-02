@@ -10,6 +10,7 @@ from segav_core.kpi_ui import kpi_card
 from segav_core import ds44 as _ds44
 from segav_core import miper as _miper
 from segav_core import alertas as _alertas
+from segav_core import expediente as _expediente
 from segav_core.personal_utils import rut_input
 from segav_core.ops_estadisticas import (
     render_tab_estadisticas as _render_estadisticas_new,
@@ -445,6 +446,57 @@ def page_sgsst(
             {"Bloque": "Plantilla activa", "Valor": cfg.get("template_actual", "GENERAL")},
         ])
         st.dataframe(dash_rows, use_container_width=True, hide_index=True)
+
+        # ── Expediente de fiscalización (PDF) ──────────────────────────────
+        st.divider()
+        st.markdown("### 📑 Expediente de fiscalización")
+        st.caption("Genera un PDF con la ficha de empresa, autoevaluación DS 44, MIPER, alertas e inventario de evidencias. Listo para entregar a la DT, Mutual, MINSAL o empresa mandante.")
+        if st.button("📑 Generar expediente PDF", type="primary", key=K("gen_expediente")):
+            with st.spinner("Generando expediente…"):
+                try:
+                    _ck = str(current_segav_client_key() or "")
+                    _n = int(fetch_value("SELECT COUNT(*) FROM trabajadores", default=0) or 0)
+                    _tramo = _ds44.worker_tier(_n)
+                    _elem = _ds44.required_elements(_n)
+                    # Autoevaluación guardada
+                    _saved = {}
+                    try:
+                        _dfa = fetch_df("SELECT elemento, estado FROM sgsst_ds44_autoeval WHERE cliente_key=?", (_ck,))
+                        if _dfa is not None and not _dfa.empty:
+                            _saved = dict(zip(_dfa["elemento"].astype(str), _dfa["estado"].astype(str)))
+                    except Exception:
+                        pass
+                    _autoeval = [{"nombre": e["nombre"], "norma": e["norma"], "estado": _saved.get(e["key"], "No cumple")} for e in _elem]
+                    # MIPER
+                    _miper_rows = []
+                    _dfm = fetch_df("SELECT COALESCE(f.nombre,'(Empresa)') AS faena, COALESCE(m.tipo_riesgo,'') AS tipo, m.peligro, m.riesgo, m.nivel_riesgo AS vep, COALESCE(m.estado,'PENDIENTE') AS estado FROM sgsst_miper m LEFT JOIN faenas f ON f.id=m.faena_id ORDER BY m.nivel_riesgo DESC")
+                    if _dfm is not None and not _dfm.empty:
+                        for _, _r in _dfm.iterrows():
+                            _miper_rows.append({"faena": _r["faena"], "tipo": _r["tipo"], "peligro": _r["peligro"], "riesgo": _r["riesgo"], "nivel": _miper.nivel(int(_r["vep"] or 1))["nivel"], "estado": _r["estado"]})
+                    # Alertas
+                    _al_rows = []
+                    _dfx = fetch_df("SELECT apellidos, nombres, vigencia_examen FROM trabajadores WHERE vigencia_examen IS NOT NULL AND vigencia_examen<>''")
+                    if _dfx is not None and not _dfx.empty:
+                        for _, _r in _dfx.iterrows():
+                            _stx = _alertas.estado_vencimiento(_r.get("vigencia_examen"))
+                            if _stx["estado"] in ("vencido", "por_vencer"):
+                                _al_rows.append({"tipo": "Examen ocupacional", "ref": f"{_r.get('apellidos','')} {_r.get('nombres','')}", "etiqueta": _stx["etiqueta"]})
+                    # Evidencias
+                    _ev_rows = []
+                    _dfe = fetch_df("SELECT modulo, referencia, nombre_archivo, created_at FROM sgsst_evidencias ORDER BY id DESC LIMIT 500")
+                    if _dfe is not None and not _dfe.empty:
+                        _ev_rows = _dfe.to_dict("records")
+                    _pdf = _expediente.build_expediente_pdf(
+                        empresa=company, tramo=_tramo, autoeval=_autoeval,
+                        miper=_miper_rows, alertas=_al_rows, evidencias=_ev_rows,
+                        generado_por=str((current_user() or {}).get("username") or ""),
+                    )
+                    sgsst_log("Expediente", "Generar", f"{len(_miper_rows)} riesgos · {len(_ev_rows)} evidencias")
+                    _fn = f"Expediente_SGSST_{(company.get('razon_social') or 'empresa')[:30].replace(' ','_')}_{datetime.now().strftime('%Y%m%d')}.pdf"
+                    st.download_button("⬇️ Descargar expediente PDF", data=_pdf, file_name=_fn, mime="application/pdf", use_container_width=True, key=K("dl_expediente"))
+                    st.success("Expediente generado. Pulsa el botón para descargarlo.")
+                except Exception as _exc:
+                    st.error(f"No se pudo generar el expediente: {_exc}")
 
     # ── Tab 1: Cumplimiento Legal ──────────────────────────────────────────
     if 1 in tabs:
