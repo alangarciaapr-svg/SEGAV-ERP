@@ -3357,6 +3357,17 @@ def ensure_sgsst_seed_data():
     try:
         tenant_key = current_tenant_key()
         if int(fetch_value("SELECT COUNT(*) FROM sgsst_empresa WHERE COALESCE(cliente_key,'')=?", (tenant_key,), default=0) or 0) == 0:
+            # Tomar nombre/RUT reales del cliente activo (no "Empresa demo")
+            _seed_nombre, _seed_rut = "", ""
+            try:
+                _cli = fetch_df("SELECT cliente_nombre, rut FROM segav_erp_clientes WHERE cliente_key=?", (tenant_key,))
+                if _cli is not None and not _cli.empty:
+                    _seed_nombre = str(_cli.iloc[0].get("cliente_nombre") or "").strip()
+                    _seed_rut = str(_cli.iloc[0].get("rut") or "").strip()
+            except Exception:
+                pass
+            if not _seed_nombre:
+                _seed_nombre = segav_erp_value('cliente_actual', 'Empresa demo') if 'segav_erp_value' in globals() else 'Empresa demo'
             execute(
                 """
                 INSERT INTO sgsst_empresa(cliente_key, razon_social, rut, direccion, actividad, organismo_admin, representantes, prevencionista, canal_denuncias, dotacion_total, politica_version, politica_fecha, observaciones, created_at, updated_at)
@@ -3364,8 +3375,8 @@ def ensure_sgsst_seed_data():
                 """,
                 (
                     tenant_key,
-                    segav_erp_value('cliente_actual', 'Empresa demo') if 'segav_erp_value' in globals() else 'Empresa demo',
-                    '', '',
+                    _seed_nombre,
+                    _seed_rut, '',
                     segav_erp_value('erp_vertical', 'General') if 'segav_erp_value' in globals() else 'General',
                     'Organismo administrador', '', '', '', 0, '1.0', date.today().isoformat(),
                     'Base inicial de SEGAV ERP / SGSST configurable para cualquier empresa.',
@@ -4404,6 +4415,14 @@ def ensure_multiempresa_columns_postgres():
             execute(stmt)
         except Exception as _exc:
             _record_soft_error("rut_unique_migration_pg", _exc)
+
+    # ── Limpieza: fila demo de sgsst_empresa sin empresa (cliente_key vacío) ─
+    # Versiones antiguas sembraban "Empresa demo" sin cliente_key, lo que hacía
+    # que el SGSST mostrara ese nombre en vez de la empresa real.
+    try:
+        execute("DELETE FROM sgsst_empresa WHERE COALESCE(cliente_key,'')='' AND LOWER(COALESCE(razon_social,''))='empresa demo';")
+    except Exception as _exc:
+        _record_soft_error("clean_demo_empresa_pg", _exc)
     # ── P2: New columns and tables ────────────────────────────────────────
     p2_stmts = [
         # Roles por empresa

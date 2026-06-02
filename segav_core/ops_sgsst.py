@@ -86,6 +86,40 @@ def page_sgsst(
     company_df = fetch_df("SELECT * FROM sgsst_empresa ORDER BY id LIMIT 1")
     company = company_df.iloc[0].to_dict() if not company_df.empty else {}
 
+    # ── Sincronizar la ficha con la empresa REAL de la cuenta activa ───────
+    # La ficha pudo sembrarse con "Empresa demo" o sin RUT; si es así, la
+    # completamos con el nombre/RUT reales del cliente activo (segav_erp_clientes).
+    try:
+        _ck_active = str(current_segav_client_key() or "").strip()
+        _clientes = segav_clientes_df()
+        _real_nombre, _real_rut = "", ""
+        if _clientes is not None and not _clientes.empty and _ck_active:
+            _row_cli = _clientes[_clientes["cliente_key"].astype(str) == _ck_active]
+            if not _row_cli.empty:
+                _real_nombre = str(_row_cli.iloc[0].get("cliente_nombre") or "").strip()
+                _real_rut = str(_row_cli.iloc[0].get("rut") or "").strip()
+        _cur_nombre = str(company.get("razon_social") or "").strip()
+        _needs_fix_nombre = (not _cur_nombre) or _cur_nombre.lower() in ("empresa demo", "empresa actual", "empresa sin nombre definido")
+        _cur_rut = str(company.get("rut") or "").strip()
+        if _real_nombre and (_needs_fix_nombre or (_real_rut and not _cur_rut)):
+            _new_nombre = _real_nombre if _needs_fix_nombre else _cur_nombre
+            _new_rut = _real_rut if (_real_rut and not _cur_rut) else _cur_rut
+            if company.get("id"):
+                execute(
+                    "UPDATE sgsst_empresa SET razon_social=?, rut=?, updated_at=? WHERE id=?",
+                    (_new_nombre, _new_rut, datetime.now().isoformat(timespec="seconds"), int(company.get("id"))),
+                )
+            else:
+                execute(
+                    "INSERT INTO sgsst_empresa(razon_social, rut, created_at, updated_at) VALUES(?,?,?,?)",
+                    (_new_nombre, _new_rut, datetime.now().isoformat(timespec="seconds"), datetime.now().isoformat(timespec="seconds")),
+                )
+            # recargar company con el dato corregido
+            company_df = fetch_df("SELECT * FROM sgsst_empresa ORDER BY id LIMIT 1")
+            company = company_df.iloc[0].to_dict() if not company_df.empty else {}
+    except Exception as _sync_exc:
+        pass
+
     def _render_evidencias_inline(modulo: str, referencia: str, faena_id=None, key_suffix: str = ""):
         """Muestra y permite adjuntar evidencias a un registro específico del SGSST.
 
