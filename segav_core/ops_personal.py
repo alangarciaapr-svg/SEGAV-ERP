@@ -38,6 +38,30 @@ def page_trabajadores(
     # Tab 1: Importación Excel
     # -------------------------
     with tab_import:
+        # Resultado persistente de la última importación (no se borra con el rerun)
+        _imp_res = st.session_state.get("_trab_import_result")
+        if _imp_res:
+            st.success(
+                f"Última importación — Filas leídas: {_imp_res['rows']} | "
+                f"✅ Insertados (nuevos): {_imp_res['inserted']} | "
+                f"🔁 Actualizados (RUT ya existía): {_imp_res['updated']} | "
+                f"⏭️ Omitidos: {_imp_res['skipped']}"
+            )
+            if _imp_res["updated"] and not _imp_res["inserted"]:
+                st.warning(
+                    f"Las {_imp_res['updated']} fila(s) tenían RUTs que YA existían en esta empresa: "
+                    "se actualizaron y NO se sumaron trabajadores nuevos. Por eso el total no sube. "
+                    "Revisa que los RUTs del Excel no estén ya cargados o que no estén repetidos."
+                )
+            if _imp_res["detail"]:
+                with st.expander(f"⚠️ Ver los {len(_imp_res['detail'])} registro(s) omitido(s) y por qué", expanded=True):
+                    for _d in _imp_res["detail"]:
+                        st.write("• " + _d)
+            if st.button("Ocultar este resumen", key="clear_imp_result"):
+                del st.session_state["_trab_import_result"]
+                st.rerun()
+            st.divider()
+
         st.write("Columnas: **RUT, NOMBRE** (obligatorias) y opcionales: CARGO, CENTRO_COSTO, EMAIL, FECHA DE CONTRATO, VIGENCIA_EXAMEN.")
         st.download_button(
             "⬇️ Descargar plantilla Excel de trabajadores",
@@ -151,14 +175,10 @@ def page_trabajadores(
                                     skipped_detail.append(f"Fila {rows} (RUT {rut}): error al guardar — {type(_row_exc).__name__}")
 
                         clear_app_caches()
-                        st.success(f"Importación lista. Filas leídas: {rows} | ✅ Insertados (nuevos): {inserted} | 🔁 Actualizados (RUT ya existía): {updated} | ⏭️ Omitidos: {skipped}")
-                        if updated and not inserted:
-                            st.warning(f"Ojo: las {updated} fila(s) tenían RUTs que YA existían en esta empresa, así que se actualizaron y NO se sumaron trabajadores nuevos. Si esperabas trabajadores nuevos, revisa que los RUTs del Excel no estén ya cargados.")
-                        if skipped_detail:
-                            with st.expander(f"⚠️ Ver los {len(skipped_detail)} registro(s) omitido(s) y por qué"):
-                                for _d in skipped_detail:
-                                    st.write("• " + _d)
-                                st.caption("Sugerencia: si un RUT 'ya existe', activa 'Sobrescribir si el RUT ya existe' y vuelve a importar.")
+                        st.session_state["_trab_import_result"] = {
+                            "rows": rows, "inserted": inserted, "updated": updated,
+                            "skipped": skipped, "detail": skipped_detail,
+                        }
                         auto_backup_db("import_excel")
                         st.rerun()
             except Exception as e:
@@ -397,6 +417,13 @@ def page_trabajadores(
                     st.dataframe(_df_all, use_container_width=True, hide_index=True)
                     _total_global = int(_df_all["n"].sum())
                     st.caption(f"Total global (todas las empresas): {_total_global}")
+                    # Mostrar los RUT reales guardados en ESTA empresa, para comparar con tu Excel
+                    try:
+                        _ruts_db = df["rut"].astype(str).tolist() if "rut" in df.columns else []
+                        st.caption(f"RUTs guardados en tu empresa ({len(_ruts_db)}):")
+                        st.code(", ".join(_ruts_db) or "(ninguno)")
+                    except Exception:
+                        pass
                     _huerfanos = int(_df_all[_df_all["empresa"] == "(vacío)"]["n"].sum()) if "(vacío)" in _df_all["empresa"].values else 0
                     if _huerfanos:
                         st.warning(f"Hay {_huerfanos} trabajador(es) SIN empresa asignada (cliente_key vacío). No aparecen en el listado porque el listado filtra por tu empresa. Pulsa el botón para asignarlos a esta empresa.")
