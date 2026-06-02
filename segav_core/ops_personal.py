@@ -27,6 +27,7 @@ def page_trabajadores(
     apply_pending_trabajador_create_reset,
     show_pending_trabajador_create_flash,
     clear_app_caches=lambda: None,
+    fetch_df_all=None,
 ):
     ui_header("Trabajadores", "Carga masiva por Excel o gestión manual. Puedes crear, editar o eliminar trabajadores. Luego asigna a faenas y adjunta documentos.")
     tab_list, tab_gestion, tab_import, tab_mass_docs = st.tabs(["📋 Listado", "🧩 Gestión", "📥 Importar Excel", "📦 Importar Docs Masivo"])
@@ -375,6 +376,28 @@ def page_trabajadores(
             out = out[out["faena_actual"].astype(str) == filtro_faena]
 
         st.caption(f"Mostrando {len(out)} de {len(df)} trabajadores")
+
+        # ── Diagnóstico (ayuda a detectar trabajadores que no aparecen) ──────
+        with st.expander("🔧 Diagnóstico de conteo"):
+            try:
+                _total_emp = int(fetch_value("SELECT COUNT(*) FROM trabajadores", default=0) or 0)
+                st.write(f"En esta empresa (cuenta activa): **{_total_emp}** trabajadores.")
+                _df_all = fetch_df_all("SELECT COALESCE(cliente_key,'(vacío)') AS empresa, COUNT(*) AS n FROM trabajadores GROUP BY COALESCE(cliente_key,'(vacío)') ORDER BY n DESC") if fetch_df_all else None
+                if _df_all is not None and not _df_all.empty:
+                    st.caption("Trabajadores por empresa (clave) en toda la base:")
+                    st.dataframe(_df_all, use_container_width=True, hide_index=True)
+                    _huerfanos = int(_df_all[_df_all["empresa"] == "(vacío)"]["n"].sum()) if "(vacío)" in _df_all["empresa"].values else 0
+                    if _huerfanos:
+                        st.warning(f"Hay {_huerfanos} trabajador(es) SIN empresa asignada (cliente_key vacío). No aparecen en el listado. Pulsa el botón para asignarlos a esta empresa.")
+                        if st.button("🔗 Asignar trabajadores sin empresa a esta cuenta", key="fix_huerfanos_trab"):
+                            from_key = ""
+                            _ck = current_tenant_key()
+                            execute("UPDATE trabajadores SET cliente_key=? WHERE COALESCE(cliente_key,'')=''", (_ck,))
+                            clear_app_caches()
+                            st.success("Trabajadores reasignados a esta empresa.")
+                            st.rerun()
+            except Exception as _e:
+                st.caption(f"No se pudo generar el diagnóstico: {_e}")
 
         # ── Paginación ────────────────────────────────────────────────────────
         PAGE_SIZE = 50
