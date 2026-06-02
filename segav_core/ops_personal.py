@@ -209,8 +209,11 @@ def page_trabajadores(
                         )
                         c.commit()
                     clear_app_caches()
+                    if _action == 'updated':
+                        st.session_state["_trabajador_create_flash"] = f"Ya existía un trabajador con el RUT {rut_norm} en esta empresa: se actualizaron sus datos (no se creó uno nuevo)."
+                    else:
+                        st.session_state["_trabajador_create_flash"] = "Trabajador guardado."
                     st.session_state["_trabajador_create_reset_pending"] = True
-                    st.session_state["_trabajador_create_flash"] = "Trabajador guardado."
                     auto_backup_db("trabajador")
                     st.rerun()
                 except Exception as e:

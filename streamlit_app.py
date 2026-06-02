@@ -5353,15 +5353,26 @@ def _trabajador_insert_or_update(cur_or_conn, *, rut: str, nombres: str, apellid
                 cursor_execute(cur_or_conn, "UPDATE trabajadores SET nombres=?, apellidos=?, cargo=?, centro_costo=?, email=?, fecha_contrato=?, vigencia_examen=? WHERE id=? AND COALESCE(cliente_key,'')=?", (*payload, int(existing_id), tenant_key))
                 return 'updated', int(existing_id)
             return 'skipped', int(existing_id)
-        # Blindaje: resincronizar la secuencia con el MAX(id) real ANTES de
-        # insertar, por si quedó atrasada por inserciones antiguas con id manual.
-        # Sin esto, la secuencia podria generar un id ya existente y sobrescribir
-        # otro trabajador.
+        # Blindaje contra colisiones de id: insertamos con un id explícito
+        # garantizado MAYOR que el máximo actual y luego avanzamos la secuencia.
+        # Esto evita que una secuencia atrasada genere un id ya existente y
+        # sobrescriba otro trabajador.
         try:
-            cursor_execute(cur_or_conn, "SELECT setval(pg_get_serial_sequence('trabajadores','id'), GREATEST((SELECT COALESCE(MAX(id),0) FROM trabajadores), 1), true);")
+            row_max = cursor_execute(cur_or_conn, "SELECT COALESCE(MAX(id), 0) FROM trabajadores").fetchone()
+            next_id = int(row_max[0]) + 1 if row_max and row_max[0] is not None else 1
         except Exception:
-            pass
-        # Dejar que la secuencia BIGSERIAL genere el id (ya resincronizada).
+            next_id = None
+        if next_id is not None:
+            cursor_execute(
+                cur_or_conn,
+                "INSERT INTO trabajadores(id, cliente_key, rut, nombres, apellidos, cargo, centro_costo, email, fecha_contrato, vigencia_examen) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (next_id, tenant_key, rut, nombres, apellidos, cargo, centro_costo, email, fecha_contrato, vigencia_examen),
+            )
+            try:
+                cursor_execute(cur_or_conn, "SELECT setval(pg_get_serial_sequence('trabajadores','id'), GREATEST((SELECT COALESCE(MAX(id),0) FROM trabajadores), 1), true);")
+            except Exception:
+                pass
+            return 'inserted', int(next_id)
         row = cursor_execute(cur_or_conn, "INSERT INTO trabajadores(cliente_key, rut, nombres, apellidos, cargo, centro_costo, email, fecha_contrato, vigencia_examen) VALUES(?,?,?,?,?,?,?,?,?) RETURNING id", (tenant_key, rut, nombres, apellidos, cargo, centro_costo, email, fecha_contrato, vigencia_examen)).fetchone()
         return 'inserted', int(row[0]) if row else None
 
