@@ -63,7 +63,10 @@ def page_trabajadores(
                     overwrite = st.checkbox("Sobrescribir si el RUT ya existe", value=True, key="ow_excel_trab")
 
                     if st.button("Importar Excel ahora", type="primary", key="btn_import_excel_trab"):
-                        existing_set = set(fetch_df("SELECT rut FROM trabajadores")["rut"].astype(str).tolist())
+                        # RUTs ya vistos DENTRO de este mismo Excel (para detectar
+                        # filas repetidas en el archivo). NO se compara contra la BD:
+                        # el insert/update por empresa ya maneja los que existen.
+                        seen_in_file = set()
 
                         rows = inserted = updated = skipped = 0
                         skipped_detail = []
@@ -97,7 +100,7 @@ def page_trabajadores(
                                     skipped_detail.append(f"Fila {rows} (RUT {rut}): nombre vacío")
                                     continue
 
-                                if rut in existing_set:
+                                if rut in seen_in_file:
                                     skipped += 1
                                     skipped_detail.append(f"Fila {rows} (RUT {rut}): repetido dentro del mismo Excel")
                                     continue
@@ -132,7 +135,7 @@ def page_trabajadores(
                                     else:
                                         skipped += 1
                                         skipped_detail.append(f"RUT {rut}: ya existe y 'Sobrescribir' está desactivado")
-                                    existing_set.add(rut)
+                                    seen_in_file.add(rut)
                                 except Exception as _row_exc:
                                     # Revertir SOLO esta fila para no abortar toda la importación
                                     try:
@@ -693,7 +696,7 @@ def page_asignar_trabajadores(
                                     fecha_contrato=fecha_contrato,
                                     vigencia_examen=vigencia_examen,
                                     overwrite=overwrite,
-                                    existing_id=rut_to_id.get(rut),
+                                    existing_id=None,
                                 )
                                 if action == "inserted":
                                     inserted += 1
@@ -701,14 +704,15 @@ def page_asignar_trabajadores(
                                     updated += 1
                                 else:
                                     skipped += 1
+                                    c.commit()
                                     continue
 
-                                # obtener id del trabajador
+                                # obtener id del trabajador (de ESTA empresa)
                                 if rut not in rut_to_id:
                                     if tid_saved:
                                         rut_to_id[rut] = int(tid_saved)
                                     else:
-                                        rid = cursor_execute(c, "SELECT id FROM trabajadores WHERE rut=?", (rut,)).fetchone()
+                                        rid = cursor_execute(c, "SELECT id FROM trabajadores WHERE rut=? AND COALESCE(cliente_key,'')=? ORDER BY id LIMIT 1", (rut, current_tenant_key())).fetchone()
                                         if rid:
                                             rut_to_id[rut] = int(rid[0])
 
@@ -723,6 +727,8 @@ def page_asignar_trabajadores(
                                         assigned += int(cur_asg.rowcount or 0)
                                     except Exception:
                                         pass
+                                # Commit por fila: aísla errores
+                                c.commit()
 
                             c.commit()
 
