@@ -85,6 +85,59 @@ def page_sgsst(
     company_df = fetch_df("SELECT * FROM sgsst_empresa ORDER BY id LIMIT 1")
     company = company_df.iloc[0].to_dict() if not company_df.empty else {}
 
+    def _render_evidencias_inline(modulo: str, referencia: str, faena_id=None, key_suffix: str = ""):
+        """Muestra y permite adjuntar evidencias a un registro específico del SGSST.
+
+        Reutilizable desde cualquier pestaña (MIPER, inspecciones, etc.).
+        Requiere los helpers de subida; si faltan, muestra aviso.
+        """
+        if not (save_file_online and prepare_upload_payload and sha256_bytes and safe_name):
+            st.caption("⚠️ Carga de evidencias no disponible.")
+            return
+        from segav_core.ui import render_doc_uploader as _rdu
+        _u = current_user() or {}
+        try:
+            _ya = fetch_df(
+                "SELECT id, nombre_archivo, file_path, bucket, object_path FROM sgsst_evidencias WHERE modulo=? AND referencia=? ORDER BY id DESC",
+                (modulo, referencia),
+            )
+        except Exception:
+            _ya = None
+        if _ya is not None and not _ya.empty:
+            st.caption(f"📎 {len(_ya)} evidencia(s) adjunta(s):")
+            for _, _e in _ya.iterrows():
+                _c1, _c2 = st.columns([4, 1])
+                _c1.write(f"• {_e.get('nombre_archivo') or 'archivo'}")
+                if load_file_anywhere:
+                    try:
+                        _b = load_file_anywhere(_e.get("file_path"), _e.get("bucket"), _e.get("object_path"))
+                        _c2.download_button("⬇️", data=_b, file_name=str(_e.get("nombre_archivo") or "evidencia"), key=K(f"evinl_dl_{key_suffix}_{_e['id']}"))
+                    except Exception:
+                        _c2.caption("⚠️")
+        _files = _rdu(K(f"evinl_up_{key_suffix}"), label="Adjuntar evidencia a este registro", multiple=True)
+        if st.button("📎 Guardar evidencia", key=K(f"evinl_save_{key_suffix}")):
+            if not _files:
+                st.error("Sube al menos un archivo.")
+            else:
+                _now = datetime.now().isoformat(timespec="seconds")
+                _ok = 0
+                for _f in _files:
+                    try:
+                        _p = prepare_upload_payload(_f.name, _f.getvalue(), getattr(_f, "type", None) or "application/octet-stream")
+                        _folder = ["sgsst_evidencias", safe_name(modulo), (str(int(faena_id)) if faena_id else "general")]
+                        _fp, _bk, _ob = save_file_online(_folder, _p["file_name"], _p["file_bytes"], content_type=_p["content_type"])
+                        execute(
+                            "INSERT INTO sgsst_evidencias(modulo, faena_id, referencia, descripcion, nombre_archivo, file_path, bucket, object_path, sha256, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                            (modulo, (int(faena_id) if faena_id else None), referencia, "", _p["file_name"], _fp, _bk, _ob, sha256_bytes(_p["file_bytes"]), str(_u.get("username") or ""), _now),
+                        )
+                        _ok += 1
+                    except Exception as _ex:
+                        st.error(f"No se pudo guardar {_f.name}: {_ex}")
+                if _ok:
+                    sgsst_log("Evidencias", "Adjuntar inline", f"{modulo} · {referencia} · {_ok}")
+                    st.success(f"{_ok} evidencia(s) adjuntada(s).")
+                    st.rerun()
+
     stats = {
         "faenas_activas": int(fetch_value("SELECT COUNT(*) FROM faenas WHERE estado='ACTIVA'", default=0) or 0),
         "trabajadores": int(fetch_value("SELECT COUNT(*) FROM trabajadores", default=0) or 0),
@@ -1012,6 +1065,8 @@ def page_sgsst(
                         sgsst_log("MIPER", "Eliminar", f"#{_sel_mid}")
                         st.success("Riesgo eliminado.")
                         st.rerun()
+                st.markdown("**📎 Evidencias de este riesgo**")
+                _render_evidencias_inline("MIPER / Matriz de riesgos", f"MIPER #{int(_sel_mid)}", faena_id=None, key_suffix=f"miper_{int(_sel_mid)}")
 
         # ── Mapa de riesgos (DS 44 art. 62) ────────────────────────────────
         st.divider()
@@ -1083,6 +1138,13 @@ def page_sgsst(
                 sgsst_log("Inspecciones DS 594", "Registrar", f"{ins_tipo} · {ins_item.strip()}")
                 st.success("Inspección registrada.")
                 st.rerun()
+
+        # Evidencias por inspección
+        _insp_rows = fetch_df("SELECT i.id, COALESCE(f.nombre,'(Planta)') AS faena, i.tipo, i.area FROM sgsst_inspecciones i LEFT JOIN faenas f ON f.id=i.faena_id ORDER BY i.id DESC LIMIT 100")
+        if _insp_rows is not None and not _insp_rows.empty:
+            with st.expander("📎 Adjuntar evidencia a una inspección"):
+                _sel_insp = st.selectbox("Inspección", _insp_rows["id"].tolist(), format_func=lambda x: f"#{int(x)} · {str(_insp_rows[_insp_rows['id']==x].iloc[0]['faena'])} · {str(_insp_rows[_insp_rows['id']==x].iloc[0].get('tipo',''))}", key=K("insp_ev_sel"))
+                _render_evidencias_inline("Inspección", f"Inspección #{int(_sel_insp)}", faena_id=None, key_suffix=f"insp_{int(_sel_insp)}")
 
     # ── TAB 8: CHECKLIST DS 594 ───────────────────────────────────────────
     if 11 in tabs:
@@ -1306,6 +1368,12 @@ def page_sgsst(
                 sgsst_log("Capacitaciones y ODI", "Registrar", f"{cap_tipo} · {cap_tema.strip()}")
                 st.success("Registro guardado.")
                 st.rerun()
+
+        _cap_rows = fetch_df("SELECT c.id, c.tema, c.fecha FROM sgsst_capacitaciones c ORDER BY c.id DESC LIMIT 100")
+        if _cap_rows is not None and not _cap_rows.empty:
+            with st.expander("📎 Adjuntar evidencia a una capacitación (lista de asistencia, certificado…)"):
+                _sel_cap = st.selectbox("Capacitación", _cap_rows["id"].tolist(), format_func=lambda x: f"#{int(x)} · {str(_cap_rows[_cap_rows['id']==x].iloc[0].get('tema',''))[:40]} · {str(_cap_rows[_cap_rows['id']==x].iloc[0].get('fecha',''))}", key=K("cap_ev_sel"))
+                _render_evidencias_inline("Capacitación", f"Capacitación #{int(_sel_cap)}", faena_id=None, key_suffix=f"cap_{int(_sel_cap)}")
 
     # ── TAB 11: EPP POR TRABAJADOR ────────────────────────────────────────
     if 14 in tabs:
