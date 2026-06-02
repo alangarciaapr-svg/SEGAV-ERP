@@ -4423,6 +4423,19 @@ def ensure_multiempresa_columns_postgres():
         execute("DELETE FROM sgsst_empresa WHERE COALESCE(cliente_key,'')='' AND LOWER(COALESCE(razon_social,''))='empresa demo';")
     except Exception as _exc:
         _record_soft_error("clean_demo_empresa_pg", _exc)
+
+    # ── Fix critico: resincronizar la secuencia de trabajadores.id ─────────
+    # Versiones antiguas insertaban con id = MAX(id)+1 (id manual), sin avanzar
+    # la secuencia BIGSERIAL. Eso dejaba la secuencia atrasada y, al insertar un
+    # nuevo trabajador por la secuencia, generaba un id YA EXISTENTE y se
+    # sobrescribia otro trabajador. setval pone la secuencia por encima del MAX.
+    try:
+        execute(
+            "SELECT setval(pg_get_serial_sequence('trabajadores','id'), "
+            "GREATEST((SELECT COALESCE(MAX(id),0) FROM trabajadores), 1), true);"
+        )
+    except Exception as _exc:
+        _record_soft_error("resync_trabajadores_seq", _exc)
     # ── P2: New columns and tables ────────────────────────────────────────
     p2_stmts = [
         # Roles por empresa
@@ -5340,7 +5353,15 @@ def _trabajador_insert_or_update(cur_or_conn, *, rut: str, nombres: str, apellid
                 cursor_execute(cur_or_conn, "UPDATE trabajadores SET nombres=?, apellidos=?, cargo=?, centro_costo=?, email=?, fecha_contrato=?, vigencia_examen=? WHERE id=? AND COALESCE(cliente_key,'')=?", (*payload, int(existing_id), tenant_key))
                 return 'updated', int(existing_id)
             return 'skipped', int(existing_id)
-        # Dejar que la secuencia BIGSERIAL genere el id (evita colisiones de PK).
+        # Blindaje: resincronizar la secuencia con el MAX(id) real ANTES de
+        # insertar, por si quedó atrasada por inserciones antiguas con id manual.
+        # Sin esto, la secuencia podria generar un id ya existente y sobrescribir
+        # otro trabajador.
+        try:
+            cursor_execute(cur_or_conn, "SELECT setval(pg_get_serial_sequence('trabajadores','id'), GREATEST((SELECT COALESCE(MAX(id),0) FROM trabajadores), 1), true);")
+        except Exception:
+            pass
+        # Dejar que la secuencia BIGSERIAL genere el id (ya resincronizada).
         row = cursor_execute(cur_or_conn, "INSERT INTO trabajadores(cliente_key, rut, nombres, apellidos, cargo, centro_costo, email, fecha_contrato, vigencia_examen) VALUES(?,?,?,?,?,?,?,?,?) RETURNING id", (tenant_key, rut, nombres, apellidos, cargo, centro_costo, email, fecha_contrato, vigencia_examen)).fetchone()
         return 'inserted', int(row[0]) if row else None
 
