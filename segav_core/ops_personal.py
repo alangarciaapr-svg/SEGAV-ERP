@@ -97,6 +97,11 @@ def page_trabajadores(
                                     skipped_detail.append(f"Fila {rows} (RUT {rut}): nombre vacío")
                                     continue
 
+                                if rut in existing_set:
+                                    skipped += 1
+                                    skipped_detail.append(f"Fila {rows} (RUT {rut}): repetido dentro del mismo Excel")
+                                    continue
+
                                 nombres, apellidos = split_nombre_completo(nombre)
                                 cargo = str(r.get("cargo", "") or "").strip() if has_cargo else ""
                                 centro_costo = str(r.get("centro_costo", "") or "").strip() if has_cc else ""
@@ -104,29 +109,38 @@ def page_trabajadores(
                                 fecha_contrato = _to_text_date_import_excel(r.get(fc_col)) if fc_col else None
                                 vigencia_examen = _to_text_date_import_excel(r.get("vigencia_examen")) if has_ve else None
 
-                                action, _tid = trabajador_insert_or_update(
-                                    c,
-                                    rut=rut,
-                                    nombres=nombres,
-                                    apellidos=apellidos,
-                                    cargo=cargo,
-                                    centro_costo=centro_costo,
-                                    email=email,
-                                    fecha_contrato=fecha_contrato,
-                                    vigencia_examen=vigencia_examen,
-                                    overwrite=overwrite,
-                                    existing_id=None,
-                                )
-                                if action == "inserted":
-                                    inserted += 1
-                                elif action == "updated":
-                                    updated += 1
-                                else:
+                                try:
+                                    action, _tid = trabajador_insert_or_update(
+                                        c,
+                                        rut=rut,
+                                        nombres=nombres,
+                                        apellidos=apellidos,
+                                        cargo=cargo,
+                                        centro_costo=centro_costo,
+                                        email=email,
+                                        fecha_contrato=fecha_contrato,
+                                        vigencia_examen=vigencia_examen,
+                                        overwrite=overwrite,
+                                        existing_id=None,
+                                    )
+                                    # Commit POR FILA: un error en una fila no arrastra a las demás
+                                    c.commit()
+                                    if action == "inserted":
+                                        inserted += 1
+                                    elif action == "updated":
+                                        updated += 1
+                                    else:
+                                        skipped += 1
+                                        skipped_detail.append(f"RUT {rut}: ya existe y 'Sobrescribir' está desactivado")
+                                    existing_set.add(rut)
+                                except Exception as _row_exc:
+                                    # Revertir SOLO esta fila para no abortar toda la importación
+                                    try:
+                                        c.rollback()
+                                    except Exception:
+                                        pass
                                     skipped += 1
-                                    skipped_detail.append(f"RUT {rut}: ya existe y 'Sobrescribir' está desactivado")
-                                existing_set.add(rut)
-
-                            c.commit()
+                                    skipped_detail.append(f"Fila {rows} (RUT {rut}): error al guardar — {type(_row_exc).__name__}")
 
                         clear_app_caches()
                         st.success(f"Importación lista. Filas leídas: {rows} | Insertados: {inserted} | Actualizados: {updated} | Omitidos: {skipped}")

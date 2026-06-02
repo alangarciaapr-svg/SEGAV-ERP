@@ -4308,6 +4308,7 @@ MULTIEMPRESA_TABLES = [
     'sgsst_epp_entrega', 'sgsst_checklist_ds594',
     'sgsst_cphs', 'sgsst_cphs_actas', 'sgsst_diat_diep',
     'sgsst_vigilancia', 'sgsst_subcontratistas', 'sgsst_riohs',
+    'sgsst_ds44_autoeval', 'sgsst_evidencias',
 ]
 
 
@@ -4387,6 +4388,22 @@ def ensure_multiempresa_columns_postgres():
             execute(stmt)
         except Exception as _exc:
             _record_soft_error("col_migration_pg", _exc)
+
+    # ── Fix: RUT debe ser único POR EMPRESA, no global ─────────────────────
+    # El UNIQUE global en trabajadores.rut hacía que un trabajador con el mismo
+    # RUT en dos empresas distintas fallara al insertarse (bug "agrego 22, quedan 20").
+    _rut_unique_migrations = [
+        # quitar la restricción/índice único global heredado (varios nombres posibles)
+        "ALTER TABLE IF EXISTS trabajadores DROP CONSTRAINT IF EXISTS trabajadores_rut_key;",
+        "DROP INDEX IF EXISTS trabajadores_rut_key;",
+        # índice único compuesto por empresa (tolera cliente_key NULL tratándolo como '')
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_trabajadores_cliente_rut ON trabajadores (COALESCE(cliente_key,''), rut);",
+    ]
+    for stmt in _rut_unique_migrations:
+        try:
+            execute(stmt)
+        except Exception as _exc:
+            _record_soft_error("rut_unique_migration_pg", _exc)
     # ── P2: New columns and tables ────────────────────────────────────────
     p2_stmts = [
         # Roles por empresa
@@ -5304,10 +5321,9 @@ def _trabajador_insert_or_update(cur_or_conn, *, rut: str, nombres: str, apellid
                 cursor_execute(cur_or_conn, "UPDATE trabajadores SET nombres=?, apellidos=?, cargo=?, centro_costo=?, email=?, fecha_contrato=?, vigencia_examen=? WHERE id=? AND COALESCE(cliente_key,'')=?", (*payload, int(existing_id), tenant_key))
                 return 'updated', int(existing_id)
             return 'skipped', int(existing_id)
-        row = cursor_execute(cur_or_conn, "SELECT COALESCE(MAX(id), 0) + 1 FROM trabajadores").fetchone()
-        next_id = int(row[0]) if row and row[0] is not None else 1
-        cursor_execute(cur_or_conn, "INSERT INTO trabajadores(id, cliente_key, rut, nombres, apellidos, cargo, centro_costo, email, fecha_contrato, vigencia_examen) VALUES(?,?,?,?,?,?,?,?,?,?)", (next_id, tenant_key, rut, nombres, apellidos, cargo, centro_costo, email, fecha_contrato, vigencia_examen))
-        return 'inserted', next_id
+        # Dejar que la secuencia BIGSERIAL genere el id (evita colisiones de PK).
+        row = cursor_execute(cur_or_conn, "INSERT INTO trabajadores(cliente_key, rut, nombres, apellidos, cargo, centro_costo, email, fecha_contrato, vigencia_examen) VALUES(?,?,?,?,?,?,?,?,?) RETURNING id", (tenant_key, rut, nombres, apellidos, cargo, centro_costo, email, fecha_contrato, vigencia_examen)).fetchone()
+        return 'inserted', int(row[0]) if row else None
 
     cursor_execute(cur_or_conn, "INSERT INTO trabajadores(cliente_key, rut, nombres, apellidos, cargo, centro_costo, email, fecha_contrato, vigencia_examen) VALUES(?,?,?,?,?,?,?,?,?)", (tenant_key, rut, nombres, apellidos, cargo, centro_costo, email, fecha_contrato, vigencia_examen))
     new_id = _trabajador_get_id(cur_or_conn, rut)

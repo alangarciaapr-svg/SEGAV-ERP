@@ -135,7 +135,7 @@ def page_sgsst(
     _SGSST_SECTIONS = {
         "🏠 Inicio": ["🏠 Inicio"],
         "📋 Cumplimiento y Estadísticas": ["🏢 Resumen", "📋 Cumplimiento Legal", "🧭 Autoevaluación DS 44", "📊 Estadísticas", "💰 Cotización"],
-        "🏭 Configuración Empresa": ["⚙️ Config ERP", "🏭 Ficha empresa", "🧩 Catálogos"],
+        "🏭 Configuración Empresa": ["📐 Requisitos DS 44", "🏭 Ficha empresa", "🧩 Catálogos"],
         "⚠️ Riesgo Operacional": ["⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER", "🧯 Inspecciones", "📋 Checklist 594", "🩹 Incidentes", "📝 DIAT/DIEP"],
         "👷 Personal y Documentos": ["🎓 Capacitaciones", "🦺 EPP", "🧾 Auditoría", "👷 CPHS", "🔬 Vigilancia", "🏗️ Subcontratistas", "📕 RIOHS", "📎 Evidencias"],
     }
@@ -237,7 +237,7 @@ def page_sgsst(
         _qc = st.columns(4)
         _quick = [
             ("📋 Cumplimiento y Estadísticas", "Resumen, cumplimiento legal, estadísticas y cotización"),
-            ("🏭 Configuración Empresa", "Config ERP, ficha de empresa y catálogos"),
+            ("🏭 Configuración Empresa", "Requisitos DS 44 automáticos, ficha de empresa y catálogos"),
             ("⚠️ Riesgo Operacional", "Matriz, programa, MIPER, inspecciones, incidentes"),
             ("👷 Personal y Documentos", "Capacitaciones, EPP, CPHS, vigilancia, RIOHS"),
         ]
@@ -255,7 +255,7 @@ def page_sgsst(
     # Map visible tab index to original tab index
     _ALL_TABS = [
         "🏢 Resumen", "📋 Cumplimiento Legal", "📊 Estadísticas", "💰 Cotización",
-        "⚙️ Config ERP", "🏭 Ficha empresa", "🧩 Catálogos",
+        "📐 Requisitos DS 44", "🏭 Ficha empresa", "🧩 Catálogos",
         "⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER", "🧯 Inspecciones",
         "📋 Checklist 594", "🩹 Incidentes", "🎓 Capacitaciones", "🦺 EPP",
         "🧾 Auditoría", "👷 CPHS", "📝 DIAT/DIEP", "🔬 Vigilancia",
@@ -600,78 +600,43 @@ def page_sgsst(
 
     if 4 in tabs:
       with tabs[4]:
-        st.markdown("### Configuración ERP")
-        cfg = segav_erp_config_map()
-        z1, z2 = st.columns(2)
-        with z1:
-            erp_name = st.text_input("Nombre comercial", value=cfg.get("erp_name", "SEGAV ERP"), key=K("segav_cfg_name"))
-            erp_slogan = st.text_area("Propuesta de valor", value=cfg.get("erp_slogan", "ERP comercializable de cumplimiento, prevención y operación documental"), height=90, key=K("segav_cfg_slogan"))
-            erp_vertical = st.text_input("Vertical / rubro base", value=cfg.get("erp_vertical", "General"), key=K("segav_cfg_vertical"))
-        with z2:
-            multiempresa = st.selectbox("Modo comercial", ["SI", "NO"], index=0 if cfg.get("multiempresa", "SI") == "SI" else 1, key=K("segav_cfg_multi"))
-            cliente_actual = st.text_input("Cliente / empresa actual", value=cfg.get("cliente_actual", company.get("razon_social") or "Empresa actual"), key=K("segav_cfg_cliente"))
-            impl_opts = ["CONFIGURABLE", "VERTICAL FORESTAL", "CORPORATIVO"]
-            modo_impl = st.selectbox("Implementación", impl_opts, index=impl_opts.index(cfg.get("modo_implementacion", "CONFIGURABLE")) if cfg.get("modo_implementacion", "CONFIGURABLE") in impl_opts else 0, key=K("segav_cfg_impl"))
-        if st.button("Guardar configuración ERP", key=K("segav_cfg_save"), type="primary"):
-            now = datetime.now().isoformat(timespec='seconds')
-            payload = {
-                "erp_name": erp_name.strip() or "SEGAV ERP",
-                "erp_slogan": erp_slogan.strip(),
-                "erp_vertical": erp_vertical.strip() or "General",
-                "multiempresa": multiempresa,
-                "cliente_actual": cliente_actual.strip(),
-                "modo_implementacion": modo_impl,
-            }
-            for k, v in payload.items():
-                execute("DELETE FROM segav_erp_config WHERE config_key=?", (k,))
-                execute("INSERT INTO segav_erp_config(config_key, config_value, updated_at) VALUES(?,?,?)", (k, str(v), now))
-            clear_app_caches()
-            sgsst_log("Configuración ERP", "Guardar", f"Configuración comercial actualizada: {payload.get('erp_name')}")
-            st.success("Configuración ERP guardada.")
-            st.rerun()
-        st.markdown("---")
-        st.markdown("### Plantillas por rubro")
-        tpl_df = segav_templates_df()
-        if tpl_df is not None and not tpl_df.empty:
-            st.dataframe(tpl_df[["template_key", "template_label", "vertical", "description", "activo"]].rename(columns={"template_key":"Código", "template_label":"Plantilla", "vertical":"Vertical", "description":"Descripción", "activo":"Activa"}), use_container_width=True, hide_index=True)
-        tpl_options = tpl_df["template_key"].tolist() if tpl_df is not None and not tpl_df.empty else list(ERP_TEMPLATE_PRESETS.keys())
-        current_tpl = cfg.get("template_actual", tpl_options[0] if tpl_options else "GENERAL")
-        if current_tpl not in tpl_options and tpl_options:
-            current_tpl = tpl_options[0]
-        tpl_sel = st.selectbox("Plantilla a visualizar/aplicar", tpl_options, index=tpl_options.index(current_tpl) if tpl_options else 0, key=K("segav_tpl_sel")) if tpl_options else None
-        if tpl_sel:
-            payload = segav_template_payload(tpl_sel)
-            p1, p2 = st.columns([1.1, 1])
-            with p1:
-                st.write(f"**Descripción:** {payload.get('description') or 'Sin descripción'}")
-                st.write(f"**Vertical:** {payload.get('vertical') or 'Sin definir'}")
-                st.write(f"**Cargos incluidos:** {', '.join(payload.get('cargos', [])) or 'Sin cargos'}")
-            with p2:
-                preview_rows = []
-                for cargo_name, docs in (payload.get('cargo_rules') or {}).items():
-                    preview_rows.append({"Cargo": cargo_name, "Documentos": doc_tipo_join(docs)})
-                if preview_rows:
-                    st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
-            if st.button("Aplicar plantilla al catálogo ERP", key=K("segav_apply_tpl")):
-                ok, msg = apply_segav_template(tpl_sel)
-                if ok:
-                    sgsst_log("Configuración ERP", "Aplicar plantilla", tpl_sel)
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
+        st.markdown("### 📐 Requisitos DS 44 (configuración automática)")
+        st.caption("La configuración del sistema se ajusta automáticamente al número de trabajadores de la empresa activa, según lo que exige el DS 44. No hay que configurar nada manualmente.")
 
-        st.markdown("---")
-        if _is_superadmin:
-            st.info("La administración completa de empresas, alta/baja, edición y designación de administradores está centralizada en **SuperAdmin / Empresas**.", icon="🌐")
-        else:
-            st.info("La gestión multiempresa y de administradores está disponible solo para **SUPERADMIN** en la sección **SuperAdmin / Empresas**.", icon="🔒")
+        _n_trab_cfg = int(fetch_value("SELECT COUNT(*) FROM trabajadores", default=0) or 0)
+        _tier_cfg = _ds44.worker_tier(_n_trab_cfg)
+        _elementos_cfg = _ds44.required_elements(_n_trab_cfg)
+
+        cfg1, cfg2, cfg3 = st.columns(3)
+        cfg1.metric("🏢 Empresa activa", str(company.get("razon_social") or "—"))
+        cfg2.metric("👷 Trabajadores", _n_trab_cfg)
+        cfg3.metric("📐 Tramo DS 44", _tier_cfg["rango"])
+        st.info(f"Tramo actual: **{_tier_cfg['label']}**. El sistema exige {len(_elementos_cfg)} elementos para este tamaño de empresa.")
+
+        st.markdown("#### Elementos exigibles para este tramo")
+        for _el in _elementos_cfg:
+            st.markdown(f"- **{_el['nombre']}** — _{_el['norma']}_  \n  {_el['detalle']}")
+
+        st.divider()
+        st.caption(
+            "ℹ️ Los umbrales se ajustan solos: al pasar de 9→10 trabajadores se exige RIOHS, "
+            "al superar 25 se exige Comité Paritario, y sobre 100 el Departamento de Prevención. "
+            "Revisa el detalle de cumplimiento en la pestaña **🧭 Autoevaluación DS 44**."
+        )
 
     if 6 in tabs:
       with tabs[6]:
-        st.markdown("### Catálogos configurables")
+        st.markdown("### 🧩 Catálogos configurables")
+        st.caption("Define los cargos de tu empresa y qué documentos son obligatorios para cada uno. Esto alimenta los requisitos por trabajador.")
+
+        _cargos_now = segav_cargos_df()
+        _n_cargos = int(len(_cargos_now)) if _cargos_now is not None and not _cargos_now.empty else 0
+        _cat1, _cat2 = st.columns(2)
+        _cat1.metric("🧑‍🏭 Cargos en catálogo", _n_cargos)
+        _cat2.metric("📄 Tipos de documento disponibles", len(DOC_TIPO_LABELS))
+
         st.write("#### Cargos del ERP")
-        cargos_df = segav_cargos_df()
+        cargos_df = _cargos_now
         if cargos_df is not None and not cargos_df.empty:
             st.dataframe(cargos_df.rename(columns={"cargo_key":"Código", "cargo_label":"Cargo", "sort_order":"Orden", "activo":"Activo"}), use_container_width=True, hide_index=True)
         cadd1, cadd2, cadd3 = st.columns([1.4, 0.8, 0.8])
