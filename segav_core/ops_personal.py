@@ -30,14 +30,23 @@ def page_trabajadores(
     fetch_df_all=None,
     current_tenant_key=None,
     fetch_df_fresh=None,
+    can_manage=True,
 ):
-    ui_header("Trabajadores", "Carga masiva por Excel o gestión manual. Puedes crear, editar o eliminar trabajadores. Luego asigna a faenas y adjunta documentos.")
-    tab_list, tab_gestion, tab_import = st.tabs(["📋 Listado", "🧩 Gestión", "📥 Importar Excel"])
+    if not can_manage:
+        ui_header("Trabajadores", "Consulta de la nómina de trabajadores (solo lectura).")
+        st.info("🔒 Tu cuenta es de solo lectura: puedes consultar la información de los trabajadores, pero no crear, editar, importar ni eliminar.")
+        tab_list = st.container()
+        tab_gestion = None
+        tab_import = None
+    else:
+        ui_header("Trabajadores", "Carga masiva por Excel o gestión manual. Puedes crear, editar o eliminar trabajadores. Luego asigna a faenas y adjunta documentos.")
+        tab_list, tab_gestion, tab_import = st.tabs(["📋 Listado", "🧩 Gestión", "📥 Importar Excel"])
 
     # -------------------------
     # Tab 1: Importación Excel
     # -------------------------
-    with tab_import:
+    if tab_import is not None:
+      with tab_import:
         # Resultado persistente de la última importación (no se borra con el rerun)
         _imp_res = st.session_state.get("_trab_import_result")
         if _imp_res:
@@ -187,7 +196,8 @@ def page_trabajadores(
     # -------------------------
     # Tab 2: Gestión (crear/editar/eliminar)
     # -------------------------
-    with tab_gestion:
+    if tab_gestion is not None:
+      with tab_gestion:
         t_create, t_edit = st.tabs(["➕ Crear", "✏️ Editar / 🗑️ Eliminar"])
 
         with t_create:

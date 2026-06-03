@@ -7967,6 +7967,20 @@ if is_superadmin():
 if has_perm("manage_users"):
     VISIBLE_PAGES.append("Admin Usuarios")
 
+# ── Portal de solo lectura: el LECTOR ve una versión simplificada de la app ──
+_IS_LECTOR_VIEW = str((current_user() or {}).get("role") or "").upper() == "LECTOR"
+_LECTOR_PAGES = [
+    "Dashboard",
+    "Trabajadores",
+    "Mi Empresa / SGSST",
+    "Documentos Empresa (Faena)",
+    "Documentos Trabajador",
+    "Exportar (ZIP)",
+    "Mi Perfil",
+]
+if _IS_LECTOR_VIEW:
+    VISIBLE_PAGES = [pg for pg in _LECTOR_PAGES if pg in PAGES]
+
 
 # Aplica navegación solicitada por botones (antes de crear el widget del sidebar)
 if st.session_state.get("nav_request") is not None:
@@ -8183,6 +8197,20 @@ with st.sidebar:
             "Arquitectura / Escalabilidad",
         ])
 
+    # Portal de consulta: el LECTOR ve una sola sección de solo lectura
+    if _IS_LECTOR_VIEW:
+        _NAV_SECTIONS = {
+            "consulta": ("🔎 Consulta (solo lectura)", [
+                "Dashboard",
+                "Trabajadores",
+                "Mi Empresa / SGSST",
+                "Documentos Empresa (Faena)",
+                "Documentos Trabajador",
+                "Exportar (ZIP)",
+                "Mi Perfil",
+            ]),
+        }
+
     # Detect which section the current page belongs to
     _current_page = st.session_state.get("nav_page", "Dashboard")
     _auto_section = None
@@ -8208,7 +8236,21 @@ with st.sidebar:
         "prev": "🦺",
         "docs": "🗂️",
         "superadmin": "🔐",
+        "consulta": "🔎",
     }
+
+    # Etiquetas adaptadas para el portal de consulta (solo lectura)
+    if _IS_LECTOR_VIEW:
+        PAGE_LABELS = {
+            **PAGE_LABELS,
+            "Dashboard": "📊 Resumen",
+            "Trabajadores": "👷 Trabajadores (consulta)",
+            "Mi Empresa / SGSST": "🦺 SGSST (consulta)",
+            "Documentos Empresa (Faena)": "🏛️ Documentos de empresa",
+            "Documentos Trabajador": "📎 Documentos de trabajadores",
+            "Exportar (ZIP)": "📦 Descargar expediente (ZIP)",
+            "Mi Perfil": "👤 Mi perfil",
+        }
 
     for _sec_key, (_sec_label, _sec_pages) in _NAV_SECTIONS.items():
         _is_open = (_open_section == _sec_key)
@@ -8320,7 +8362,7 @@ def page_faenas():
 
 
 def page_trabajadores():
-    return _ops_personal.page_trabajadores(fetch_df=tenant_fetch_df, conn=conn, execute=tenant_execute, auto_backup_db=auto_backup_db, build_trabajadores_template_xlsx=build_trabajadores_template_xlsx, clean_rut=clean_rut, split_nombre_completo=split_nombre_completo, norm_col=norm_col, rut_input=rut_input, segav_cargo_labels=segav_cargo_labels, parse_date_maybe=parse_date_maybe, fetch_file_refs=tenant_fetch_file_refs, cleanup_deleted_file_refs=cleanup_deleted_file_refs, trabajador_insert_or_update=_trabajador_insert_or_update, apply_pending_trabajador_create_reset=_apply_pending_trabajador_create_reset, show_pending_trabajador_create_flash=_show_pending_trabajador_create_flash, clear_app_caches=clear_app_caches, fetch_df_all=fetch_df_uncached, current_tenant_key=current_tenant_key, fetch_df_fresh=tenant_fetch_df_uncached)
+    return _ops_personal.page_trabajadores(fetch_df=tenant_fetch_df, conn=conn, execute=tenant_execute, auto_backup_db=auto_backup_db, build_trabajadores_template_xlsx=build_trabajadores_template_xlsx, clean_rut=clean_rut, split_nombre_completo=split_nombre_completo, norm_col=norm_col, rut_input=rut_input, segav_cargo_labels=segav_cargo_labels, parse_date_maybe=parse_date_maybe, fetch_file_refs=tenant_fetch_file_refs, cleanup_deleted_file_refs=cleanup_deleted_file_refs, trabajador_insert_or_update=_trabajador_insert_or_update, apply_pending_trabajador_create_reset=_apply_pending_trabajador_create_reset, show_pending_trabajador_create_flash=_show_pending_trabajador_create_flash, clear_app_caches=clear_app_caches, fetch_df_all=fetch_df_uncached, current_tenant_key=current_tenant_key, fetch_df_fresh=tenant_fetch_df_uncached, can_manage=(str((current_user() or {}).get("role") or "").upper() != "LECTOR"))
 
 
 def page_asignar_trabajadores():
@@ -8610,4 +8652,11 @@ if renderer is None:
 if p == "SuperAdmin / Empresas" and not is_superadmin():
     st.error("Esta sección es exclusiva para SUPERADMIN.")
     st.stop()
+if _IS_LECTOR_VIEW:
+    st.markdown(
+        '<div style="background:linear-gradient(135deg,#ede9fe,#e0e7ff); border:1px solid #c7d2fe; '
+        'border-radius:10px; padding:8px 14px; margin-bottom:10px; color:#3730a3; font-weight:600; font-size:0.85rem;">'
+        '🔎 Modo consulta (solo lectura): puedes ver y descargar información, pero no modificarla.</div>',
+        unsafe_allow_html=True,
+    )
 _render_page_safely(p, renderer)
