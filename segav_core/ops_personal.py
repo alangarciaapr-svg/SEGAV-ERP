@@ -823,6 +823,7 @@ def page_documentos_trabajador(
     **_ignored,
 ):
     can_edit_doc_type = bool(_ignored.get("can_edit_doc_type", False))
+    can_manage_docs = bool(_ignored.get("can_manage_docs", True))
     ui_header(
         "Documentos Trabajador",
         "Carga documentos obligatorios por trabajador. Puedes trabajar por FAENA: selecciona una faena y verás solo los trabajadores asignados.",
@@ -966,9 +967,15 @@ def page_documentos_trabajador(
     else:
         st.success("Trabajador completo (obligatorios OK).")
 
-    tab1, tab2 = st.tabs(["📎 Cargar documento", "📋 Documentos cargados"])
+    if not can_manage_docs:
+        st.info("🔒 Tu cuenta es de solo lectura: puedes ver y descargar documentos, pero no cargarlos ni eliminarlos.")
+        tab2 = st.container()
+        tab1 = None
+    else:
+        tab1, tab2 = st.tabs(["📎 Cargar documento", "📋 Documentos cargados"])
 
-    with tab1:
+    if tab1 is not None:
+      with tab1:
         st.caption("Tipos obligatorios configurados para este trabajador:")
         st.code("\n".join(doc_tipo_label(d) for d in req_docs))
 
@@ -1112,19 +1119,20 @@ def page_documentos_trabajador(
                         except Exception:
                             st.error("No se pudo cambiar el tipo (¿ya existe otro documento con ese tipo para este trabajador?).")
 
-            confirm_del = st.checkbox(
-                "Confirmo que quiero eliminar este documento cargado.",
-                key="trab_del_confirm",
-            )
-            if st.button("Eliminar documento", type="secondary", use_container_width=True, key="trab_del_btn"):
-                if not confirm_del:
-                    st.error("Debes confirmar la eliminación.")
-                    st.stop()
-                result = delete_uploaded_document_record("trabajador_documentos", int(pick_id))
-                if result["shared_refs"]:
-                    st.info("El registro fue eliminado de la base de datos. El archivo físico se conservó porque está referenciado en otro registro.")
-                elif result["cleanup_issues"]:
-                    st.error("El registro fue eliminado de la base de datos, pero hubo un problema al limpiar el archivo: " + " | ".join(result["cleanup_issues"]))
-                st.success(f"Documento eliminado: {result['file_name']}")
-                auto_backup_db("doc_trabajador_delete")
-                st.rerun()
+            if can_manage_docs:
+                confirm_del = st.checkbox(
+                    "Confirmo que quiero eliminar este documento cargado.",
+                    key="trab_del_confirm",
+                )
+                if st.button("Eliminar documento", type="secondary", use_container_width=True, key="trab_del_btn"):
+                    if not confirm_del:
+                        st.error("Debes confirmar la eliminación.")
+                        st.stop()
+                    result = delete_uploaded_document_record("trabajador_documentos", int(pick_id))
+                    if result["shared_refs"]:
+                        st.info("El registro fue eliminado de la base de datos. El archivo físico se conservó porque está referenciado en otro registro.")
+                    elif result["cleanup_issues"]:
+                        st.error("El registro fue eliminado de la base de datos, pero hubo un problema al limpiar el archivo: " + " | ".join(result["cleanup_issues"]))
+                    st.success(f"Documento eliminado: {result['file_name']}")
+                    auto_backup_db("doc_trabajador_delete")
+                    st.rerun()
