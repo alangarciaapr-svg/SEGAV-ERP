@@ -72,6 +72,7 @@ def page_sgsst(
     load_file_anywhere=None,
     sha256_bytes=None,
     safe_name=None,
+    read_only=False,
 ):
     ui_header("Mi Empresa / SGSST", "Núcleo comercializable de SEGAV ERP: configurable para cualquier empresa, sin reemplazar lo ya existente.")
     ensure_sgsst_seed_data()
@@ -229,6 +230,14 @@ def page_sgsst(
         "👷 Personal y Documentos": ["🎓 Capacitaciones", "🦺 EPP", "🧾 Auditoría", "👷 CPHS", "🔬 Vigilancia", "🏗️ Subcontratistas", "📕 RIOHS", "📎 Evidencias"],
     }
     _section_names = list(_SGSST_SECTIONS.keys())
+
+    # Modo solo lectura (LECTOR): solo secciones de consulta, sin edición
+    if read_only:
+        _SGSST_SECTIONS = {
+            "📋 Consulta SGSST": ["🏢 Resumen", "📋 Cumplimiento Legal", "🧭 Autoevaluación DS 44", "📊 Estadísticas"],
+        }
+        _section_names = list(_SGSST_SECTIONS.keys())
+        st.info("🔎 Modo consulta (solo lectura): puedes revisar el estado del SGSST y descargar el expediente, pero no modificar registros.")
 
     # Permitir que las tarjetas de Inicio salten a otra sección
     _jump = st.session_state.pop(K("sgsst_jump_section"), None)
@@ -617,7 +626,7 @@ def page_sgsst(
         st.markdown(f"#### {_color} Avance DS 44: {_summary['pct']}%  ·  {_summary['cumple']} cumple · {_summary['en_proceso']} en proceso · {_summary['no_cumple']} no cumple · {_summary['no_aplica']} no aplica")
         st.progress(_summary["pct"] / 100)
 
-        if st.button("💾 Guardar autoevaluación DS 44", type="primary", use_container_width=True, key=K("ds44_save")):
+        if not read_only and st.button("💾 Guardar autoevaluación DS 44", type="primary", use_container_width=True, key=K("ds44_save")):
             _now = datetime.now().isoformat(timespec="seconds")
             _ok = 0
             for _k, _estado in _estados_now.items():
