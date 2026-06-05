@@ -335,6 +335,44 @@ def page_dashboard(
     except Exception:
         pass
 
+    # ── Detector de documentos en riesgo (solo-local, sin copia en la nube) ─
+    try:
+        _ghost_q = (
+            "SELECT '{tbl}' AS origen, nombre_archivo, doc_tipo, created_at "
+            "FROM {tbl} WHERE (bucket IS NULL OR TRIM(COALESCE(bucket,''))='' "
+            "OR object_path IS NULL OR TRIM(COALESCE(object_path,''))='')"
+        )
+        _ghost_frames = []
+        for _tbl in ("empresa_documentos", "faena_empresa_documentos", "trabajador_documentos"):
+            try:
+                _gf = fetch_df(_ghost_q.format(tbl=_tbl))
+                if _gf is not None and not _gf.empty:
+                    _ghost_frames.append(_gf)
+            except Exception:
+                pass
+        _ghost_total = int(sum(len(f) for f in _ghost_frames))
+        if _ghost_total:
+            with st.expander(f"⚠️ {_ghost_total} documento(s) en riesgo (sin copia en la nube)", expanded=False):
+                st.caption(
+                    "Estos documentos quedaron guardados solo localmente y podrían perderse al reiniciar el servidor. "
+                    "Vuelve a cargarlos para que queden respaldados en la nube. "
+                    "(Si el indicador de Storage está en rojo, primero corrige la configuración.)"
+                )
+                import pandas as _pd
+                _allg = _pd.concat(_ghost_frames, ignore_index=True)
+                _origen_label = {
+                    "empresa_documentos": "📁 Empresa",
+                    "faena_empresa_documentos": "🏛️ Empresa por faena",
+                    "trabajador_documentos": "👷 Trabajador",
+                }
+                _allg["origen"] = _allg["origen"].map(lambda x: _origen_label.get(x, x))
+                st.dataframe(
+                    _allg.rename(columns={"origen": "Origen", "nombre_archivo": "Archivo", "doc_tipo": "Tipo", "created_at": "Cargado"}),
+                    use_container_width=True, hide_index=True,
+                )
+    except Exception:
+        pass
+
     counts = get_global_counts() or {}
     auto_alerts, faena_risk = build_auto_alerts(
         fetch_df=fetch_df,
