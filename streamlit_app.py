@@ -3716,6 +3716,53 @@ def export_zip_for_faena(faena_id: int, **kwargs) -> tuple:
     entries = _export_collect_files(faena_id, **kwargs)
     result = build_zip_from_entries(entries, load_file_anywhere)
     zip_bytes, included, skipped, skipped_names = result
+
+    # Adjuntar un resumen de "qué falta para cumplir" para esta faena
+    try:
+        lineas = []
+        lineas.append("LO QUE FALTA PARA CUMPLIR — " + str(faena.iloc[0].get("nombre") or "Faena"))
+        lineas.append("Generado: " + datetime.now().strftime("%d-%m-%Y %H:%M"))
+        lineas.append("=" * 60)
+        lineas.append("")
+        # Documentos de empresa por faena faltantes (período actual)
+        try:
+            faltan_emp = pendientes_empresa_faena(int(faena_id)) or []
+        except Exception:
+            faltan_emp = []
+        lineas.append("DOCUMENTOS DE EMPRESA FALTANTES EN LA FAENA:")
+        if faltan_emp:
+            for d in faltan_emp:
+                lineas.append(f"  [ ] {d}")
+        else:
+            lineas.append("  (sin faltantes)")
+        lineas.append("")
+        # Documentos por trabajador faltantes
+        try:
+            faltan_trab = pendientes_obligatorios(int(faena_id)) or {}
+        except Exception:
+            faltan_trab = {}
+        lineas.append("DOCUMENTOS DE TRABAJADORES FALTANTES:")
+        _algun = False
+        for nombre, faltan in faltan_trab.items():
+            if faltan:
+                _algun = True
+                lineas.append(f"  {nombre}:")
+                for d in faltan:
+                    lineas.append(f"     [ ] {d}")
+        if not _algun:
+            lineas.append("  (todos los trabajadores asignados están al día)")
+        lineas.append("")
+        lineas.append("Nota: documento de apoyo. La validez del cumplimiento debe ser")
+        lineas.append("confirmada por un experto en prevención de riesgos.")
+        resumen_txt = "\n".join(lineas)
+
+        mem = io.BytesIO(zip_bytes)
+        with zipfile.ZipFile(mem, "a", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("LO_QUE_FALTA.txt", resumen_txt)
+        zip_bytes = mem.getvalue()
+    except Exception as _exc:
+        _record_soft_error("export_zip_for_faena.resumen", _exc)
+
     return zip_bytes, zip_name, included, skipped, skipped_names
 
 
