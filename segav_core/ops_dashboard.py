@@ -300,6 +300,7 @@ def page_dashboard(
     clear_app_caches: Callable | None = None,
     storage_admin_enabled: Callable[[], bool] | None = None,
     storage_enabled: Callable[[], bool] | None = None,
+    get_empresa_required_doc_types: Callable[[], list[str]] | None = None,
 ):
     clientes_df = segav_clientes_df()
     current_client = _safe_current_client(clientes_df, current_segav_client_key())
@@ -422,6 +423,85 @@ def page_dashboard(
         {"label": "Alertas / planes", "value": alertas_planes, "subtitle": f"{auto_high} altas · {int(actions['abiertas'])} planes abiertos", "icon": "⚡", "tone": tone_for_count(alertas_planes, danger_at=5), "status": "Acción" if alertas_planes else "OK"},
         {"label": "Docs críticos vencidos", "value": legal_vencidos, "subtitle": "Bloquean operaciones sensibles", "icon": "⚖️", "tone": tone_for_count(legal_vencidos, danger_at=1), "status": "Legal" if legal_vencidos else "OK"},
     ], columns=4)
+
+    # ── 🎯 Centro de Cumplimiento: qué me falta para cumplir ───────────────
+    try:
+        st.markdown("#### 🎯 Centro de Cumplimiento")
+        st.caption("Resumen consolidado de avance. Cada barra indica cuánto te falta para estar al día.")
+
+        # 1) Documentos de empresa (tipos requeridos presentes)
+        _emp_req = []
+        try:
+            _emp_req = list(get_empresa_required_doc_types()) if callable(get_empresa_required_doc_types) else []
+        except Exception:
+            _emp_req = []
+        _emp_pct = 100.0
+        _emp_sub = "Sin tipos requeridos"
+        if _emp_req:
+            try:
+                _emp_present_df = fetch_df("SELECT DISTINCT doc_tipo FROM empresa_documentos")
+                _present = set(_emp_present_df["doc_tipo"].astype(str).tolist()) if _emp_present_df is not None and not _emp_present_df.empty else set()
+            except Exception:
+                _present = set()
+            _emp_ok = sum(1 for t in _emp_req if t in _present)
+            _emp_pct = round((_emp_ok / len(_emp_req)) * 100.0, 1)
+            _emp_sub = f"{_emp_ok}/{len(_emp_req)} tipos requeridos cargados"
+
+        # 2) Trabajadores con documentación completa
+        _trab_pct = habilitacion
+        _trab_sub = f"{trabajadores_ok}/{trabajadores_activos} trabajadores al día"
+
+        # 3) DS 44 (autoevaluación guardada)
+        _ds44_pct = None
+        _ds44_sub = "Sin autoevaluación"
+        try:
+            _ds = fetch_df("SELECT estado, COUNT(*) AS n FROM sgsst_ds44_autoeval GROUP BY estado")
+            if _ds is not None and not _ds.empty:
+                _m = {str(r["estado"]): int(r["n"]) for _, r in _ds.iterrows()}
+                _aplican = sum(v for k, v in _m.items() if k != "No aplica")
+                _puntos = _m.get("Cumple", 0) + 0.5 * _m.get("En proceso", 0)
+                _ds44_pct = round((_puntos / _aplican) * 100.0, 1) if _aplican else 0.0
+                _ds44_sub = f"{_m.get('Cumple',0)} cumple · {_m.get('No cumple',0)} pendientes"
+        except Exception:
+            pass
+
+        # 4) Ficha de empresa completa
+        _ficha_pct = None
+        _ficha_sub = "Sin ficha"
+        try:
+            from segav_core import ds44 as _ds44m
+            _emp_df = fetch_df("SELECT * FROM sgsst_empresa ORDER BY id LIMIT 1")
+            if _emp_df is not None and not _emp_df.empty:
+                _prof = _ds44m.company_profile_status(_emp_df.iloc[0].to_dict())
+                _ficha_pct = float(_prof["pct"])
+                _ficha_sub = f"{_prof['completos']}/{_prof['total']} datos completos"
+        except Exception:
+            pass
+
+        _cc = st.columns(4)
+        with _cc[0]:
+            st.metric("📁 Documentos de empresa", f"{_emp_pct:.0f}%", help=_emp_sub)
+            st.progress(min(1.0, _emp_pct / 100)); st.caption(_emp_sub)
+        with _cc[1]:
+            st.metric("👷 Documentos de trabajadores", f"{_trab_pct:.0f}%", help=_trab_sub)
+            st.progress(min(1.0, _trab_pct / 100)); st.caption(_trab_sub)
+        with _cc[2]:
+            if _ds44_pct is None:
+                st.metric("🧭 DS 44", "—", help="Completa la autoevaluación en SGSST")
+                st.caption("Sin autoevaluación")
+            else:
+                st.metric("🧭 DS 44", f"{_ds44_pct:.0f}%", help=_ds44_sub)
+                st.progress(min(1.0, _ds44_pct / 100)); st.caption(_ds44_sub)
+        with _cc[3]:
+            if _ficha_pct is None:
+                st.metric("🏢 Ficha de empresa", "—")
+                st.caption("Sin ficha")
+            else:
+                st.metric("🏢 Ficha de empresa", f"{_ficha_pct:.0f}%", help=_ficha_sub)
+                st.progress(min(1.0, _ficha_pct / 100)); st.caption(_ficha_sub)
+        st.divider()
+    except Exception:
+        pass
 
     # ── Acciones pendientes con links directos ──────────────────────
     _pendientes = []
