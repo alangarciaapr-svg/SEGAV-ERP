@@ -8445,7 +8445,8 @@ def _ensure_page_runtime_health_once(_db_backend: str, _dsn_fingerprint: str, te
     ensure_access_governance_tables()
     ensure_user_client_module_perms_table_once(_db_backend, _dsn_fingerprint)
     ensure_legal_workflow_tables_once(_db_backend, _dsn_fingerprint)
-    ensure_multiempresa_compliance_schema_once(_db_backend, _dsn_fingerprint, tenant_key, execute, conn)
+    from segav_core.ops_compliance import ensure_multiempresa_compliance_schema_once as _ensure_compliance_schema
+    _ensure_compliance_schema(_db_backend, _dsn_fingerprint, tenant_key, execute, conn)
     return True
 
 

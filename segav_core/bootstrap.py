@@ -22,6 +22,7 @@ from core_db import (
     migrate_add_columns_if_missing,
 )
 from segav_core.app_config import UPLOAD_ROOT
+from segav_core.storage import ensure_storage_columns_sqlite
 from segav_core.catalogs import (
     CARGO_DOCS_ORDER,
     CARGO_DOCS_RULES,
