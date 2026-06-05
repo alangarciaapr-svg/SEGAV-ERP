@@ -95,18 +95,24 @@ def page_documentos_empresa(
             doc_tipo = tipo if tipo != "OTRO" else (tipo_otro.strip() or "OTRO")
             _saved = 0
             _notes = []
-            for up in ups:
-                payload = prepare_upload_payload(up.name, up.getvalue(), getattr(up, 'type', None) or 'application/octet-stream')
-                folder = ["empresa", safe_name(doc_tipo)]
-                file_path, bucket, object_path = save_file_online(folder, payload["file_name"], payload["file_bytes"], content_type=payload["content_type"])
-                sha = sha256_bytes(payload["file_bytes"])
-                execute(
-                    "INSERT INTO empresa_documentos(mandante_id, doc_tipo, nombre_archivo, file_path, bucket, object_path, sha256, created_at) VALUES(?,?,?,?,?,?,?,?)",
-                    (int(mandante_doc_id or 0) or None, doc_tipo, payload["file_name"], file_path, bucket, object_path, sha, datetime.utcnow().isoformat(timespec="seconds")),
-                )
-                _saved += 1
-                if payload["compressed"] and payload.get("compression_note"):
-                    _notes.append(payload["compression_note"])
+            try:
+                for up in ups:
+                    payload = prepare_upload_payload(up.name, up.getvalue(), getattr(up, 'type', None) or 'application/octet-stream')
+                    folder = ["empresa", safe_name(doc_tipo)]
+                    file_path, bucket, object_path = save_file_online(folder, payload["file_name"], payload["file_bytes"], content_type=payload["content_type"])
+                    sha = sha256_bytes(payload["file_bytes"])
+                    execute(
+                        "INSERT INTO empresa_documentos(mandante_id, doc_tipo, nombre_archivo, file_path, bucket, object_path, sha256, created_at) VALUES(?,?,?,?,?,?,?,?)",
+                        (int(mandante_doc_id or 0) or None, doc_tipo, payload["file_name"], file_path, bucket, object_path, sha, datetime.utcnow().isoformat(timespec="seconds")),
+                    )
+                    _saved += 1
+                    if payload["compressed"] and payload.get("compression_note"):
+                        _notes.append(payload["compression_note"])
+            except Exception as _se:
+                st.error(f"⛔ {_se}")
+                if _saved:
+                    st.info(f"Se alcanzaron a guardar {_saved} archivo(s) antes del error.")
+                st.stop()
             for _n in _notes:
                 st.info(_n)
             st.success(f"{_saved} documento(s) empresa guardado(s).")
@@ -370,7 +376,8 @@ def page_documentos_empresa_faena(
             doc_tipo = tipo if tipo != "OTRO" else (tipo_otro.strip() or "OTRO")
             _saved = 0
             _notes = []
-            for up in ups:
+            try:
+              for up in ups:
                 payload = prepare_upload_payload(up.name, up.getvalue(), getattr(up, 'type', None) or 'application/octet-stream')
                 folder = [
                     "mandantes",
@@ -392,6 +399,11 @@ def page_documentos_empresa_faena(
                 _saved += 1
                 if payload["compressed"] and payload.get("compression_note"):
                     _notes.append(payload["compression_note"])
+            except Exception as _se:
+                st.error(f"⛔ {_se}")
+                if _saved:
+                    st.info(f"Se alcanzaron a guardar {_saved} archivo(s) antes del error.")
+                st.stop()
             for _n in _notes:
                 st.info(_n)
             st.success(f"{_saved} documento(s) guardado(s) para {mandante_nombre} / {faena_row['nombre']} / {periodo_label(anio_sel, mes_sel)}.")

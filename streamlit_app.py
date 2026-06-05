@@ -911,6 +911,12 @@ def prepare_upload_payload(file_name: str, file_bytes: bytes, content_type: str 
     st.stop()
 
 
+class StorageUploadError(Exception):
+    """Se lanza cuando Storage es el backend productivo y la subida falla,
+    para evitar guardar documentos fantasma (registro sin archivo persistente)."""
+    pass
+
+
 def save_file_online(folder_parts, file_name: str, file_bytes: bytes, content_type: str = "application/octet-stream"):
     # Guarda local (compatibilidad) + intenta subir a Storage (online).
     tenant_key = current_tenant_key()
@@ -924,24 +930,21 @@ def save_file_online(folder_parts, file_name: str, file_bytes: bytes, content_ty
     if storage_admin_enabled():
         try:
             storage_upload(object_path, file_bytes, content_type=content_type, upsert=True)
-        except Exception:
-            # No romper el flujo: deja el archivo local, pero informa.
-            bucket = None
-            object_path = None
-            try:
-                last = st.session_state.get("storage_last_error", {})
-                sc = last.get("status")
-                extra = f" (HTTP {sc})" if sc else ""
-                detail = str(last.get("body") or last.get("exception") or "").strip()[:220]
-                hint = f" Detalle: {detail}." if detail else ""
-                st.warning(
-                    "No se pudo subir el archivo a Supabase Storage" + extra + ". "
-                    "El documento quedó solo en almacenamiento local (puede perderse si Streamlit reinicia)." + hint + " "
-                    "Revisa tus Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY y SUPABASE_STORAGE_BUCKET. "
-                    "En Backup/Restore verás un diagnóstico, o revisa Manage app → Logs."
-                )
-            except Exception as _exc:
-                _record_soft_error("storage.backup", _exc)
+        except Exception as _up_exc:
+            # Storage es el backend productivo y la subida FALLÓ. NO guardamos un
+            # documento fantasma (registro en BD apuntando a un archivo local que
+            # se borra al reiniciar). Bloqueamos el guardado con un error claro.
+            last = st.session_state.get("storage_last_error", {}) if hasattr(st, "session_state") else {}
+            sc = last.get("status")
+            extra = f" (HTTP {sc})" if sc else ""
+            detail = str(last.get("body") or last.get("exception") or _up_exc or "").strip()[:200]
+            hint = f" Detalle: {detail}." if detail else ""
+            raise StorageUploadError(
+                "No se pudo subir el archivo a Supabase Storage" + extra + ". "
+                "El documento NO se guardó para evitar que se pierda. "
+                "Revisa SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL y SUPABASE_STORAGE_BUCKET en los Secrets, "
+                "y vuelve a intentarlo." + hint
+            ) from _up_exc
     else:
         # Storage administrativo no configurado: queda local
         bucket = None
@@ -8342,7 +8345,7 @@ def page_dashboard():
             execute=execute,
             ui_header=ui_header,
         )
-    return _ops_dashboard.page_dashboard(st=st, ui_header=ui_header, ui_tip=ui_tip, get_global_counts=get_global_counts, fetch_df=fetch_df, fetch_value=fetch_value, DB_BACKEND=DB_BACKEND, conn=conn, execute=execute, PG_DSN_FINGERPRINT=PG_DSN_FINGERPRINT, current_segav_client_key=current_segav_client_key, segav_clientes_df=segav_clientes_df, current_user=current_user, get_empresa_monthly_doc_types=get_empresa_monthly_doc_types, worker_required_docs=worker_required_docs, doc_tipo_label=doc_tipo_label, go=go, clear_app_caches=clear_app_caches)
+    return _ops_dashboard.page_dashboard(st=st, ui_header=ui_header, ui_tip=ui_tip, get_global_counts=get_global_counts, fetch_df=fetch_df, fetch_value=fetch_value, DB_BACKEND=DB_BACKEND, conn=conn, execute=execute, PG_DSN_FINGERPRINT=PG_DSN_FINGERPRINT, current_segav_client_key=current_segav_client_key, segav_clientes_df=segav_clientes_df, current_user=current_user, get_empresa_monthly_doc_types=get_empresa_monthly_doc_types, worker_required_docs=worker_required_docs, doc_tipo_label=doc_tipo_label, go=go, clear_app_caches=clear_app_caches, storage_admin_enabled=storage_admin_enabled, storage_enabled=storage_enabled)
 
 
 def page_compliance_alerts():

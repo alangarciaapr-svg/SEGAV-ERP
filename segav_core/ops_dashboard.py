@@ -298,6 +298,8 @@ def page_dashboard(
     doc_tipo_label: Callable[[str], str],
     go: Callable,
     clear_app_caches: Callable | None = None,
+    storage_admin_enabled: Callable[[], bool] | None = None,
+    storage_enabled: Callable[[], bool] | None = None,
 ):
     clientes_df = segav_clientes_df()
     current_client = _safe_current_client(clientes_df, current_segav_client_key())
@@ -318,6 +320,20 @@ def page_dashboard(
         pass
 
     ui_header("Dashboard ejecutivo comercial", f"Visión gerencial y vendible para {current_name}: operación, cumplimiento y cartera multiempresa.")
+
+    # ── Salud de Storage (carga/descarga de documentos) ────────────────────
+    try:
+        _adm = bool(storage_admin_enabled()) if callable(storage_admin_enabled) else None
+        _ro = bool(storage_enabled()) if callable(storage_enabled) else None
+        if _adm is not None:
+            if _adm:
+                st.success("🟢 Almacenamiento de documentos operativo: las cargas se guardan de forma segura en la nube.")
+            elif _ro:
+                st.error("🔴 Almacenamiento en modo solo lectura: NO se podrán guardar documentos nuevos. Revisa SUPABASE_SERVICE_ROLE_KEY en los Secrets.")
+            else:
+                st.error("🔴 Almacenamiento en la nube NO configurado: las cargas no se guardarían de forma persistente. Revisa SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY y SUPABASE_STORAGE_BUCKET.")
+    except Exception:
+        pass
 
     counts = get_global_counts() or {}
     auto_alerts, faena_risk = build_auto_alerts(

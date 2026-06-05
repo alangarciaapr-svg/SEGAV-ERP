@@ -1009,7 +1009,8 @@ def page_documentos_trabajador(
             doc_tipo = tipo if tipo != "OTRO" else (tipo_otro.strip() or "OTRO")
             _saved = 0
             _notes = []
-            for up in ups:
+            try:
+              for up in ups:
                 payload = prepare_upload_payload(up.name, up.getvalue(), getattr(up, 'type', None) or 'application/octet-stream')
                 folder = ["trabajadores", tid, safe_name(doc_tipo)]
                 file_path, bucket, object_path = save_file_online(folder, payload["file_name"], payload["file_bytes"], content_type=payload["content_type"])
@@ -1038,6 +1039,11 @@ def page_documentos_trabajador(
                     else:
                         raise
                 _saved += 1
+            except Exception as _se:
+                st.error(f"⛔ {_se}")
+                if _saved:
+                    st.info(f"Se alcanzaron a guardar {_saved} archivo(s) antes del error.")
+                st.stop()
             for _n in _notes:
                 st.info(_n)
             st.success(f"{_saved} documento(s) guardado(s).")
