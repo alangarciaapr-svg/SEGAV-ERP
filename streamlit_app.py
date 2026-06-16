@@ -68,17 +68,70 @@ components.html(
     """
     <script>
     (function () {
-      function openSidebarIfCollapsed() {
-        const doc = window.parent.document;
-        const button = doc.querySelector('[data-testid="collapsedControl"], [data-testid="collapsedControl"] button, button[aria-label="Open sidebar"]');
-        if (button) {
-          button.click();
-        }
+      const doc = window.parent.document;
+      const styleId = "segav-sidebar-toggle-style";
+      const buttonId = "segav-sidebar-toggle";
+
+      function ensureStyle() {
+        if (doc.getElementById(styleId)) return;
+        const style = doc.createElement("style");
+        style.id = styleId;
+        style.textContent = `
+          #segav-sidebar-toggle {
+            position: fixed;
+            left: 10px;
+            top: 10px;
+            z-index: 2147483000;
+            width: 36px;
+            height: 36px;
+            border: 1px solid rgba(15,23,42,.18);
+            border-radius: 8px;
+            background: #ffffff;
+            color: #0f172a;
+            font-size: 20px;
+            line-height: 1;
+            box-shadow: 0 8px 22px rgba(15,23,42,.18);
+            cursor: pointer;
+          }
+          body.segav-sidebar-hidden section[data-testid="stSidebar"] {
+            display: none !important;
+            visibility: hidden !important;
+          }
+          body.segav-sidebar-hidden [data-testid="stAppViewContainer"] [data-testid="stMain"],
+          body.segav-sidebar-hidden [data-testid="stAppViewContainer"] .main {
+            margin-left: 0 !important;
+            width: 100% !important;
+          }
+        `;
+        doc.head.appendChild(style);
       }
-      window.setTimeout(openSidebarIfCollapsed, 120);
-      window.setTimeout(openSidebarIfCollapsed, 500);
-      window.setTimeout(openSidebarIfCollapsed, 1000);
-      window.setTimeout(openSidebarIfCollapsed, 1800);
+
+      function ensureButton() {
+        const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+        if (!sidebar) {
+          const old = doc.getElementById(buttonId);
+          if (old) old.remove();
+          return;
+        }
+        ensureStyle();
+        let button = doc.getElementById(buttonId);
+        if (!button) {
+          button = doc.createElement("button");
+          button.id = buttonId;
+          button.type = "button";
+          button.title = "Mostrar u ocultar menú";
+          button.setAttribute("aria-label", "Mostrar u ocultar menú");
+          button.addEventListener("click", function () {
+            doc.body.classList.toggle("segav-sidebar-hidden");
+            button.textContent = doc.body.classList.contains("segav-sidebar-hidden") ? "☰" : "×";
+          });
+          doc.body.appendChild(button);
+        }
+        button.textContent = doc.body.classList.contains("segav-sidebar-hidden") ? "☰" : "×";
+      }
+
+      ensureButton();
+      window.setInterval(ensureButton, 800);
     })();
     </script>
     """,
@@ -1574,35 +1627,6 @@ div[data-testid="stAlert"] { border-radius: 12px; }
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%) !important;
     border-right: none;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    width: 300px !important;
-    min-width: 300px !important;
-    max-width: 300px !important;
-    height: 100vh !important;
-    transform: translateX(0) !important;
-    z-index: 2147482000 !important;
-    overflow-y: auto !important;
-}
-section[data-testid="stSidebar"][aria-expanded="false"],
-section[data-testid="stSidebar"][aria-hidden="true"] {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    transform: translateX(0) !important;
-    left: 0 !important;
-    width: 300px !important;
-    min-width: 300px !important;
-}
-[data-testid="stAppViewContainer"] [data-testid="stMain"],
-[data-testid="stAppViewContainer"] .main {
-    margin-left: 300px !important;
-    width: calc(100% - 300px) !important;
 }
 section[data-testid="stSidebar"] .block-container {
     padding-top: 0.5rem;
@@ -1739,16 +1763,7 @@ section[data-testid="stSidebar"] .segav-sidehint {
 header[data-testid="stHeader"] {
     display: block !important;
     visibility: visible !important;
-    height: 2.5rem !important;
-    min-height: 2.5rem !important;
     background: transparent !important;
-}
-[data-testid="collapsedControl"] {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    z-index: 2147483000 !important;
 }
 div[data-testid="stToolbar"] {
     display: none !important;
@@ -6756,7 +6771,7 @@ def is_company_admin_for_active_tenant() -> bool:
 
 
 def auth_gate_ui():
-    """Login corporativo — diseño exacto al mockup de referencia."""
+    """Login corporativo para acceso al sistema."""
 
     # Recursos — b64 cacheado (no re-encode en cada rerun)
     panel_b64 = get_login_panel_b64()
@@ -6806,27 +6821,27 @@ def auth_gate_ui():
 div[data-testid="stToolbar"],
 [data-testid="stDecoration"],
 #MainMenu,footer{display:none!important;}
-[data-testid="stHeader"]{display:block!important;visibility:visible!important;background:transparent!important;}
+[data-testid="stHeader"]{display:none!important;}
 
 /* Fondo blanco total — sin franja gris */
 html,body{
     background:#ffffff!important;margin:0!important;padding:0!important;
-    overflow:hidden!important;height:100vh!important;
+    overflow:hidden!important;height:100vh!important;width:100vw!important;
 }
 .stApp,[data-testid="stAppViewContainer"]{
     background:#ffffff!important;
-    overflow:hidden!important;height:100vh!important;
+    overflow:hidden!important;height:100vh!important;width:100vw!important;
     margin:0!important;padding:0!important;
 }
 [data-testid="stMain"],.main{
-    overflow:hidden!important;height:100vh!important;
+    overflow:hidden!important;height:100vh!important;width:100vw!important;
     margin:0!important;padding:0!important;background:transparent!important;
 }
 
 /* Quitar TODOS los paddings/margins del contenedor main */
 .main .block-container,[data-testid="stMainBlockContainer"]{
     padding:0!important;margin:0!important;max-width:none!important;
-    overflow:hidden!important;height:100vh!important;
+    overflow:hidden!important;height:100vh!important;width:100vw!important;
     background:transparent!important;
 }
 /* El primer div hijo del block-container también */
@@ -6837,7 +6852,7 @@ html,body{
 /* Las dos columnas forman la tarjeta */
 [data-testid="stHorizontalBlock"]{
     gap:0!important;align-items:stretch!important;
-    height:100vh!important;overflow:hidden!important;margin:0!important;
+    height:100vh!important;width:100vw!important;overflow:hidden!important;margin:0!important;
 }
 
 /* Columna izquierda — blanca */
@@ -6857,7 +6872,7 @@ html,body{
 }
 [data-testid="stHorizontalBlock"]>div:last-child img{
     width:100%!important;height:100vh!important;
-    object-fit:cover!important;display:block!important;
+    object-fit:cover!important;object-position:left top!important;display:block!important;
 }
 [data-testid="stHorizontalBlock"]>div:last-child [data-testid="stImage"],
 [data-testid="stHorizontalBlock"]>div:last-child .stMarkdown,
@@ -6868,7 +6883,7 @@ html,body{
 
 /* Contenedor interno de la columna izquierda */
 [data-testid="stHorizontalBlock"]>div:first-child>div{
-    width:100%;max-width:420px;padding:0 40px;box-sizing:border-box;
+    width:min(420px, 82%);max-width:420px;padding:0;box-sizing:border-box;
 }
 
 /* Inputs */
@@ -6934,7 +6949,7 @@ html,body{
 </style>
 """, unsafe_allow_html=True)
 
-    col_left, col_right = st.columns([0.43, 0.57], gap="small")
+    col_left, col_right = st.columns([0.42, 0.58], gap="small")
 
     with col_left:
         # Título
@@ -7103,7 +7118,7 @@ html,body{
                 f'<div style="height:100vh;overflow:hidden;margin:0;padding:0;'
                 f'width:100%;position:relative;">'
                 f'<img src="{panel_src}" style="width:100%;height:100vh;'
-                f'object-fit:cover;object-position:center;display:block;'
+                f'object-fit:cover;object-position:left top;display:block;'
                 f'position:absolute;top:0;left:0;" alt="SEGAV ERP">'
                 f'</div>',
                 unsafe_allow_html=True,
