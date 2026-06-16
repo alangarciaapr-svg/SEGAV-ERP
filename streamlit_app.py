@@ -71,39 +71,66 @@ components.html(
       const doc = window.parent.document;
       const styleId = "segav-sidebar-toggle-style";
       const buttonId = "segav-sidebar-toggle";
+      const hiddenClass = "segav-sidebar-hidden";
 
       function ensureStyle() {
         if (doc.getElementById(styleId)) return;
         const style = doc.createElement("style");
         style.id = styleId;
         style.textContent = `
+          section[data-testid="stSidebar"] button[data-testid="stBaseButton-headerNoPadding"] {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+          }
           #segav-sidebar-toggle {
             position: fixed;
-            left: 10px;
-            top: 10px;
+            left: min(calc(var(--segav-sidebar-width, 300px) + 10px), calc(100vw - 52px));
+            top: 12px;
             z-index: 2147483000;
-            width: 36px;
-            height: 36px;
-            border: 1px solid rgba(15,23,42,.18);
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(15,23,42,.16);
             border-radius: 8px;
             background: #ffffff;
             color: #0f172a;
-            font-size: 20px;
+            font-size: 21px;
+            font-weight: 700;
             line-height: 1;
-            box-shadow: 0 8px 22px rgba(15,23,42,.18);
+            box-shadow: 0 10px 24px rgba(15,23,42,.16);
             cursor: pointer;
+            transition: left .18s ease, background .18s ease, color .18s ease, transform .18s ease;
           }
-          body.segav-sidebar-hidden section[data-testid="stSidebar"] {
+          #segav-sidebar-toggle:hover {
+            background: #f8fafc;
+            transform: translateY(-1px);
+          }
+          body.${hiddenClass} #segav-sidebar-toggle {
+            left: 12px;
+          }
+          body.${hiddenClass} section[data-testid="stSidebar"] {
             display: none !important;
             visibility: hidden !important;
           }
-          body.segav-sidebar-hidden [data-testid="stAppViewContainer"] [data-testid="stMain"],
-          body.segav-sidebar-hidden [data-testid="stAppViewContainer"] .main {
+          body.${hiddenClass} [data-testid="stAppViewContainer"] [data-testid="stMain"],
+          body.${hiddenClass} [data-testid="stAppViewContainer"] .main {
             margin-left: 0 !important;
             width: 100% !important;
           }
         `;
         doc.head.appendChild(style);
+      }
+
+      function syncButton(button, sidebar) {
+        const sidebarWidth = sidebar && !doc.body.classList.contains(hiddenClass)
+          ? Math.round(sidebar.getBoundingClientRect().width || 300)
+          : 300;
+        doc.documentElement.style.setProperty("--segav-sidebar-width", `${sidebarWidth}px`);
+        const isHidden = doc.body.classList.contains(hiddenClass);
+        button.textContent = isHidden ? "☰" : "×";
+        button.title = isHidden ? "Mostrar menú lateral" : "Ocultar menú lateral";
+        button.setAttribute("aria-label", button.title);
+        button.setAttribute("aria-expanded", isHidden ? "false" : "true");
       }
 
       function ensureButton() {
@@ -119,19 +146,18 @@ components.html(
           button = doc.createElement("button");
           button.id = buttonId;
           button.type = "button";
-          button.title = "Mostrar u ocultar menú";
-          button.setAttribute("aria-label", "Mostrar u ocultar menú");
           button.addEventListener("click", function () {
-            doc.body.classList.toggle("segav-sidebar-hidden");
-            button.textContent = doc.body.classList.contains("segav-sidebar-hidden") ? "☰" : "×";
+            doc.body.classList.toggle(hiddenClass);
+            window.requestAnimationFrame(() => syncButton(button, sidebar));
           });
           doc.body.appendChild(button);
         }
-        button.textContent = doc.body.classList.contains("segav-sidebar-hidden") ? "☰" : "×";
+        syncButton(button, sidebar);
       }
 
       ensureButton();
-      window.setInterval(ensureButton, 800);
+      window.setInterval(ensureButton, 1000);
+      window.addEventListener("resize", ensureButton);
     })();
     </script>
     """,
