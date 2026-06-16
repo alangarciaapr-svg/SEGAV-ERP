@@ -1576,7 +1576,33 @@ section[data-testid="stSidebar"] {
     border-right: none;
     display: block !important;
     visibility: visible !important;
+    opacity: 1 !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 300px !important;
     min-width: 300px !important;
+    max-width: 300px !important;
+    height: 100vh !important;
+    transform: translateX(0) !important;
+    z-index: 2147482000 !important;
+    overflow-y: auto !important;
+}
+section[data-testid="stSidebar"][aria-expanded="false"],
+section[data-testid="stSidebar"][aria-hidden="true"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: translateX(0) !important;
+    left: 0 !important;
+    width: 300px !important;
+    min-width: 300px !important;
+}
+[data-testid="stAppViewContainer"] [data-testid="stMain"],
+[data-testid="stAppViewContainer"] .main {
+    margin-left: 300px !important;
+    width: calc(100% - 300px) !important;
 }
 section[data-testid="stSidebar"] .block-container {
     padding-top: 0.5rem;
@@ -1940,17 +1966,38 @@ def fetch_assigned_workers(faena_id: int, fresh: bool = True):
     return reader(q, tuple(params))
 
 
+def _db_table_has_column(table_name: str, column_name: str) -> bool:
+    """Return whether a database table exposes a column, without breaking old local DBs."""
+    table = str(table_name or "").strip()
+    column = str(column_name or "").strip().lower()
+    if not table or not column or not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", table):
+        return False
+    try:
+        if DB_BACKEND == "postgres":
+            df = fetch_df_uncached(
+                "SELECT column_name FROM information_schema.columns WHERE table_name=?",
+                (table,),
+            )
+            return bool(df is not None and not df.empty and column in {str(x).lower() for x in df["column_name"].tolist()})
+        with conn() as c:
+            rows = c.execute(f"PRAGMA table_info({table})").fetchall()
+        return any(str(row[1]).lower() == column for row in rows)
+    except Exception:
+        return False
+
+
 def get_global_counts():
     """Devuelve conteos básicos filtrados por empresa activa."""
     tenant_key = current_tenant_key()
+    faena_estado_expr = "COALESCE(estado,'ACTIVA')" if _db_table_has_column("faenas", "estado") else "'ACTIVA'"
     try:
         row = fetch_df(
-            """
+            f"""
             SELECT
                 (SELECT COUNT(*) FROM mandantes WHERE COALESCE(cliente_key,'')=?) AS mandantes,
                 (SELECT COUNT(*) FROM contratos_faena WHERE COALESCE(cliente_key,'')=?) AS contratos_faena,
                 (SELECT COUNT(*) FROM faenas WHERE COALESCE(cliente_key,'')=?) AS faenas,
-                (SELECT COUNT(*) FROM faenas WHERE COALESCE(cliente_key,'')=? AND estado='ACTIVA') AS faenas_activas,
+                (SELECT COUNT(*) FROM faenas WHERE COALESCE(cliente_key,'')=? AND {faena_estado_expr}='ACTIVA') AS faenas_activas,
                 (SELECT COUNT(*) FROM trabajadores WHERE COALESCE(cliente_key,'')=?) AS trabajadores,
                 (SELECT COUNT(*) FROM asignaciones WHERE COALESCE(cliente_key,'')=?) AS asignaciones,
                 (SELECT COUNT(*) FROM trabajador_documentos WHERE COALESCE(cliente_key,'')=?) AS docs,
@@ -1970,7 +2017,7 @@ def get_global_counts():
             ("mandantes", "SELECT COUNT(*) AS n FROM mandantes WHERE COALESCE(cliente_key,'')=?"),
             ("contratos_faena", "SELECT COUNT(*) AS n FROM contratos_faena WHERE COALESCE(cliente_key,'')=?"),
             ("faenas", "SELECT COUNT(*) AS n FROM faenas WHERE COALESCE(cliente_key,'')=?"),
-            ("faenas_activas", "SELECT COUNT(*) AS n FROM faenas WHERE COALESCE(cliente_key,'')=? AND estado='ACTIVA'"),
+            ("faenas_activas", f"SELECT COUNT(*) AS n FROM faenas WHERE COALESCE(cliente_key,'')=? AND {faena_estado_expr}='ACTIVA'"),
             ("trabajadores", "SELECT COUNT(*) AS n FROM trabajadores WHERE COALESCE(cliente_key,'')=?"),
             ("asignaciones", "SELECT COUNT(*) AS n FROM asignaciones WHERE COALESCE(cliente_key,'')=?"),
             ("docs", "SELECT COUNT(*) AS n FROM trabajador_documentos WHERE COALESCE(cliente_key,'')=?"),
@@ -3370,6 +3417,28 @@ def ensure_sgsst_tables_sqlite(c):
         created_at TEXT NOT NULL
     );
     ''')
+
+    def _sqlite_add_column_if_missing(table: str, column: str, definition: str):
+        try:
+            cols = {str(row[1]).lower() for row in c.execute(f"PRAGMA table_info({table})").fetchall()}
+            if str(column).lower() not in cols:
+                c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+        except Exception:
+            pass
+
+    def _sqlite_table_exists(table: str) -> bool:
+        try:
+            row = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1", (str(table),)).fetchone()
+            return bool(row)
+        except Exception:
+            return False
+
+    # Bases locales antiguas pueden existir sin estas columnas. Deben estar antes
+    # de crear índices o ejecutar dashboards, porque Streamlit corta el render.
+    _sqlite_add_column_if_missing("faenas", "estado", "TEXT DEFAULT 'ACTIVA'")
+    _sqlite_add_column_if_missing("asignaciones", "estado", "TEXT DEFAULT 'ACTIVA'")
+    _sqlite_add_column_if_missing("trabajadores", "estado", "TEXT DEFAULT 'ACTIVO'")
+
     c.execute("CREATE INDEX IF NOT EXISTS idx_sgsst_programa_faena_id ON sgsst_programa_anual(faena_id);")
     c.execute("CREATE INDEX IF NOT EXISTS idx_sgsst_miper_faena_id ON sgsst_miper(faena_id);")
     c.execute("CREATE INDEX IF NOT EXISTS idx_sgsst_inspecciones_faena_id ON sgsst_inspecciones(faena_id);")
@@ -3389,7 +3458,8 @@ def ensure_sgsst_tables_sqlite(c):
     c.execute("CREATE INDEX IF NOT EXISTS idx_doc_empresa_faena_tenant_faena_tipo ON faena_empresa_documentos(cliente_key, faena_id, doc_tipo);")
     c.execute("CREATE INDEX IF NOT EXISTS idx_export_hist_tenant_faena ON export_historial(cliente_key, faena_id, created_at);")
     c.execute("CREATE INDEX IF NOT EXISTS idx_export_hist_mes_tenant_periodo ON export_historial_mes(cliente_key, year_month, created_at);")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_legal_doc_latest ON legal_doc_approvals(cliente_key, entity_table, entity_id, version_no, id);")
+    if _sqlite_table_exists("legal_doc_approvals"):
+        c.execute("CREATE INDEX IF NOT EXISTS idx_legal_doc_latest ON legal_doc_approvals(cliente_key, entity_table, entity_id, version_no, id);")
 
 
 def ensure_sgsst_seed_data():
