@@ -68,19 +68,17 @@ components.html(
     """
     <script>
     (function () {
-      const key = "segav_sidebar_opened_by_default_v2";
-      function openSidebarOnce() {
-        if (window.sessionStorage.getItem(key) === "1") return;
+      function openSidebarIfCollapsed() {
         const doc = window.parent.document;
         const button = doc.querySelector('[data-testid="collapsedControl"], [data-testid="collapsedControl"] button, button[aria-label="Open sidebar"]');
         if (button) {
           button.click();
-          window.sessionStorage.setItem(key, "1");
         }
       }
-      window.setTimeout(openSidebarOnce, 150);
-      window.setTimeout(openSidebarOnce, 600);
-      window.setTimeout(openSidebarOnce, 1200);
+      window.setTimeout(openSidebarIfCollapsed, 120);
+      window.setTimeout(openSidebarIfCollapsed, 500);
+      window.setTimeout(openSidebarIfCollapsed, 1000);
+      window.setTimeout(openSidebarIfCollapsed, 1800);
     })();
     </script>
     """,
@@ -1576,7 +1574,9 @@ div[data-testid="stAlert"] { border-radius: 12px; }
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%) !important;
     border-right: none;
+    display: block !important;
     visibility: visible !important;
+    min-width: 300px !important;
 }
 section[data-testid="stSidebar"] .block-container {
     padding-top: 0.5rem;
@@ -1711,7 +1711,18 @@ section[data-testid="stSidebar"] .segav-sidehint {
 
 /* Keep the sidebar toggle available while hiding the extra app toolbar. */
 header[data-testid="stHeader"] {
+    display: block !important;
+    visibility: visible !important;
+    height: 2.5rem !important;
+    min-height: 2.5rem !important;
     background: transparent !important;
+}
+[data-testid="collapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 2147483000 !important;
 }
 div[data-testid="stToolbar"] {
     display: none !important;
@@ -6721,10 +6732,11 @@ def auth_gate_ui():
     # === CSS ===
     st.markdown("""
 <style>
-/* Ocultar chrome Streamlit */
-header[data-testid="stHeader"],div[data-testid="stToolbar"],
+/* Ocultar chrome Streamlit sin bloquear el control del sidebar */
+div[data-testid="stToolbar"],
 [data-testid="stDecoration"],
 #MainMenu,footer{display:none!important;}
+[data-testid="stHeader"]{display:block!important;visibility:visible!important;background:transparent!important;}
 
 /* Fondo blanco total — sin franja gris */
 html,body{
