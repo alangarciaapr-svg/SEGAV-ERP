@@ -73,7 +73,13 @@ def inject_kpi_css() -> None:
     margin: 8px 0 14px 0;
 }
 [data-testid="stProgress"] > div > div {
-    background: linear-gradient(90deg, #dc2626 0%, #f59e0b 46%, #16a34a 100%) !important;
+    background: #16a34a !important;
+    border-radius: 8px 0 0 8px !important;
+}
+[data-testid="stProgress"] > div {
+    background-color: #fee2e2 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
 }
 </style>
         """,

@@ -58,9 +58,9 @@ LOCAL_BRAND_LOGO_PATH = os.path.join(os.path.dirname(__file__), "assets", "brand
 LOCAL_LOGIN_HERO_PATH = os.path.join(os.path.dirname(__file__), "assets", "branding", "login_hero_segav.svg")
 LOCAL_LOGIN_PANEL_APPROVED_PATH = os.path.join(os.path.dirname(__file__), "assets", "branding", "login_right_approved.png")
 if os.path.exists(LOCAL_BRAND_LOGO_PATH):
-    st.set_page_config(page_title="SEGAV ERP", page_icon=LOCAL_BRAND_LOGO_PATH, layout="wide")
+    st.set_page_config(page_title="SEGAV ERP", page_icon=LOCAL_BRAND_LOGO_PATH, layout="wide", initial_sidebar_state="expanded")
 else:
-    st.set_page_config(page_title="SEGAV ERP", layout="wide")
+    st.set_page_config(page_title="SEGAV ERP", layout="wide", initial_sidebar_state="expanded")
 
 install_action_feedback()
 
@@ -1541,6 +1541,18 @@ button[data-baseweb="tab"] {
     color: #dc2626 !important;
     fill: #dc2626 !important;
 }
+[data-testid="stProgress"] {
+    background: transparent !important;
+}
+[data-testid="stProgress"] > div {
+    background-color: #fee2e2 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+}
+[data-testid="stProgress"] > div > div {
+    background: #16a34a !important;
+    border-radius: 8px 0 0 8px !important;
+}
 details[data-testid="stExpander"] {
     border: 1px solid rgba(99,102,241,0.10);
     border-radius: 12px;
@@ -1686,18 +1698,19 @@ section[data-testid="stSidebar"] .segav-sidehint {
 }
 
 /* Progress bar */
-[data-testid="stProgress"] > div > div {
-    background: linear-gradient(90deg, #dc2626 0%, #f59e0b 46%, #16a34a 100%) !important;
+[data-testid="stProgress"] > div {
+    background-color: #fee2e2 !important;
     border-radius: 8px;
+    overflow: hidden;
+}
+[data-testid="stProgress"] > div > div {
+    background: #16a34a !important;
+    border-radius: 8px 0 0 8px;
 }
 
-/* Hide Streamlit header toolbar */
+/* Keep the sidebar toggle available while hiding the extra app toolbar. */
 header[data-testid="stHeader"] {
     background: transparent !important;
-    height: 0 !important;
-    min-height: 0 !important;
-    padding: 0 !important;
-    visibility: hidden;
 }
 div[data-testid="stToolbar"] {
     display: none !important;
@@ -1705,10 +1718,6 @@ div[data-testid="stToolbar"] {
 div[data-testid="stDecoration"] {
     display: none !important;
 }
-.stApp > header {
-    display: none !important;
-}
-
         </style>
         """,
         unsafe_allow_html=True,
