@@ -68,11 +68,11 @@ components.html(
     """
     <script>
     (function () {
-      const key = "segav_sidebar_opened_by_default_v1";
+      const key = "segav_sidebar_opened_by_default_v2";
       function openSidebarOnce() {
         if (window.sessionStorage.getItem(key) === "1") return;
         const doc = window.parent.document;
-        const button = doc.querySelector('[data-testid="collapsedControl"] button, button[aria-label="Open sidebar"]');
+        const button = doc.querySelector('[data-testid="collapsedControl"], [data-testid="collapsedControl"] button, button[aria-label="Open sidebar"]');
         if (button) {
           button.click();
           window.sessionStorage.setItem(key, "1");
@@ -1564,18 +1564,6 @@ button[data-baseweb="tab"] {
     color: #dc2626 !important;
     fill: #dc2626 !important;
 }
-[data-testid="stProgress"] {
-    background: transparent !important;
-}
-[data-testid="stProgress"] > div {
-    background-color: #16a34a !important;
-    border-radius: 8px !important;
-    overflow: hidden !important;
-}
-[data-testid="stProgress"] > div > div {
-    background: #fee2e2 !important;
-    border-radius: 8px 0 0 8px !important;
-}
 details[data-testid="stExpander"] {
     border: 1px solid rgba(99,102,241,0.10);
     border-radius: 12px;
@@ -1719,17 +1707,6 @@ section[data-testid="stSidebar"] .segav-quick-title {
 }
 section[data-testid="stSidebar"] .segav-sidehint {
     text-align: center; font-size: 0.8rem; opacity: 0.5; margin-bottom: 0.2rem;
-}
-
-/* Progress bar */
-[data-testid="stProgress"] > div {
-    background-color: #16a34a !important;
-    border-radius: 8px;
-    overflow: hidden;
-}
-[data-testid="stProgress"] > div > div {
-    background: #fee2e2 !important;
-    border-radius: 8px 0 0 8px;
 }
 
 /* Keep the sidebar toggle available while hiding the extra app toolbar. */
@@ -6746,7 +6723,7 @@ def auth_gate_ui():
 <style>
 /* Ocultar chrome Streamlit */
 header[data-testid="stHeader"],div[data-testid="stToolbar"],
-section[data-testid="stSidebar"],[data-testid="stDecoration"],
+[data-testid="stDecoration"],
 #MainMenu,footer{display:none!important;}
 
 /* Fondo blanco total — sin franja gris */

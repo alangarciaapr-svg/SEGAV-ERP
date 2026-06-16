@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from segav_core.ui import ui_header
-from segav_core.kpi_ui import kpi_card
+from segav_core.kpi_ui import kpi_card, segmented_progress
 from segav_core import ds44 as _ds44
 from segav_core import miper as _miper
 from segav_core import alertas as _alertas
@@ -218,7 +218,7 @@ def page_sgsst(
     _compliance_pct = int((_modules_ok / _total_modules) * 100) if _total_modules > 0 else 0
     _compliance_color = "🟢" if _compliance_pct >= 75 else ("🟡" if _compliance_pct >= 40 else "🔴")
     st.markdown(f"#### {_compliance_color} Cumplimiento SGSST: {_modules_ok}/{_total_modules} módulos ({_compliance_pct}%)")
-    st.progress(_compliance_pct / 100)
+    segmented_progress(_compliance_pct, label="Cumplimiento SGSST")
     st.caption("Módulos: Ficha Empresa · Matriz Legal · Programa Anual · MIPER · DS 594 · Incidentes · Capacitaciones · CPHS")
 
     # ── Navegación: pantalla de inicio + secciones tipo botón ──────────
@@ -293,7 +293,7 @@ def page_sgsst(
 
         _pcolor = "🟢" if _prof["pct"] >= 80 else ("🟡" if _prof["pct"] >= 50 else "🔴")
         st.markdown(f"#### {_pcolor} Ficha de empresa completa al {_prof['pct']}% ({_prof['completos']}/{_prof['total']} datos)")
-        st.progress(_prof["pct"] / 100)
+        segmented_progress(_prof["pct"], label="Ficha de empresa")
         if _prof["missing"]:
             with st.expander(f"⚠️ Faltan {len(_prof['missing'])} dato(s) por completar"):
                 for _k, _lbl in _prof["missing"]:
@@ -624,7 +624,7 @@ def page_sgsst(
         st.divider()
         _color = "🟢" if _summary["pct"] >= 80 else ("🟡" if _summary["pct"] >= 50 else "🔴")
         st.markdown(f"#### {_color} Avance DS 44: {_summary['pct']}%  ·  {_summary['cumple']} cumple · {_summary['en_proceso']} en proceso · {_summary['no_cumple']} no cumple · {_summary['no_aplica']} no aplica")
-        st.progress(_summary["pct"] / 100)
+        segmented_progress(_summary["pct"], label="Autoevaluación DS 44")
 
         if not read_only and st.button("💾 Guardar autoevaluación DS 44", type="primary", use_container_width=True, key=K("ds44_save")):
             _now = datetime.now().isoformat(timespec="seconds")
@@ -1299,7 +1299,7 @@ def page_sgsst(
                 st.markdown(f"#### {_color} Cumplimiento: {_cumple_count}/{_aplica_count} aplicables ({_pct}%)")
                 if _na_count:
                     st.caption(f"{_na_count} ítem(s) marcados como 'No aplica' (excluidos del cálculo).")
-                st.progress(_pct / 100)
+                segmented_progress(_pct, label="Cumplimiento DS 594")
 
             if st.button("💾 Guardar checklist completo", type="primary", use_container_width=True, key=K("ck594_save")):
                 now = datetime.now().isoformat(timespec='seconds')

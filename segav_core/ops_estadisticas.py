@@ -11,6 +11,8 @@ de mutualidades (ACHS, Mutual de Seguridad, IST).
 from __future__ import annotations
 
 import streamlit as st
+
+from segav_core.kpi_ui import segmented_progress
 import pandas as pd
 from datetime import date, datetime
 from typing import Callable
@@ -447,7 +449,7 @@ def render_tab_cumplimiento_legal(st, fetch_df, fetch_value, execute, K, cliente
     pct = int((cumple_count / total) * 100) if total > 0 else 0
     color = "🟢" if pct >= 80 else ("🟡" if pct >= 50 else "🔴")
     st.markdown(f"#### {color} Cumplimiento {norma_tab}: {cumple_count}/{total} ({pct}%)")
-    st.progress(pct / 100)
+    segmented_progress(pct, label="Score estadístico")
 
     if st.button(f"💾 Guardar cumplimiento {norma_tab}", key=K(f"cl_save_{norma_key}"), type="primary", use_container_width=True):
         now = datetime.now().isoformat(timespec="seconds")

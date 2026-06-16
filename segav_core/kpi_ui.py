@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Iterable
+from html import escape
 
 import pandas as pd
 import streamlit as st
@@ -72,14 +73,18 @@ def inject_kpi_css() -> None:
     box-shadow: 0 10px 24px rgba(22, 101, 52, .06);
     margin: 8px 0 14px 0;
 }
-[data-testid="stProgress"] > div > div {
-    background: #fee2e2 !important;
-    border-radius: 8px 0 0 8px !important;
+.segav-progress-bar {
+    height: 9px;
+    width: 100%;
+    background: #fee2e2;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 10px 0 6px 0;
 }
-[data-testid="stProgress"] > div {
-    background-color: #16a34a !important;
-    border-radius: 8px !important;
-    overflow: hidden !important;
+.segav-progress-fill {
+    height: 100%;
+    background: #16a34a;
+    border-radius: 999px 0 0 999px;
 }
 </style>
         """,
@@ -120,6 +125,23 @@ def _status_text(status: str = "", tone: str = "neutral") -> str:
     return f"{_TONE_ICONS.get(str(tone).lower(), '●')} {status}"
 
 
+def segmented_progress(value: float, *, label: str = "") -> None:
+    """Una sola barra: avance en verde y pendiente en rojo."""
+    try:
+        pct = max(0.0, min(100.0, float(value)))
+    except Exception:
+        pct = 0.0
+    safe_label = escape(str(label or f"{pct:.0f}%"))
+    st.markdown(
+        f"""
+<div class="segav-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{pct:.1f}" aria-label="{safe_label}">
+  <div class="segav-progress-fill" style="width:{pct:.3f}%;"></div>
+</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def kpi_card(
     label: str,
     value: Any,
@@ -149,11 +171,7 @@ def kpi_card(
     if st_line:
         st.caption(st_line)
     if progress is not None:
-        try:
-            p = max(0.0, min(100.0, float(progress))) / 100.0
-            st.progress(p)
-        except Exception:
-            pass
+        segmented_progress(progress, label=str(label))
 
 
 def kpi_grid(cards: Iterable[dict[str, Any]], *, columns: int = 4) -> None:

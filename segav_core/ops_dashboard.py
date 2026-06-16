@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from segav_core.ops_compliance import build_auto_alerts, ensure_multiempresa_compliance_schema_once, legal_docs_status_summary
-from segav_core.kpi_ui import kpi_grid, kpi_section, professional_bar_chart, tone_for_count, tone_for_percentage
+from segav_core.kpi_ui import kpi_grid, kpi_section, professional_bar_chart, segmented_progress, tone_for_count, tone_for_percentage
 
 
 def _safe_current_client(clientes_df: pd.DataFrame, current_client_key: str) -> dict:
@@ -481,24 +481,24 @@ def page_dashboard(
         _cc = st.columns(4)
         with _cc[0]:
             st.metric("📁 Documentos de empresa", f"{_emp_pct:.0f}%", help=_emp_sub)
-            st.progress(min(1.0, _emp_pct / 100)); st.caption(_emp_sub)
+            segmented_progress(_emp_pct, label="Documentos de empresa"); st.caption(_emp_sub)
         with _cc[1]:
             st.metric("👷 Documentos de trabajadores", f"{_trab_pct:.0f}%", help=_trab_sub)
-            st.progress(min(1.0, _trab_pct / 100)); st.caption(_trab_sub)
+            segmented_progress(_trab_pct, label="Documentos de trabajadores"); st.caption(_trab_sub)
         with _cc[2]:
             if _ds44_pct is None:
                 st.metric("🧭 DS 44", "—", help="Completa la autoevaluación en SGSST")
                 st.caption("Sin autoevaluación")
             else:
                 st.metric("🧭 DS 44", f"{_ds44_pct:.0f}%", help=_ds44_sub)
-                st.progress(min(1.0, _ds44_pct / 100)); st.caption(_ds44_sub)
+                segmented_progress(_ds44_pct, label="DS 44"); st.caption(_ds44_sub)
         with _cc[3]:
             if _ficha_pct is None:
                 st.metric("🏢 Ficha de empresa", "—")
                 st.caption("Sin ficha")
             else:
                 st.metric("🏢 Ficha de empresa", f"{_ficha_pct:.0f}%", help=_ficha_sub)
-                st.progress(min(1.0, _ficha_pct / 100)); st.caption(_ficha_sub)
+                segmented_progress(_ficha_pct, label="Ficha de empresa"); st.caption(_ficha_sub)
         st.divider()
     except Exception:
         pass
