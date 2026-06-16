@@ -255,7 +255,6 @@ def auth_gate_ui(render_brand_logo: Callable | None = None, auto_backup_callback
         }}
         [data-testid="stHeader"] {{background: transparent;}}
         .block-container {{padding-top: 0 !important; padding-bottom: 0 !important; max-width: 100% !important;}}
-        section[data-testid="stSidebar"] {{display: none !important;}}
         div[data-testid="stVerticalBlock"]:has(> .segav-login-shell) {{height: 100vh;}}
         .segav-login-shell {{
             height: 100vh;

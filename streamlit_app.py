@@ -64,6 +64,29 @@ else:
 
 install_action_feedback()
 
+components.html(
+    """
+    <script>
+    (function () {
+      const key = "segav_sidebar_opened_by_default_v1";
+      function openSidebarOnce() {
+        if (window.sessionStorage.getItem(key) === "1") return;
+        const doc = window.parent.document;
+        const button = doc.querySelector('[data-testid="collapsedControl"] button, button[aria-label="Open sidebar"]');
+        if (button) {
+          button.click();
+          window.sessionStorage.setItem(key, "1");
+        }
+      }
+      window.setTimeout(openSidebarOnce, 150);
+      window.setTimeout(openSidebarOnce, 600);
+      window.setTimeout(openSidebarOnce, 1200);
+    })();
+    </script>
+    """,
+    height=0,
+)
+
 # Avisos flotantes centrados: los mensajes de éxito (verde) y error/rechazo (rojo)
 # se muestran como toast en el centro de la ventana, no incrustados en el contenido.
 st.markdown(
@@ -1545,12 +1568,12 @@ button[data-baseweb="tab"] {
     background: transparent !important;
 }
 [data-testid="stProgress"] > div {
-    background-color: #fee2e2 !important;
+    background-color: #16a34a !important;
     border-radius: 8px !important;
     overflow: hidden !important;
 }
 [data-testid="stProgress"] > div > div {
-    background: #16a34a !important;
+    background: #fee2e2 !important;
     border-radius: 8px 0 0 8px !important;
 }
 details[data-testid="stExpander"] {
@@ -1565,6 +1588,7 @@ div[data-testid="stAlert"] { border-radius: 12px; }
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%) !important;
     border-right: none;
+    visibility: visible !important;
 }
 section[data-testid="stSidebar"] .block-container {
     padding-top: 0.5rem;
@@ -1699,12 +1723,12 @@ section[data-testid="stSidebar"] .segav-sidehint {
 
 /* Progress bar */
 [data-testid="stProgress"] > div {
-    background-color: #fee2e2 !important;
+    background-color: #16a34a !important;
     border-radius: 8px;
     overflow: hidden;
 }
 [data-testid="stProgress"] > div > div {
-    background: #16a34a !important;
+    background: #fee2e2 !important;
     border-radius: 8px 0 0 8px;
 }
 
