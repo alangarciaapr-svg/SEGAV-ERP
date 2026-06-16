@@ -1520,11 +1520,26 @@ button[data-baseweb="tab"] {
     box-shadow: 0 2px 12px rgba(99,102,241,0.06);
 }
 [data-testid="stMetric"] {
-    background: linear-gradient(135deg, #ffffff, #f8faff);
-    border: 1px solid rgba(99,102,241,0.10);
+    background: linear-gradient(135deg, #ffffff, #f0fdf4);
+    border: 1px solid rgba(22,163,74,0.22);
+    border-left: 5px solid #16a34a;
     border-radius: 12px;
     padding: 14px;
-    box-shadow: 0 2px 10px rgba(99,102,241,0.06);
+    box-shadow: 0 2px 10px rgba(22,101,52,0.08);
+}
+[data-testid="stMetricValue"] {
+    color: #166534 !important;
+}
+[data-testid="stMetricDelta"] {
+    color: #16a34a !important;
+}
+[data-testid="stMetricDelta"] svg {
+    fill: #16a34a !important;
+}
+[data-testid="stMetricDelta"] [style*="red"],
+[data-testid="stMetricDelta"] [style*="rgb(255"] {
+    color: #dc2626 !important;
+    fill: #dc2626 !important;
 }
 details[data-testid="stExpander"] {
     border: 1px solid rgba(99,102,241,0.10);
@@ -1672,7 +1687,7 @@ section[data-testid="stSidebar"] .segav-sidehint {
 
 /* Progress bar */
 [data-testid="stProgress"] > div > div {
-    background: linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa) !important;
+    background: linear-gradient(90deg, #dc2626 0%, #f59e0b 46%, #16a34a 100%) !important;
     border-radius: 8px;
 }
 

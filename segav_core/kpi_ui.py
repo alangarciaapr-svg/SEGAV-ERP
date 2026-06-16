@@ -28,14 +28,19 @@ def inject_kpi_css() -> None:
         """
 <style>
 [data-testid="stMetric"] {
-    background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.95));
-    border: 1px solid rgba(15, 23, 42, .08) !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.99), rgba(240,253,244,.72));
+    border: 1px solid rgba(22, 163, 74, .22) !important;
+    border-left: 5px solid #16a34a !important;
     border-radius: 20px !important;
     padding: 14px 16px !important;
-    box-shadow: 0 12px 26px rgba(15, 23, 42, .07);
+    box-shadow: 0 12px 26px rgba(22, 101, 52, .09);
 }
-[data-testid="stMetricValue"] {font-weight: 900 !important; letter-spacing:-.03em;}
+[data-testid="stMetricValue"] {font-weight: 900 !important; letter-spacing:-.03em; color:#166534 !important;}
 [data-testid="stMetricLabel"] {font-weight: 800 !important; color:#475569 !important;}
+[data-testid="stMetricDelta"] {color:#16a34a !important;}
+[data-testid="stMetricDelta"] svg {fill:#16a34a !important;}
+[data-testid="stMetricDelta"] [style*="red"],
+[data-testid="stMetricDelta"] [style*="rgb(255"] {color:#dc2626 !important; fill:#dc2626 !important;}
 .segav-kpi-native-caption {
     font-size:.82rem;
     color:#64748b;
@@ -52,20 +57,23 @@ def inject_kpi_css() -> None:
 .segav-kpi-section {
     border-radius: 18px;
     padding: 14px 16px;
-    border: 1px solid rgba(15, 23, 42, .08);
-    background: linear-gradient(135deg, rgba(248,250,252,.96), rgba(239,246,255,.72));
-    box-shadow: 0 10px 26px rgba(15, 23, 42, .055);
+    border: 1px solid rgba(22, 163, 74, .18);
+    background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(240,253,244,.78));
+    box-shadow: 0 10px 26px rgba(22, 101, 52, .07);
     margin: 10px 0 14px 0;
 }
 .segav-kpi-section-title {font-size:1.02rem; font-weight:900; color:#0f172a;}
 .segav-kpi-section-subtitle {font-size:.86rem; color:#64748b; margin-top:4px;}
 .segav-chart-card {
-    border: 1px solid rgba(15, 23, 42, .08);
+    border: 1px solid rgba(22, 163, 74, .16);
     border-radius: 18px;
     padding: 12px 14px;
-    background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.92));
-    box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
+    background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(240,253,244,.64));
+    box-shadow: 0 10px 24px rgba(22, 101, 52, .06);
     margin: 8px 0 14px 0;
+}
+[data-testid="stProgress"] > div > div {
+    background: linear-gradient(90deg, #dc2626 0%, #f59e0b 46%, #16a34a 100%) !important;
 }
 </style>
         """,
