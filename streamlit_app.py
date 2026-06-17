@@ -8169,6 +8169,8 @@ PAGES = [
     "Cumplimiento / Alertas",
     "Aprobaciones / Auditoría legal",
     # Documentación
+    "Centro Documental",
+    "Documentos Empresa",
     "Documentos Empresa (Faena)",
     "Documentos Trabajador",
     "Exportar (ZIP)",
@@ -8192,6 +8194,8 @@ _LECTOR_PAGES = [
     "Dashboard",
     "Trabajadores",
     "Mi Empresa / SGSST",
+    "Centro Documental",
+    "Documentos Empresa",
     "Documentos Empresa (Faena)",
     "Documentos Trabajador",
     "Exportar (ZIP)",
@@ -8358,8 +8362,10 @@ with st.sidebar:
         "Mi Empresa / SGSST": "🦺 SGSST",
         "Cumplimiento / Alertas": "🚨 Cumplimiento / Alertas",
         "Aprobaciones / Auditoría legal": "✅ Aprobaciones Legales",
-        "Documentos Empresa (Faena)": "🏛️ Docs Empresa por Faena",
-        "Documentos Trabajador": "📎 Docs Trabajador",
+        "Centro Documental": "📁 Centro Documental",
+        "Documentos Empresa": "🏢 Empresa global",
+        "Documentos Empresa (Faena)": "🏭 Empresa por faena",
+        "Documentos Trabajador": "👷 Trabajadores",
         "Exportar (ZIP)": "📦 Exportar ZIP",
         "Admin Usuarios": "🔐 Usuarios",
         "SuperAdmin / Empresas": "🌐 SuperAdmin / Empresas",
@@ -8400,6 +8406,8 @@ with st.sidebar:
             "Aprobaciones / Auditoría legal",
         ]),
         "docs": ("🗂️ Documentación", [
+            "Centro Documental",
+            "Documentos Empresa",
             "Documentos Empresa (Faena)",
             "Documentos Trabajador",
             "Exportar (ZIP)",
@@ -8421,6 +8429,8 @@ with st.sidebar:
                 "Dashboard",
                 "Trabajadores",
                 "Mi Empresa / SGSST",
+                "Centro Documental",
+                "Documentos Empresa",
                 "Documentos Empresa (Faena)",
                 "Documentos Trabajador",
                 "Exportar (ZIP)",
@@ -8463,7 +8473,9 @@ with st.sidebar:
             "Dashboard": "📊 Resumen",
             "Trabajadores": "👷 Trabajadores (consulta)",
             "Mi Empresa / SGSST": "🦺 SGSST (consulta)",
-            "Documentos Empresa (Faena)": "🏛️ Documentos de empresa",
+            "Centro Documental": "📁 Centro documental",
+            "Documentos Empresa": "🏢 Empresa global",
+            "Documentos Empresa (Faena)": "🏭 Empresa por faena",
             "Documentos Trabajador": "📎 Documentos de trabajadores",
             "Exportar (ZIP)": "📦 Descargar expediente (ZIP)",
             "Mi Perfil": "👤 Mi perfil",
@@ -8711,25 +8723,160 @@ def page_asignar_trabajadores():
     return _ops_personal.page_asignar_trabajadores(fetch_df=tenant_fetch_df, conn=conn, cursor_execute=cursor_execute, ASSIGNACION_INSERT_SQL=ASSIGNACION_INSERT_SQL, clear_app_caches=clear_app_caches, auto_backup_db=auto_backup_db, build_trabajadores_template_xlsx=build_trabajadores_template_xlsx, clean_rut=clean_rut, split_nombre_completo=split_nombre_completo, norm_col=norm_col, executemany=tenant_executemany, go=go, trabajador_insert_or_update=_trabajador_insert_or_update, current_tenant_key=current_tenant_key)
 
 
+_DOC_NAV_ITEMS = [
+    ("Centro Documental", "📁 Centro", "Resumen y accesos"),
+    ("Documentos Empresa", "🏢 Global", "Documentos corporativos"),
+    ("Documentos Empresa (Faena)", "🏭 Faena / mes", "F30, F30-1, liquidaciones"),
+    ("Documentos Trabajador", "👷 Trabajadores", "Obligatorios por cargo"),
+    ("Exportar (ZIP)", "📦 Exportar", "Expediente y reportes"),
+]
+
+
+def _doc_count(query: str, params: tuple = ()) -> int:
+    try:
+        df = tenant_fetch_df(query, params)
+        if df is None or df.empty:
+            return 0
+        return int(df.iloc[0].get("n", 0) or 0)
+    except Exception:
+        return 0
+
+
+def _render_documentacion_toolbar(active_page: str):
+    st.markdown(
+        """
+        <style>
+        .segav-docs-toolbar-title {
+            font-size:.74rem;
+            font-weight:900;
+            letter-spacing:.08em;
+            text-transform:uppercase;
+            color:#64748b;
+            margin:2px 0 6px 0;
+        }
+        .segav-docs-active-pill {
+            min-height:39px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            border-radius:8px;
+            border:1px solid rgba(22,163,74,.28);
+            background:linear-gradient(180deg,rgba(240,253,244,.98),rgba(220,252,231,.86));
+            color:#166534;
+            font-weight:850;
+            font-size:.86rem;
+            box-shadow:0 8px 20px rgba(22,101,52,.08);
+            padding:0 10px;
+            text-align:center;
+        }
+        .segav-docs-flow-note {
+            border:1px solid rgba(15,23,42,.08);
+            background:rgba(255,255,255,.70);
+            border-radius:8px;
+            padding:12px 14px;
+            color:#475569;
+            font-size:.9rem;
+            line-height:1.45;
+            margin:8px 0 14px 0;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown('<div class="segav-docs-toolbar-title">Flujo documental</div>', unsafe_allow_html=True)
+    cols = st.columns(len(_DOC_NAV_ITEMS))
+    for col, (page_name, short_label, _help) in zip(cols, _DOC_NAV_ITEMS):
+        with col:
+            if page_name == active_page:
+                st.markdown(f'<div class="segav-docs-active-pill">{short_label}</div>', unsafe_allow_html=True)
+            else:
+                disabled = page_name not in VISIBLE_PAGES
+                if st.button(short_label, use_container_width=True, key=f"doc_nav_{active_page}_{page_name}", disabled=disabled, help=_help):
+                    go(page_name)
+    st.markdown(
+        '<div class="segav-docs-flow-note">Orden recomendado: define/carga documentos globales, completa documentos por faena y mes, '
+        'mantén al día los documentos de trabajadores y genera el expediente ZIP cuando el cumplimiento esté listo.</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def page_centro_documental():
+    ui_header(
+        "Centro Documental",
+        "Acceso ordenado para cargar, revisar y exportar documentación de empresa, faenas y trabajadores.",
+    )
+    _render_documentacion_toolbar("Centro Documental")
+
+    docs_global = _doc_count("SELECT COUNT(*) AS n FROM empresa_documentos")
+    docs_faena = _doc_count("SELECT COUNT(*) AS n FROM faena_empresa_documentos")
+    docs_trab = _doc_count("SELECT COUNT(*) AS n FROM trabajador_documentos")
+    zips = _doc_count("SELECT COUNT(*) AS n FROM export_historial")
+    kpi_grid(
+        [
+            {"label": "Empresa global", "value": docs_global, "subtitle": "Documentos corporativos", "icon": "🏢", "tone": "success" if docs_global else "neutral", "status": "Repositorio"},
+            {"label": "Empresa por faena", "value": docs_faena, "subtitle": "Documentos mensuales", "icon": "🏭", "tone": "success" if docs_faena else "neutral", "status": "Faena / mes"},
+            {"label": "Trabajadores", "value": docs_trab, "subtitle": "Documentos personales", "icon": "👷", "tone": "success" if docs_trab else "neutral", "status": "Personal"},
+            {"label": "ZIP generados", "value": zips, "subtitle": "Historial de expedientes", "icon": "📦", "tone": "info" if zips else "neutral", "status": "Exportación"},
+        ],
+        columns=4,
+    )
+
+    st.markdown("### Operación diaria")
+    op1, op2, op3 = st.columns(3)
+    with op1:
+        st.markdown("**🏭 Empresa por faena y mes**")
+        st.caption("Carga F30, F30-1, liquidaciones y accidentabilidad por período mensual.")
+        if st.button("Abrir empresa por faena", type="primary", use_container_width=True, key="doc_center_faena"):
+            go("Documentos Empresa (Faena)")
+    with op2:
+        st.markdown("**👷 Documentos de trabajadores**")
+        st.caption("Gestiona obligatorios por cargo, trabajador y faena seleccionada.")
+        if st.button("Abrir trabajadores", type="primary", use_container_width=True, key="doc_center_trab"):
+            go("Documentos Trabajador")
+    with op3:
+        st.markdown("**📦 Exportar expediente ZIP**")
+        st.caption("Revisa pendientes, selecciona documentos y genera expediente descargable.")
+        if st.button("Abrir exportación ZIP", type="primary", use_container_width=True, key="doc_center_zip"):
+            go("Exportar (ZIP)")
+
+    st.markdown("### Gestión de base documental")
+    base1, base2 = st.columns([1, 2])
+    with base1:
+        st.markdown("**🏢 Documentos empresa global**")
+        st.caption("Carga documentos corporativos reutilizables para la empresa o mandantes.")
+        if st.button("Abrir empresa global", use_container_width=True, key="doc_center_global"):
+            go("Documentos Empresa")
+    with base2:
+        st.markdown(
+            '<div class="segav-docs-flow-note">Todas las pantallas mantienen sus funciones actuales: carga múltiple, documentos tipo OTRO, '
+            'descarga, edición de tipo para administradores, control legal, eliminación con confirmación, historial y exportación persistente.</div>',
+            unsafe_allow_html=True,
+        )
+
+
 def page_documentos_empresa():
     _can_edit_tipo = str((current_user() or {}).get("role") or "").upper() in ("ADMIN", "SUPERADMIN")
     _can_manage_docs = str((current_user() or {}).get("role") or "").upper() != "LECTOR"
+    _render_documentacion_toolbar("Documentos Empresa")
     return _ops_docs.page_documentos_empresa(fetch_df=tenant_fetch_df, allowed_mandante_ids=current_user_mandante_scope_ids(), get_empresa_required_doc_types=get_empresa_required_doc_types, doc_tipo_join=doc_tipo_join, doc_tipo_label=doc_tipo_label, render_upload_help=render_upload_help, prepare_upload_payload=prepare_upload_payload, safe_name=safe_name, save_file_online=save_file_online, sha256_bytes=sha256_bytes, execute=tenant_execute, datetime=datetime, auto_backup_db=auto_backup_db, load_file_anywhere=load_file_anywhere, delete_uploaded_document_record=delete_uploaded_document_record, render_legal_doc_inline=render_legal_doc_inline, can_edit_doc_type=_can_edit_tipo, can_manage_docs=_can_manage_docs)
 
 
 def page_documentos_empresa_faena():
     _can_edit_tipo = str((current_user() or {}).get("role") or "").upper() in ("ADMIN", "SUPERADMIN")
     _can_manage_docs = str((current_user() or {}).get("role") or "").upper() != "LECTOR"
+    _render_documentacion_toolbar("Documentos Empresa (Faena)")
     return _ops_docs.page_documentos_empresa_faena(fetch_df=tenant_fetch_df, allowed_mandante_ids=current_user_mandante_scope_ids(), ui_tip=ui_tip, periodo_label=periodo_label, periodo_ym=periodo_ym, get_empresa_monthly_doc_types=get_empresa_monthly_doc_types, doc_tipo_join=doc_tipo_join, doc_tipo_label=doc_tipo_label, render_upload_help=render_upload_help, prepare_upload_payload=prepare_upload_payload, safe_name=safe_name, save_file_online=save_file_online, sha256_bytes=sha256_bytes, execute=tenant_execute, datetime=datetime, auto_backup_db=auto_backup_db, load_file_anywhere=load_file_anywhere, delete_uploaded_document_record=delete_uploaded_document_record, MESES_ES=MESES_ES, render_legal_doc_inline=render_legal_doc_inline, can_edit_doc_type=_can_edit_tipo, can_manage_docs=_can_manage_docs)
 
 
 def page_documentos_trabajador():
     _can_edit_tipo = str((current_user() or {}).get("role") or "").upper() in ("ADMIN", "SUPERADMIN")
     _can_manage_docs = str((current_user() or {}).get("role") or "").upper() != "LECTOR"
+    _render_documentacion_toolbar("Documentos Trabajador")
     return _ops_personal.page_documentos_trabajador(DB_BACKEND=DB_BACKEND, allowed_mandante_ids=current_user_mandante_scope_ids(), fetch_df=tenant_fetch_df, fetch_df_uncached=tenant_fetch_df_uncached, execute=tenant_execute, execute_rowcount=tenant_execute_rowcount, auto_backup_db=auto_backup_db, fetch_assigned_workers=fetch_assigned_workers, prepare_upload_payload=prepare_upload_payload, render_upload_help=render_upload_help, save_file_online=save_file_online, sha256_bytes=sha256_bytes, load_file_anywhere=load_file_anywhere, worker_required_docs_for_record=worker_required_docs_for_record, doc_tipo_label=doc_tipo_label, doc_tipo_join=doc_tipo_join, safe_name=safe_name, canonical_cargo_label=canonical_cargo_label, cargo_docs_catalog_rows=cargo_docs_catalog_rows, pendientes_obligatorios=pendientes_obligatorios, delete_uploaded_document_record=delete_uploaded_document_record, render_legal_doc_inline=render_legal_doc_inline, can_edit_doc_type=_can_edit_tipo, can_manage_docs=_can_manage_docs)
 
 
 def page_export_zip():
+    _render_documentacion_toolbar("Exportar (ZIP)")
     return _ops_exports.page_export_zip(st=st, allowed_mandante_ids=current_user_mandante_scope_ids(), ui_header=ui_header, ui_tip=ui_tip, fetch_df=tenant_fetch_df, pendientes_obligatorios=pendientes_obligatorios, pendientes_empresa_faena=pendientes_empresa_faena, doc_tipo_join=doc_tipo_join, export_zip_for_faena=export_zip_for_faena, persist_export=persist_export, auto_backup_db=auto_backup_db, load_file_anywhere=load_file_anywhere, human_file_size=human_file_size, export_zip_for_mes=export_zip_for_mes, persist_export_mes=persist_export_mes, os=os, date=date, current_tenant_key=current_tenant_key, current_segav_client_key=current_segav_client_key, visible_clientes_df=visible_clientes_df, execute=tenant_execute, is_superadmin=is_superadmin, audit_log=audit_log)
 
 
@@ -8951,6 +9098,7 @@ PAGE_PERM_ROUTE = {
     "Contratos de Faena": "view_contratos",
     "Faenas": "view_faenas",
     "Trabajadores": "view_trabajadores",
+    "Centro Documental": "view_docs_empresa_faena",
     "Documentos Empresa": "view_docs_empresa",
     "Documentos Empresa (Faena)": "view_docs_empresa_faena",
     "Asignar Trabajadores": "view_asignaciones",
@@ -8974,6 +9122,7 @@ _PAGE_RENDERERS = {
     "Contratos de Faena": page_contratos_faena,
     "Faenas": page_faenas,
     "Trabajadores": page_trabajadores,
+    "Centro Documental": page_centro_documental,
     "Documentos Empresa": page_documentos_empresa,
     "Documentos Empresa (Faena)": page_documentos_empresa_faena,
     "Asignar Trabajadores": page_asignar_trabajadores,
