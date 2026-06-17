@@ -8440,7 +8440,7 @@ components.html(
         }
         body.segav-sidebar-managed [data-testid="stAppViewContainer"] [data-testid="stMain"],
         body.segav-sidebar-managed [data-testid="stAppViewContainer"] .main {
-          margin-left: ${sidebarWidth}px !important;
+          margin-left: 0 !important;
           width: calc(100% - ${sidebarWidth}px) !important;
         }
         body.segav-sidebar-managed [data-testid="stMainBlockContainer"],
