@@ -8443,6 +8443,15 @@ components.html(
           margin-left: ${sidebarWidth}px !important;
           width: calc(100% - ${sidebarWidth}px) !important;
         }
+        body.segav-sidebar-managed [data-testid="stMainBlockContainer"],
+        body.segav-sidebar-managed .block-container {
+          width: 100% !important;
+          max-width: 1280px !important;
+          margin-left: 0 !important;
+          margin-right: auto !important;
+          padding-left: 32px !important;
+          padding-right: 32px !important;
+        }
         body.${hiddenClass} section[data-testid="stSidebar"] {
           display: none !important;
           visibility: hidden !important;
@@ -8454,6 +8463,12 @@ components.html(
         body.${hiddenClass} [data-testid="stAppViewContainer"] .main {
           margin-left: 0 !important;
           width: 100% !important;
+        }
+        body.${hiddenClass} [data-testid="stMainBlockContainer"],
+        body.${hiddenClass} .block-container {
+          max-width: 1400px !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
         }
         #segav-sidebar-toggle {
           position: fixed;
