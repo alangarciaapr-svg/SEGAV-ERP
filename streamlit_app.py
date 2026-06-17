@@ -1659,6 +1659,27 @@ section[data-testid="stSidebar"] .stButton > button:not([kind="primary"]):hover 
     color: white !important;
     box-shadow: none !important;
 }
+section[data-testid="stSidebar"] .segav-sidebar-active-nav {
+    width: 100%;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border-left: 3px solid #f59e0b;
+    border-radius: 8px;
+    margin: 0 0 10px 0;
+    padding: 8px 12px;
+    background: rgba(245,158,11,0.10);
+    color: #ffffff !important;
+    font-weight: 700;
+    font-size: 0.84rem;
+    line-height: 1.25;
+    text-align: center;
+}
+section[data-testid="stSidebar"] .segav-sidebar-active-nav * {
+    color: #ffffff !important;
+}
 
 /* Sidebar selectbox */
 section[data-testid="stSidebar"] [data-baseweb="select"] {
@@ -8354,9 +8375,7 @@ with st.sidebar:
         if _active:
             # Active page: show with orange left border via HTML before button
             st.markdown(
-                f'<div style="border-left:3px solid #f59e0b; border-radius:6px; margin:1px 0; '
-                f'padding:6px 12px; background:rgba(245,158,11,0.08); '
-                f'color:white; font-weight:600; font-size:0.84rem;">▸ {_label}</div>',
+                f'<div class="segav-sidebar-active-nav">▸ {_label}</div>',
                 unsafe_allow_html=True,
             )
         else:
