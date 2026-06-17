@@ -76,7 +76,7 @@ def inject_kpi_css() -> None:
 .segav-progress-bar {
     height: 9px;
     width: 100%;
-    background: #fee2e2;
+    background: #ef4444;
     border-radius: 999px;
     overflow: hidden;
     margin: 10px 0 6px 0;

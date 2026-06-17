@@ -64,115 +64,6 @@ else:
 
 install_action_feedback()
 
-components.html(
-    """
-    <script>
-    (function () {
-      const doc = window.parent.document;
-      const host = window.parent;
-      const styleId = "segav-sidebar-toggle-style";
-      const buttonId = "segav-sidebar-toggle";
-      const hiddenClass = "segav-sidebar-hidden";
-      const stateKey = "__segavSidebarUserHidden";
-
-      host[stateKey] = false;
-      doc.body.classList.remove(hiddenClass);
-
-      function ensureStyle() {
-        if (doc.getElementById(styleId)) return;
-        const style = doc.createElement("style");
-        style.id = styleId;
-        style.textContent = `
-          section[data-testid="stSidebar"] button[data-testid="stBaseButton-headerNoPadding"] {
-            display: none !important;
-            visibility: hidden !important;
-            pointer-events: none !important;
-          }
-          #segav-sidebar-toggle {
-            position: fixed;
-            left: min(calc(var(--segav-sidebar-width, 300px) + 10px), calc(100vw - 52px));
-            top: 12px;
-            z-index: 2147483000;
-            width: 40px;
-            height: 40px;
-            border: 1px solid rgba(15,23,42,.16);
-            border-radius: 8px;
-            background: #ffffff;
-            color: #0f172a;
-            font-size: 21px;
-            font-weight: 700;
-            line-height: 1;
-            box-shadow: 0 10px 24px rgba(15,23,42,.16);
-            cursor: pointer;
-            transition: left .18s ease, background .18s ease, color .18s ease, transform .18s ease;
-          }
-          #segav-sidebar-toggle:hover {
-            background: #f8fafc;
-            transform: translateY(-1px);
-          }
-          body.${hiddenClass} #segav-sidebar-toggle {
-            left: 12px;
-          }
-          body.${hiddenClass} section[data-testid="stSidebar"] {
-            display: none !important;
-            visibility: hidden !important;
-          }
-          body.${hiddenClass} [data-testid="stAppViewContainer"] [data-testid="stMain"],
-          body.${hiddenClass} [data-testid="stAppViewContainer"] .main {
-            margin-left: 0 !important;
-            width: 100% !important;
-          }
-        `;
-        doc.head.appendChild(style);
-      }
-
-      function syncButton(button, sidebar) {
-        doc.body.classList.toggle(hiddenClass, Boolean(host[stateKey]));
-        const sidebarWidth = sidebar && !doc.body.classList.contains(hiddenClass)
-          ? Math.round(sidebar.getBoundingClientRect().width || 300)
-          : 300;
-        doc.documentElement.style.setProperty("--segav-sidebar-width", `${sidebarWidth}px`);
-        const isHidden = doc.body.classList.contains(hiddenClass);
-        button.textContent = isHidden ? "☰" : "×";
-        button.title = isHidden ? "Mostrar menú lateral" : "Ocultar menú lateral";
-        button.setAttribute("aria-label", button.title);
-        button.setAttribute("aria-expanded", isHidden ? "false" : "true");
-      }
-
-      function ensureButton() {
-        const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-        if (!sidebar) {
-          const old = doc.getElementById(buttonId);
-          if (old) old.remove();
-          host[stateKey] = false;
-          doc.body.classList.remove(hiddenClass);
-          return;
-        }
-        ensureStyle();
-        let button = doc.getElementById(buttonId);
-        if (!button) {
-          button = doc.createElement("button");
-          button.id = buttonId;
-          button.type = "button";
-          button.addEventListener("click", function () {
-            host[stateKey] = !Boolean(host[stateKey]);
-            doc.body.classList.toggle(hiddenClass, Boolean(host[stateKey]));
-            window.requestAnimationFrame(() => syncButton(button, sidebar));
-          });
-          doc.body.appendChild(button);
-        }
-        syncButton(button, sidebar);
-      }
-
-      ensureButton();
-      window.setInterval(ensureButton, 1000);
-      window.addEventListener("resize", ensureButton);
-    })();
-    </script>
-    """,
-    height=0,
-)
-
 # Avisos flotantes centrados: los mensajes de éxito (verde) y error/rechazo (rojo)
 # se muestran como toast en el centro de la ventana, no incrustados en el contenido.
 st.markdown(
@@ -8503,6 +8394,91 @@ with st.sidebar:
             box-shadow: 0 4px 16px rgba(239,68,68,0.35) !important;
         }
         </style>""", unsafe_allow_html=True)
+
+components.html(
+    """
+    <script>
+    (function () {
+      const doc = window.parent.document;
+      const styleId = "segav-sidebar-toggle-style";
+      const buttonId = "segav-sidebar-toggle";
+      const hiddenClass = "segav-sidebar-hidden";
+
+      doc.body.classList.remove(hiddenClass);
+      const oldButton = doc.getElementById(buttonId);
+      if (oldButton) oldButton.remove();
+
+      let style = doc.getElementById(styleId);
+      if (!style) {
+        style = doc.createElement("style");
+        style.id = styleId;
+        doc.head.appendChild(style);
+      }
+      style.textContent = `
+        section[data-testid="stSidebar"] button[data-testid="stBaseButton-headerNoPadding"] {
+          display: none !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
+        #segav-sidebar-toggle {
+          position: fixed;
+          left: min(calc(var(--segav-sidebar-width, 300px) + 10px), calc(100vw - 52px));
+          top: 12px;
+          z-index: 2147483000;
+          width: 40px;
+          height: 40px;
+          border: 1px solid rgba(15,23,42,.16);
+          border-radius: 8px;
+          background: #ffffff;
+          color: #0f172a;
+          font-size: 21px;
+          font-weight: 700;
+          line-height: 1;
+          box-shadow: 0 10px 24px rgba(15,23,42,.16);
+          cursor: pointer;
+        }
+        body.${hiddenClass} #segav-sidebar-toggle { left: 12px; }
+        body.${hiddenClass} section[data-testid="stSidebar"] {
+          display: none !important;
+          visibility: hidden !important;
+        }
+        body.${hiddenClass} [data-testid="stAppViewContainer"] [data-testid="stMain"],
+        body.${hiddenClass} [data-testid="stAppViewContainer"] .main {
+          margin-left: 0 !important;
+          width: 100% !important;
+        }
+      `;
+
+      function sync(button, sidebar) {
+        const hidden = doc.body.classList.contains(hiddenClass);
+        const width = sidebar && !hidden ? Math.round(sidebar.getBoundingClientRect().width || 300) : 300;
+        doc.documentElement.style.setProperty("--segav-sidebar-width", `${width}px`);
+        button.textContent = hidden ? "☰" : "×";
+        button.title = hidden ? "Mostrar menú lateral" : "Ocultar menú lateral";
+        button.setAttribute("aria-label", button.title);
+        button.setAttribute("aria-expanded", hidden ? "false" : "true");
+      }
+
+      function install() {
+        const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+        if (!sidebar) return;
+        const button = doc.createElement("button");
+        button.id = buttonId;
+        button.type = "button";
+        button.addEventListener("click", function () {
+          doc.body.classList.toggle(hiddenClass);
+          window.requestAnimationFrame(() => sync(button, sidebar));
+        });
+        doc.body.appendChild(button);
+        sync(button, sidebar);
+      }
+
+      install();
+    })();
+    </script>
+    """,
+    height=0,
+)
 
 try:
     ensure_active_tenant_scaffold_once(DB_BACKEND, PG_DSN_FINGERPRINT, current_tenant_key())
