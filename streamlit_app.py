@@ -8446,9 +8446,9 @@ components.html(
         body.segav-sidebar-managed [data-testid="stMainBlockContainer"],
         body.segav-sidebar-managed .block-container {
           width: 100% !important;
-          max-width: 1280px !important;
+          max-width: none !important;
           margin-left: 0 !important;
-          margin-right: auto !important;
+          margin-right: 0 !important;
           padding-left: 32px !important;
           padding-right: 32px !important;
         }
@@ -8466,9 +8466,12 @@ components.html(
         }
         body.${hiddenClass} [data-testid="stMainBlockContainer"],
         body.${hiddenClass} .block-container {
-          max-width: 1400px !important;
-          margin-left: auto !important;
-          margin-right: auto !important;
+          width: 100% !important;
+          max-width: none !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          padding-left: 32px !important;
+          padding-right: 32px !important;
         }
         #segav-sidebar-toggle {
           position: fixed;
@@ -8494,7 +8497,7 @@ components.html(
 
       function sync(button) {
         const hidden = doc.body.classList.contains(hiddenClass);
-        button.textContent = hidden ? "☰" : "×";
+        button.textContent = hidden ? ">" : "<";
         button.title = hidden ? "Mostrar menú lateral" : "Ocultar menú lateral";
         button.setAttribute("aria-label", button.title);
         button.setAttribute("aria-expanded", hidden ? "false" : "true");
