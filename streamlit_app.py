@@ -6947,20 +6947,25 @@ html,body{
         overflow-y:auto!important;overflow-x:hidden!important;
     }
     [data-testid="stHorizontalBlock"]{
-        display:block!important;height:auto!important;min-height:100vh!important;
+        display:flex!important;flex-direction:column!important;
+        height:auto!important;min-height:100vh!important;
+        width:100vw!important;max-width:100vw!important;
         overflow:visible!important;
     }
     [data-testid="stHorizontalBlock"]>div:first-child{
+        width:100vw!important;max-width:100vw!important;
+        flex:0 0 auto!important;
         height:auto!important;min-height:100vh!important;
         justify-content:flex-start!important;
         padding:32px 0 24px 0!important;
     }
     [data-testid="stHorizontalBlock"]>div:first-child>div{
         width:min(420px, calc(100vw - 40px))!important;
-        max-width:420px!important;
+        max-width:420px!important;margin:0 auto!important;
     }
     [data-testid="stHorizontalBlock"]>div:last-child{
-        display:none!important;
+        display:none!important;width:0!important;max-width:0!important;
+        flex:0 0 0!important;
     }
 }
 </style>
