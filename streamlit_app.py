@@ -8400,13 +8400,11 @@ components.html(
     <script>
     (function () {
       const doc = window.parent.document;
-      const styleId = "segav-sidebar-toggle-style";
-      const buttonId = "segav-sidebar-toggle";
-      const hiddenClass = "segav-sidebar-hidden";
-
-      doc.body.classList.remove(hiddenClass);
-      const oldButton = doc.getElementById(buttonId);
-      if (oldButton) oldButton.remove();
+      const styleId = "segav-sidebar-force-visible-style";
+      const oldToggle = doc.getElementById("segav-sidebar-toggle");
+      if (oldToggle) oldToggle.remove();
+      doc.body.classList.remove("segav-sidebar-hidden");
+      doc.body.classList.add("segav-sidebar-locked");
 
       let style = doc.getElementById(styleId);
       if (!style) {
@@ -8420,60 +8418,28 @@ components.html(
           visibility: hidden !important;
           pointer-events: none !important;
         }
-        #segav-sidebar-toggle {
+        body.segav-sidebar-locked section[data-testid="stSidebar"] {
           position: fixed;
-          left: min(calc(var(--segav-sidebar-width, 300px) + 10px), calc(100vw - 52px));
-          top: 12px;
-          z-index: 2147483000;
-          width: 40px;
-          height: 40px;
-          border: 1px solid rgba(15,23,42,.16);
-          border-radius: 8px;
-          background: #ffffff;
-          color: #0f172a;
-          font-size: 21px;
-          font-weight: 700;
-          line-height: 1;
-          box-shadow: 0 10px 24px rgba(15,23,42,.16);
-          cursor: pointer;
+          left: 0 !important;
+          top: 0 !important;
+          bottom: 0 !important;
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          transform: translateX(0) !important;
+          width: 300px !important;
+          min-width: 300px !important;
+          max-width: 300px !important;
+          height: 100vh !important;
+          z-index: 2147482000 !important;
+          overflow-y: auto !important;
         }
-        body.${hiddenClass} #segav-sidebar-toggle { left: 12px; }
-        body.${hiddenClass} section[data-testid="stSidebar"] {
-          display: none !important;
-          visibility: hidden !important;
-        }
-        body.${hiddenClass} [data-testid="stAppViewContainer"] [data-testid="stMain"],
-        body.${hiddenClass} [data-testid="stAppViewContainer"] .main {
-          margin-left: 0 !important;
-          width: 100% !important;
+        body.segav-sidebar-locked [data-testid="stAppViewContainer"] [data-testid="stMain"],
+        body.segav-sidebar-locked [data-testid="stAppViewContainer"] .main {
+          margin-left: 300px !important;
+          width: calc(100% - 300px) !important;
         }
       `;
-
-      function sync(button, sidebar) {
-        const hidden = doc.body.classList.contains(hiddenClass);
-        const width = sidebar && !hidden ? Math.round(sidebar.getBoundingClientRect().width || 300) : 300;
-        doc.documentElement.style.setProperty("--segav-sidebar-width", `${width}px`);
-        button.textContent = hidden ? "☰" : "×";
-        button.title = hidden ? "Mostrar menú lateral" : "Ocultar menú lateral";
-        button.setAttribute("aria-label", button.title);
-        button.setAttribute("aria-expanded", hidden ? "false" : "true");
-      }
-
-      function install() {
-        const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-        if (!sidebar) return;
-        const button = doc.createElement("button");
-        button.id = buttonId;
-        button.type = "button";
-        button.addEventListener("click", function () {
-          doc.body.classList.toggle(hiddenClass);
-          window.requestAnimationFrame(() => sync(button, sidebar));
-        });
-        doc.body.appendChild(button);
-        sync(button, sidebar);
-      }
-
-      install();
     })();
     </script>
     """,
