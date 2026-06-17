@@ -8400,11 +8400,15 @@ components.html(
     <script>
     (function () {
       const doc = window.parent.document;
-      const styleId = "segav-sidebar-force-visible-style";
-      const oldToggle = doc.getElementById("segav-sidebar-toggle");
-      if (oldToggle) oldToggle.remove();
+      const styleId = "segav-sidebar-layout-style";
+      const buttonId = "segav-sidebar-toggle";
+      const hiddenClass = "segav-sidebar-hidden";
+      const sidebarWidth = 280;
+
       doc.body.classList.remove("segav-sidebar-hidden");
-      doc.body.classList.add("segav-sidebar-locked");
+      doc.body.classList.add("segav-sidebar-managed");
+      const oldToggle = doc.getElementById(buttonId);
+      if (oldToggle) oldToggle.remove();
 
       let style = doc.getElementById(styleId);
       if (!style) {
@@ -8418,7 +8422,7 @@ components.html(
           visibility: hidden !important;
           pointer-events: none !important;
         }
-        body.segav-sidebar-locked section[data-testid="stSidebar"] {
+        body.segav-sidebar-managed section[data-testid="stSidebar"] {
           position: fixed;
           left: 0 !important;
           top: 0 !important;
@@ -8427,19 +8431,71 @@ components.html(
           visibility: visible !important;
           opacity: 1 !important;
           transform: translateX(0) !important;
-          width: 300px !important;
-          min-width: 300px !important;
-          max-width: 300px !important;
+          width: ${sidebarWidth}px !important;
+          min-width: ${sidebarWidth}px !important;
+          max-width: ${sidebarWidth}px !important;
           height: 100vh !important;
           z-index: 2147482000 !important;
           overflow-y: auto !important;
         }
-        body.segav-sidebar-locked [data-testid="stAppViewContainer"] [data-testid="stMain"],
-        body.segav-sidebar-locked [data-testid="stAppViewContainer"] .main {
-          margin-left: 300px !important;
-          width: calc(100% - 300px) !important;
+        body.segav-sidebar-managed [data-testid="stAppViewContainer"] [data-testid="stMain"],
+        body.segav-sidebar-managed [data-testid="stAppViewContainer"] .main {
+          margin-left: ${sidebarWidth}px !important;
+          width: calc(100% - ${sidebarWidth}px) !important;
+        }
+        body.${hiddenClass} section[data-testid="stSidebar"] {
+          display: none !important;
+          visibility: hidden !important;
+          width: 0 !important;
+          min-width: 0 !important;
+          max-width: 0 !important;
+        }
+        body.${hiddenClass} [data-testid="stAppViewContainer"] [data-testid="stMain"],
+        body.${hiddenClass} [data-testid="stAppViewContainer"] .main {
+          margin-left: 0 !important;
+          width: 100% !important;
+        }
+        #segav-sidebar-toggle {
+          position: fixed;
+          left: ${sidebarWidth + 8}px;
+          top: 12px;
+          z-index: 2147483000;
+          width: 36px;
+          height: 36px;
+          border: 1px solid rgba(15,23,42,.16);
+          border-radius: 8px;
+          background: #ffffff;
+          color: #0f172a;
+          font-size: 19px;
+          font-weight: 800;
+          line-height: 1;
+          box-shadow: 0 8px 20px rgba(15,23,42,.14);
+          cursor: pointer;
+        }
+        body.${hiddenClass} #segav-sidebar-toggle {
+          left: 12px;
         }
       `;
+
+      function sync(button) {
+        const hidden = doc.body.classList.contains(hiddenClass);
+        button.textContent = hidden ? "☰" : "×";
+        button.title = hidden ? "Mostrar menú lateral" : "Ocultar menú lateral";
+        button.setAttribute("aria-label", button.title);
+        button.setAttribute("aria-expanded", hidden ? "false" : "true");
+      }
+
+      const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+      if (!sidebar) return;
+      const button = doc.createElement("button");
+      button.id = buttonId;
+      button.type = "button";
+      button.addEventListener("click", function () {
+        doc.body.classList.toggle(hiddenClass);
+        sync(button);
+      });
+      doc.body.appendChild(button);
+      sync(button);
     })();
     </script>
     """,
