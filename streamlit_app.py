@@ -8441,7 +8441,7 @@ components.html(
         body.segav-sidebar-managed [data-testid="stAppViewContainer"] [data-testid="stMain"],
         body.segav-sidebar-managed [data-testid="stAppViewContainer"] .main {
           margin-left: 0 !important;
-          width: calc(100% - ${sidebarWidth}px) !important;
+          width: 100% !important;
         }
         body.segav-sidebar-managed [data-testid="stMainBlockContainer"],
         body.segav-sidebar-managed .block-container {
