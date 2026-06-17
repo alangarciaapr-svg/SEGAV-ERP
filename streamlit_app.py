@@ -6699,6 +6699,23 @@ def is_company_admin_for_active_tenant() -> bool:
 def auth_gate_ui():
     """Login corporativo para acceso al sistema."""
 
+    components.html(
+        """
+        <script>
+        (function () {
+          const doc = window.parent.document;
+          const toggle = doc.getElementById("segav-sidebar-toggle");
+          const style = doc.getElementById("segav-sidebar-layout-style");
+          if (toggle) toggle.remove();
+          if (style) style.remove();
+          doc.body.classList.remove("segav-sidebar-managed", "segav-sidebar-hidden");
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
     # Recursos — b64 cacheado (no re-encode en cada rerun)
     panel_b64 = get_login_panel_b64()
     panel_src = f"data:image/png;base64,{panel_b64}" if panel_b64 else ""
