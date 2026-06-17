@@ -93,6 +93,7 @@ st.markdown(
 )
 
 APP_NAME = "SEGAV ERP"
+APP_VERSION = "v9.6.38"
 DB_PATH = "app.db"
 UPLOAD_ROOT = "uploads"  # En Streamlit Community Cloud: filesystem NO es persistente garantizado entre reboots.
 MAX_UPLOAD_FILE_BYTES = int(1.5 * 1024 * 1024)
@@ -6802,20 +6803,20 @@ html,body{
 [data-testid="stHorizontalBlock"]>div:first-child{
     background:#ffffff!important;
     height:100vh!important;overflow-y:auto!important;overflow-x:hidden!important;
-    padding:0!important;
+    padding:clamp(24px,4vh,48px) 0!important;
     display:flex!important;flex-direction:column!important;
     align-items:center!important;justify-content:center!important;
+    min-width:0!important;
 }
 
-/* Columna derecha — imagen: OCUPA TODO EL ESPACIO HASTA EL BORDE */
+/* Columna derecha — imagen profesional sin cortar el mensaje principal */
 [data-testid="stHorizontalBlock"]>div:last-child{
     padding:0!important;height:100vh!important;overflow:hidden!important;
-    /* Extender hasta el borde derecho de la pantalla */
-    margin-right:0!important;
+    margin-right:0!important;background:#0d2238!important;
 }
 [data-testid="stHorizontalBlock"]>div:last-child img{
     width:100%!important;height:100vh!important;
-    object-fit:cover!important;object-position:left top!important;display:block!important;
+    object-fit:contain!important;object-position:center top!important;display:block!important;
 }
 [data-testid="stHorizontalBlock"]>div:last-child [data-testid="stImage"],
 [data-testid="stHorizontalBlock"]>div:last-child .stMarkdown,
@@ -6848,16 +6849,26 @@ html,body{
 
 /* Botón Ingresar */
 [data-testid="stHorizontalBlock"]>div:first-child [data-testid="stFormSubmitButton"] button{
-    background:#1a56db!important;color:#fff!important;
+    background:#1a56db!important;color:#ffffff!important;
     border:none!important;border-radius:8px!important;
     font-size:16px!important;font-weight:700!important;
     padding:13px!important;width:100%!important;
     box-shadow:0 2px 8px rgba(26,86,219,.35)!important;
     transition:all .18s!important;
+    letter-spacing:0!important;
+    line-height:1.2!important;
+}
+[data-testid="stHorizontalBlock"]>div:first-child [data-testid="stFormSubmitButton"] button *,
+[data-testid="stHorizontalBlock"]>div:first-child [data-testid="stFormSubmitButton"] button p{
+    color:#ffffff!important;
 }
 [data-testid="stHorizontalBlock"]>div:first-child [data-testid="stFormSubmitButton"] button:hover{
     background:#1748c0!important;transform:translateY(-1px)!important;
-    box-shadow:0 4px 14px rgba(26,86,219,.45)!important;
+    box-shadow:0 8px 18px rgba(26,86,219,.32)!important;
+}
+[data-testid="stHorizontalBlock"]>div:first-child [data-testid="stFormSubmitButton"] button:active{
+    transform:translateY(0)!important;
+    box-shadow:0 3px 10px rgba(26,86,219,.28)!important;
 }
 
 /* Quitar borde del form */
@@ -6884,21 +6895,84 @@ html,body{
 }
 
 /* Error Streamlit */
-[data-testid="stAlert"]{margin:0 0 10px 0!important;border-radius:8px!important;}
+[data-testid="stAlert"]{
+    margin:0 0 12px 0!important;border-radius:8px!important;
+    border:1px solid rgba(239,68,68,.18)!important;
+}
+
+/* Recuperación de contraseña como enlace limpio */
+[data-testid="stHorizontalBlock"]>div:first-child [data-testid="stExpander"]{
+    border:none!important;background:transparent!important;box-shadow:none!important;
+    margin:10px 0 0 0!important;
+}
+[data-testid="stHorizontalBlock"]>div:first-child [data-testid="stExpander"] details{
+    border:none!important;background:transparent!important;box-shadow:none!important;
+}
+[data-testid="stHorizontalBlock"]>div:first-child [data-testid="stExpander"] summary{
+    min-height:0!important;padding:6px 0!important;
+}
+[data-testid="stHorizontalBlock"]>div:first-child [data-testid="stExpander"] summary *,
+[data-testid="stHorizontalBlock"]>div:first-child [data-testid="stExpander"] summary p{
+    color:#1a56db!important;font-weight:700!important;font-size:13px!important;
+}
+[data-testid="stHorizontalBlock"]>div:first-child [data-testid="stExpander"] [data-testid="stExpanderDetails"]{
+    background:#f8fafc!important;border:1px solid #e2e8f0!important;
+    border-radius:10px!important;padding:14px!important;margin-top:8px!important;
+}
 
 /* Texto en col izquierda */
 [data-testid="stHorizontalBlock"]>div:first-child .stMarkdown,
 [data-testid="stHorizontalBlock"]>div:first-child p{color:#1e293b!important;}
+
+@media (min-width:1680px){
+    [data-testid="stHorizontalBlock"]>div:last-child img{
+        object-fit:cover!important;object-position:center top!important;
+    }
+}
+
+@media (max-height:760px) and (min-width:901px){
+    [data-testid="stHorizontalBlock"]>div:first-child{
+        padding:20px 0!important;
+    }
+    [data-testid="stHorizontalBlock"]>div:first-child>div{
+        width:min(400px, 82%)!important;
+    }
+}
+
+@media (max-width:900px){
+    html,body,.stApp,[data-testid="stAppViewContainer"],
+    [data-testid="stMain"],.main,
+    .main .block-container,[data-testid="stMainBlockContainer"]{
+        height:auto!important;min-height:100vh!important;
+        overflow-y:auto!important;overflow-x:hidden!important;
+    }
+    [data-testid="stHorizontalBlock"]{
+        display:block!important;height:auto!important;min-height:100vh!important;
+        overflow:visible!important;
+    }
+    [data-testid="stHorizontalBlock"]>div:first-child{
+        height:auto!important;min-height:100vh!important;
+        justify-content:flex-start!important;
+        padding:32px 0 24px 0!important;
+    }
+    [data-testid="stHorizontalBlock"]>div:first-child>div{
+        width:min(420px, calc(100vw - 40px))!important;
+        max-width:420px!important;
+    }
+    [data-testid="stHorizontalBlock"]>div:last-child{
+        display:none!important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
-    col_left, col_right = st.columns([0.42, 0.58], gap="small")
+    col_left, col_right = st.columns([0.40, 0.60], gap="small")
 
     with col_left:
         # Título
         st.markdown(
             '<h2 style="font-size:26px;font-weight:800;color:#0f172a;'
-            'text-align:center;margin:0 0 28px 0;">Acceso al Sistema</h2>',
+            'text-align:center;margin:0 0 22px 0;">Acceso al Sistema</h2>',
             unsafe_allow_html=True,
         )
 
@@ -6936,7 +7010,7 @@ html,body{
                 "Ingresar", type="primary", use_container_width=True
             )
 
-        with st.expander("¿Olvidó su contraseña?", expanded=False):
+        with st.expander("Restablecer contraseña", expanded=False):
             st.caption("Recupera tu contraseña validando tu RUT y tu correo registrado.")
             rec_rut = rut_input("RUT registrado", key="_recrut", placeholder="12.345.678-5")
             _rec_fmt = normalize_login_rut(rec_rut)
@@ -6948,15 +7022,15 @@ html,body{
             if st.button("Restablecer contraseña", use_container_width=True, key="_recbtn"):
                 rrut = normalize_login_rut(rec_rut)
                 if not rrut or not rec_email.strip() or not rec_pw1 or not rec_pw2:
-                    st.error("Completa RUT, correo y la nueva contraseña.")
+                    st.error("Completa RUT, correo y nueva contraseña.")
                 elif rec_pw1 != rec_pw2 or len(rec_pw1) < 8:
-                    st.error("La nueva contraseña no coincide o es muy corta (mínimo 8).")
+                    st.error("Las contraseñas no coinciden o tienen menos de 8 caracteres.")
                 else:
                     urow = fetch_active_user_by_rut(rrut, fresh=True)
                     if not urow:
-                        st.error("No existe un usuario activo con ese RUT.")
+                        st.error("No pudimos validar los datos ingresados.")
                     elif str(urow.get('email') or '').strip().lower() != rec_email.strip().lower():
-                        st.error("El correo no coincide con el registrado para ese usuario.")
+                        st.error("No pudimos validar los datos ingresados.")
                     else:
                         salt_b64, h_b64 = hash_password(rec_pw1)
                         execute("UPDATE users SET salt_b64=?, pass_hash_b64=?, password_must_change=0, updated_at=? WHERE id=?", (salt_b64, h_b64, datetime.now().isoformat(timespec='seconds'), int(urow.get('id') or 0)))
@@ -6964,16 +7038,20 @@ html,body{
 
         # Logo + marca
         logo_tag = (
-            f'<img src="{logo_src}" style="width:160px;height:auto;display:block;margin:0 auto 6px auto;" alt="SEGAV">'
+            f'<img src="{logo_src}" style="width:145px;height:auto;display:block;margin:0 auto 4px auto;" alt="SEGAV">'
             if logo_src else ""
         )
         st.markdown(
-            f'<div style="text-align:center;margin-top:28px;">'
+            f'<div style="text-align:center;margin-top:18px;">'
             f'{logo_tag}'
             f'<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:4px;">'
             f'<div style="flex:1;height:1.5px;background:#1a56db;max-width:36px;"></div>'
             f'<span style="font-size:13px;font-weight:800;color:#1a56db;letter-spacing:.08em;">SEGAV ERP</span>'
             f'<div style="flex:1;height:1.5px;background:#1a56db;max-width:36px;"></div>'
+            f'</div>'
+            f'<div style="margin-top:14px;font-size:12px;line-height:1.5;color:#64748b;">'
+            f'{APP_NAME} · Plataforma multiempresa · {APP_VERSION}<br>'
+            f'<span style="color:#94a3b8;">Soporte operativo SEGAV</span>'
             f'</div></div>',
             unsafe_allow_html=True,
         )
@@ -6984,13 +7062,13 @@ html,body{
             if u != (uname or '').strip():
                 st.session_state['_lgu'] = u
             if not u or not passw:
-                st.session_state["_lg_err"] = "Usuario y contraseña son obligatorios."
+                st.session_state["_lg_err"] = "Ingresa tu RUT y contraseña para continuar."
                 st.rerun()
             else:
                 # --- Phase 1: Brute-force protection ---
                 _bf_blocked, _bf_wait = _check_brute_force_lock(u)
                 if _bf_blocked:
-                    st.session_state["_lg_err"] = f"Demasiados intentos fallidos. Espera {_bf_wait} segundos antes de reintentar."
+                    st.session_state["_lg_err"] = f"Por seguridad, espera {_bf_wait} segundos antes de volver a intentar."
                     log_security("brute_force_blocked", user=u, wait_seconds=_bf_wait)
                     st.rerun()
                 # --- End brute-force check ---
@@ -7001,27 +7079,27 @@ html,body{
                     if row_any:
                         status = str(row_any.get('approval_status') or 'APROBADO').upper()
                         if status == 'PENDIENTE':
-                            st.session_state["_lg_err"] = "Tu cuenta está pendiente de aprobación por el superadmin."
+                            st.session_state["_lg_err"] = "Tu cuenta está pendiente de aprobación."
                         elif status == 'RECHAZADO':
                             reason = str(row_any.get('rejection_reason') or '').strip()
-                            st.session_state["_lg_err"] = "Tu solicitud de usuario fue rechazada." + (f" Motivo: {reason}" if reason else "")
+                            st.session_state["_lg_err"] = "Tu solicitud de acceso fue rechazada." + (f" Motivo: {reason}" if reason else "")
                         else:
-                            st.session_state["_lg_err"] = "Usuario incorrecto o desactivado."
+                            st.session_state["_lg_err"] = "No pudimos iniciar sesión. Revisa tu RUT y contraseña."
                     else:
-                        st.session_state["_lg_err"] = "Usuario incorrecto o desactivado."
+                        st.session_state["_lg_err"] = "No pudimos iniciar sesión. Revisa tu RUT y contraseña."
                     st.rerun()
                 else:
                     status = str(row.get('approval_status') or 'APROBADO').upper()
                     if status == 'PENDIENTE':
-                        st.session_state["_lg_err"] = "Tu cuenta está pendiente de aprobación por el superadmin."
+                        st.session_state["_lg_err"] = "Tu cuenta está pendiente de aprobación."
                         st.rerun()
                     if status == 'RECHAZADO':
-                        st.session_state["_lg_err"] = "Tu solicitud de usuario fue rechazada."
+                        st.session_state["_lg_err"] = "Tu solicitud de acceso fue rechazada."
                         st.rerun()
                     if not verify_password(passw, row["salt_b64"], row["pass_hash_b64"]):
                         _record_failed_login_attempt(u)
                         log_security("login_failed", user=u, detail="wrong_password")
-                        st.session_state["_lg_err"] = "Contraseña incorrecta."
+                        st.session_state["_lg_err"] = "No pudimos iniciar sesión. Revisa tu RUT y contraseña."
                         st.rerun()
                     else:
                         _clear_failed_login_attempts(u)
@@ -7058,10 +7136,10 @@ html,body{
     with col_right:
         if panel_src:
             st.markdown(
-                f'<div style="height:100vh;overflow:hidden;margin:0;padding:0;'
-                f'width:100%;position:relative;">'
+                f'<div class="segav-login-hero" style="height:100vh;overflow:hidden;margin:0;padding:0;'
+                f'width:100%;position:relative;background:#0d2238;">'
                 f'<img src="{panel_src}" style="width:100%;height:100vh;'
-                f'object-fit:cover;object-position:left top;display:block;'
+                f'object-fit:contain;object-position:center top;display:block;'
                 f'position:absolute;top:0;left:0;" alt="SEGAV ERP">'
                 f'</div>',
                 unsafe_allow_html=True,
