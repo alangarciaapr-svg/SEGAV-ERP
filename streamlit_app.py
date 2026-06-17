@@ -69,9 +69,16 @@ components.html(
     <script>
     (function () {
       const doc = window.parent.document;
+      const host = window.parent;
       const styleId = "segav-sidebar-toggle-style";
       const buttonId = "segav-sidebar-toggle";
       const hiddenClass = "segav-sidebar-hidden";
+      const stateKey = "__segavSidebarUserHidden";
+
+      if (typeof host[stateKey] !== "boolean") {
+        host[stateKey] = false;
+        doc.body.classList.remove(hiddenClass);
+      }
 
       function ensureStyle() {
         if (doc.getElementById(styleId)) return;
@@ -122,6 +129,7 @@ components.html(
       }
 
       function syncButton(button, sidebar) {
+        doc.body.classList.toggle(hiddenClass, Boolean(host[stateKey]));
         const sidebarWidth = sidebar && !doc.body.classList.contains(hiddenClass)
           ? Math.round(sidebar.getBoundingClientRect().width || 300)
           : 300;
@@ -147,7 +155,8 @@ components.html(
           button.id = buttonId;
           button.type = "button";
           button.addEventListener("click", function () {
-            doc.body.classList.toggle(hiddenClass);
+            host[stateKey] = !Boolean(host[stateKey]);
+            doc.body.classList.toggle(hiddenClass, Boolean(host[stateKey]));
             window.requestAnimationFrame(() => syncButton(button, sidebar));
           });
           doc.body.appendChild(button);
