@@ -75,10 +75,8 @@ components.html(
       const hiddenClass = "segav-sidebar-hidden";
       const stateKey = "__segavSidebarUserHidden";
 
-      if (typeof host[stateKey] !== "boolean") {
-        host[stateKey] = false;
-        doc.body.classList.remove(hiddenClass);
-      }
+      host[stateKey] = false;
+      doc.body.classList.remove(hiddenClass);
 
       function ensureStyle() {
         if (doc.getElementById(styleId)) return;
@@ -146,6 +144,8 @@ components.html(
         if (!sidebar) {
           const old = doc.getElementById(buttonId);
           if (old) old.remove();
+          host[stateKey] = false;
+          doc.body.classList.remove(hiddenClass);
           return;
         }
         ensureStyle();
