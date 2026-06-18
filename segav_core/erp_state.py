@@ -9,7 +9,7 @@ import streamlit as st
 from core_db import DB_BACKEND, PG_DSN_FINGERPRINT, clear_app_caches, execute, fetch_df
 from segav_core.auth import current_user
 from segav_core.bootstrap import set_segav_erp_config_value
-from segav_core.catalogs import DOC_EMPRESA_MENSUALES, DOC_EMPRESA_REQUERIDOS, DOC_OBLIGATORIOS, ERP_CLIENT_PARAM_DEFAULTS, ERP_TEMPLATE_PRESETS
+from segav_core.catalogs import DOC_EMPRESA_EXCLUIDOS, DOC_EMPRESA_MENSUALES, DOC_EMPRESA_REQUERIDOS, DOC_OBLIGATORIOS, ERP_CLIENT_PARAM_DEFAULTS, ERP_TEMPLATE_PRESETS
 from segav_core.app_config import APP_NAME
 
 
@@ -156,6 +156,7 @@ def apply_segav_template(template_key: str):
     cargos = [str(c).strip().upper() for c in payload.get('cargos', []) if str(c).strip()]
     cargo_rules = payload.get('cargo_rules', {}) or {}
     empresa_docs = [str(d).strip() for d in payload.get('empresa_docs', []) if str(d).strip()]
+    empresa_docs = [d for d in empresa_docs if d not in DOC_EMPRESA_EXCLUIDOS]
     for idx, cargo in enumerate(cargos, start=1):
         execute("DELETE FROM segav_erp_cargos WHERE cargo_key=?", (cargo,))
         execute("INSERT INTO segav_erp_cargos(cargo_key, cargo_label, sort_order, activo, updated_at) VALUES(?,?,?,?,?)", (cargo, cargo, idx, 1, now))
@@ -179,6 +180,7 @@ def get_empresa_required_doc_types() -> list[str]:
         return list(DOC_EMPRESA_REQUERIDOS)
     df = df[df['obligatorio'].fillna(1).astype(int) == 1]
     docs = [str(v).strip() for v in df['doc_tipo'].tolist() if str(v).strip()]
+    docs = [d for d in docs if d not in DOC_EMPRESA_EXCLUIDOS]
     return docs or list(DOC_EMPRESA_REQUERIDOS)
 
 
@@ -188,6 +190,7 @@ def get_empresa_monthly_doc_types() -> list[str]:
         return list(DOC_EMPRESA_MENSUALES)
     df = df[df['mensual'].fillna(1).astype(int) == 1]
     docs = [str(v).strip() for v in df['doc_tipo'].tolist() if str(v).strip()]
+    docs = [d for d in docs if d not in DOC_EMPRESA_EXCLUIDOS]
     return docs or list(DOC_EMPRESA_MENSUALES)
 
 

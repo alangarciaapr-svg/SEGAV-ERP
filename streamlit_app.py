@@ -1142,23 +1142,21 @@ CARGO_DOCS_ORDER = [
     "PLANTA",
 ]
 DOC_EMPRESA_SUGERIDOS = [
-    "LIQUIDACIONES_SUELDO_MES",
     "CERTIFICADO_ANTECEDENTES_LABORALES_F30",
     "CERTIFICADO_CUMPLIMIENTOS_LABORALES_PREVISIONALES_F30_1",
     "CERTIFICADO_ACCIDENTABILIDAD",
 ]
 DOC_EMPRESA_REQUERIDOS = [
-    "LIQUIDACIONES_SUELDO_MES",
     "CERTIFICADO_ANTECEDENTES_LABORALES_F30",
     "CERTIFICADO_CUMPLIMIENTOS_LABORALES_PREVISIONALES_F30_1",
     "CERTIFICADO_ACCIDENTABILIDAD",
 ]
 DOC_EMPRESA_MENSUALES = [
-    "LIQUIDACIONES_SUELDO_MES",
     "CERTIFICADO_ANTECEDENTES_LABORALES_F30",
     "CERTIFICADO_CUMPLIMIENTOS_LABORALES_PREVISIONALES_F30_1",
     "CERTIFICADO_ACCIDENTABILIDAD",
 ]
+DOC_EMPRESA_EXCLUIDOS = {"LIQUIDACIONES_SUELDO_MES"}
 
 ERP_CLIENT_PARAM_DEFAULTS = {
     "usa_multi_faena": "SI",
@@ -5047,6 +5045,7 @@ def apply_segav_template(template_key: str):
     cargos = [str(c).strip().upper() for c in payload.get('cargos', []) if str(c).strip()]
     cargo_rules = payload.get('cargo_rules', {}) or {}
     empresa_docs = [str(d).strip() for d in payload.get('empresa_docs', []) if str(d).strip()]
+    empresa_docs = [d for d in empresa_docs if d not in DOC_EMPRESA_EXCLUIDOS]
 
     for idx, cargo in enumerate(cargos, start=1):
         execute("DELETE FROM segav_erp_cargos WHERE cargo_key=?", (cargo,))
@@ -5073,6 +5072,7 @@ def get_empresa_required_doc_types() -> list[str]:
         return list(DOC_EMPRESA_REQUERIDOS)
     df = df[df['obligatorio'].fillna(1).astype(int) == 1]
     docs = [str(v).strip() for v in df['doc_tipo'].tolist() if str(v).strip()]
+    docs = [d for d in docs if d not in DOC_EMPRESA_EXCLUIDOS]
     return docs or list(DOC_EMPRESA_REQUERIDOS)
 
 
@@ -5083,6 +5083,7 @@ def _cached_empresa_monthly_doc_types(_backend: str, _dsn: str):
         return list(DOC_EMPRESA_MENSUALES)
     df = df[df['mensual'].fillna(1).astype(int) == 1]
     docs = [str(v).strip() for v in df['doc_tipo'].tolist() if str(v).strip()]
+    docs = [d for d in docs if d not in DOC_EMPRESA_EXCLUIDOS]
     return docs or list(DOC_EMPRESA_MENSUALES)
 
 
@@ -8749,7 +8750,7 @@ def page_centro_documental():
     op1, op2, op3 = st.columns(3)
     with op1:
         st.markdown("**🏭 Empresa por faena y mes**")
-        st.caption("Carga F30, F30-1, liquidaciones y accidentabilidad por período mensual.")
+        st.caption("Carga F30, F30-1 y accidentabilidad por período mensual.")
         if st.button("Abrir empresa por faena", type="primary", use_container_width=True, key="doc_center_faena"):
             go("Documentos Empresa (Faena)")
     with op2:

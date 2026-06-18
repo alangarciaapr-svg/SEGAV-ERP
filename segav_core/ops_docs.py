@@ -27,7 +27,7 @@ def page_documentos_empresa(
     can_manage_docs=True,
 ):
     ui_header("Documentos Empresa", "Carga documentos corporativos (valen para todas las faenas) y se incluyen en el ZIP de exportación.")
-    st.caption("Puedes subir múltiples archivos por tipo. Los tipos requeridos base son liquidaciones de sueldo, F30, F30-1 y certificado de accidentabilidad; además puedes crear tus propios tipos con OTRO.")
+    st.caption("Puedes subir múltiples archivos por tipo. Los tipos requeridos base son F30, F30-1 y certificado de accidentabilidad; además puedes crear tus propios tipos con OTRO.")
 
     _scope_restricted = allowed_mandante_ids is not None
     _allowed_mands = [int(x) for x in (allowed_mandante_ids or [])]
@@ -321,8 +321,8 @@ def page_documentos_empresa_faena(
         )
 
     st.caption(
-        "Documentación mensual requerida por mandante/faena: Liquidaciones de sueldo, Certificado de antecedentes laborales F30, "
-        "Certificado de cumplimientos laborales y previsionales F30-1, y Certificado de accidentabilidad del período."
+        "Documentación mensual requerida por mandante/faena: Certificado de antecedentes laborales F30, "
+        "Certificado de cumplimientos laborales y previsionales F30-1 y Certificado de accidentabilidad del período."
     )
 
     docs_periodo = fetch_df(
@@ -354,7 +354,6 @@ def page_documentos_empresa_faena(
       with tab1:
         st.caption("Tipos mensuales requeridos:")
         st.code("\n".join(doc_tipo_label(d) for d in get_empresa_monthly_doc_types()))
-        st.caption("Para LIQUIDACIONES_SUELDO_MES puedes subir uno o varios archivos del mismo período.")
 
         colx1, colx2 = st.columns([1, 2])
         with colx1:

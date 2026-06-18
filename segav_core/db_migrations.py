@@ -14,21 +14,21 @@ BUILTIN_TEMPLATES = [
         "rubro": "Forestal",
         "template_name": "Forestal base auditable",
         "description": "Configuración sugerida para forestal con foco en DS44, documentación mensual y control de faenas.",
-        "payload": {"erp_vertical": "Forestal", "modo_implementacion": "CONFIGURABLE", "docs_empresa_mensuales": ["F30", "F30-1", "Certificado Accidentabilidad", "Liquidaciones de Sueldo"], "features": ["sgsst", "faenas", "odi", "epp", "alertas"]},
+        "payload": {"erp_vertical": "Forestal", "modo_implementacion": "CONFIGURABLE", "docs_empresa_mensuales": ["F30", "F30-1", "Certificado Accidentabilidad"], "features": ["sgsst", "faenas", "odi", "epp", "alertas"]},
     },
     {
         "template_key": "tpl_transporte_base",
         "rubro": "Transporte",
         "template_name": "Transporte contratista",
         "description": "Plantilla sugerida para transporte y flota con documentación recurrente y control de personal.",
-        "payload": {"erp_vertical": "Transporte", "modo_implementacion": "CONFIGURABLE", "docs_empresa_mensuales": ["F30", "F30-1", "Liquidaciones de Sueldo", "Certificado Accidentabilidad"], "features": ["sgsst", "flota", "capacitaciones", "alertas"]},
+        "payload": {"erp_vertical": "Transporte", "modo_implementacion": "CONFIGURABLE", "docs_empresa_mensuales": ["F30", "F30-1", "Certificado Accidentabilidad"], "features": ["sgsst", "flota", "capacitaciones", "alertas"]},
     },
     {
         "template_key": "tpl_construccion_base",
         "rubro": "Construcción",
         "template_name": "Construcción multiobra",
         "description": "Base para mandantes, contratos, control documental por obra y cumplimiento en terreno.",
-        "payload": {"erp_vertical": "Construcción", "modo_implementacion": "CONFIGURABLE", "docs_empresa_mensuales": ["F30", "F30-1", "Liquidaciones de Sueldo", "Previred"], "features": ["sgsst", "mandantes", "contratos", "faenas", "checklists"]},
+        "payload": {"erp_vertical": "Construcción", "modo_implementacion": "CONFIGURABLE", "docs_empresa_mensuales": ["F30", "F30-1", "Previred"], "features": ["sgsst", "mandantes", "contratos", "faenas", "checklists"]},
     },
 ]
 
