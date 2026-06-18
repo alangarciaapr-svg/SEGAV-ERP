@@ -8728,41 +8728,202 @@ def _doc_count(query: str, params: tuple = ()) -> int:
         return 0
 
 
+def _doc_center_visible_faenas():
+    try:
+        scope = current_user_mandante_scope_ids()
+        if scope is not None:
+            allowed = [int(x) for x in (scope or [])]
+            if not allowed:
+                return pd.DataFrame()
+            ph = ",".join(["?"] * len(allowed))
+            return tenant_fetch_df(
+                f"""
+                SELECT f.id, m.nombre AS mandante, f.nombre, f.estado
+                FROM faenas f
+                JOIN mandantes m ON m.id=f.mandante_id
+                WHERE f.mandante_id IN ({ph})
+                ORDER BY f.estado ASC, f.id DESC
+                """,
+                tuple(allowed),
+            )
+        return tenant_fetch_df(
+            """
+            SELECT f.id, m.nombre AS mandante, f.nombre, f.estado
+            FROM faenas f
+            JOIN mandantes m ON m.id=f.mandante_id
+            ORDER BY f.estado ASC, f.id DESC
+            """
+        )
+    except Exception:
+        return pd.DataFrame()
+
+
+def _doc_center_pending_rows(faenas_df):
+    empresa_rows = []
+    trabajador_rows = []
+    if faenas_df is None or faenas_df.empty:
+        return empresa_rows, trabajador_rows
+    for _, row in faenas_df.iterrows():
+        fid = int(row.get("id") or 0)
+        if fid <= 0:
+            continue
+        faena_label = f"{row.get('mandante', '')} / {row.get('nombre', '')}".strip(" /")
+        try:
+            faltan_emp = pendientes_empresa_faena(fid) or []
+        except Exception:
+            faltan_emp = []
+        if faltan_emp:
+            empresa_rows.append({
+                "Faena": faena_label,
+                "Faltan": doc_tipo_join(faltan_emp),
+            })
+        try:
+            faltan_trab = pendientes_obligatorios(fid) or {}
+        except Exception:
+            faltan_trab = {}
+        for trabajador, faltan in faltan_trab.items():
+            if faltan:
+                trabajador_rows.append({
+                    "Faena": faena_label,
+                    "Trabajador": str(trabajador),
+                    "Faltan": doc_tipo_join(faltan),
+                })
+    return empresa_rows, trabajador_rows
+
+
+def _doc_center_recent_df(query: str, params: tuple = ()):
+    try:
+        df = tenant_fetch_df(query, params)
+        if df is None or df.empty:
+            return pd.DataFrame()
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+
 def page_centro_documental():
     ui_header(
         "Centro Documental",
-        "Acceso rápido para operar documentos por faena, trabajadores y exportaciones.",
+        "Control documental operativo por faena, trabajadores y expedientes ZIP.",
     )
 
+    faenas = _doc_center_visible_faenas()
+    empresa_pend, trabajador_pend = _doc_center_pending_rows(faenas)
+    faenas_total = 0 if faenas is None or faenas.empty else len(faenas)
+    faenas_activas = 0 if faenas is None or faenas.empty else int((faenas["estado"].astype(str).str.upper() == "ACTIVA").sum())
     docs_faena = _doc_count("SELECT COUNT(*) AS n FROM faena_empresa_documentos")
     docs_trab = _doc_count("SELECT COUNT(*) AS n FROM trabajador_documentos")
     zips = _doc_count("SELECT COUNT(*) AS n FROM export_historial")
+    total_pend_empresa = len(empresa_pend)
+    total_pend_trabajadores = len(trabajador_pend)
     kpi_grid(
         [
-            {"label": "Empresa por faena", "value": docs_faena, "subtitle": "Documentos mensuales", "icon": "🏭", "tone": "success" if docs_faena else "neutral", "status": "Faena / mes"},
-            {"label": "Trabajadores", "value": docs_trab, "subtitle": "Documentos personales", "icon": "👷", "tone": "success" if docs_trab else "neutral", "status": "Personal"},
+            {"label": "Faenas activas", "value": f"{faenas_activas}/{faenas_total}", "subtitle": "Ámbito documental", "icon": "🏭", "tone": "success" if faenas_activas else "neutral", "status": "Operación"},
+            {"label": "Empresa pendiente", "value": total_pend_empresa, "subtitle": f"{docs_faena} documentos cargados", "icon": "📄", "tone": "danger" if total_pend_empresa else "success", "status": "Revisar" if total_pend_empresa else "OK"},
+            {"label": "Trabajadores pendientes", "value": total_pend_trabajadores, "subtitle": f"{docs_trab} documentos cargados", "icon": "👷", "tone": "danger" if total_pend_trabajadores else "success", "status": "Revisar" if total_pend_trabajadores else "OK"},
             {"label": "ZIP generados", "value": zips, "subtitle": "Historial de expedientes", "icon": "📦", "tone": "info" if zips else "neutral", "status": "Exportación"},
         ],
-        columns=3,
+        columns=4,
     )
 
-    st.markdown("### ¿Qué necesitas hacer?")
+    if faenas_total:
+        faena_opts = [None] + faenas["id"].astype(int).tolist()
+        faena_default = st.session_state.get("selected_faena_id")
+        faena_index = faena_opts.index(faena_default) if faena_default in faena_opts else 0
+        faena_sel = st.selectbox(
+            "Faena de trabajo",
+            faena_opts,
+            index=faena_index,
+            format_func=lambda x: "Todas las faenas" if x is None else (
+                f"{faenas[faenas['id']==x].iloc[0]['mandante']} / {faenas[faenas['id']==x].iloc[0]['nombre']}"
+            ),
+            key="doc_center_faena_context",
+        )
+        if faena_sel is not None:
+            st.session_state["selected_faena_id"] = int(faena_sel)
+        else:
+            st.session_state["selected_faena_id"] = None
+
+    if faenas_total == 0:
+        st.info("Crea una faena para iniciar el control documental.")
+    elif total_pend_empresa or total_pend_trabajadores:
+        st.markdown("### Atención requerida")
+        a1, a2 = st.columns(2)
+        with a1:
+            with st.container(border=True):
+                st.markdown("**📄 Empresa por faena**")
+                if empresa_pend:
+                    st.dataframe(pd.DataFrame(empresa_pend).head(8), use_container_width=True, hide_index=True)
+                else:
+                    st.success("Sin pendientes de empresa por faena.")
+        with a2:
+            with st.container(border=True):
+                st.markdown("**👷 Trabajadores**")
+                if trabajador_pend:
+                    st.dataframe(pd.DataFrame(trabajador_pend).head(8), use_container_width=True, hide_index=True)
+                else:
+                    st.success("Sin pendientes de trabajadores.")
+    else:
+        st.success("Centro documental al día para las faenas visibles.")
+
+    st.markdown("### Operación documental")
     op1, op2, op3 = st.columns(3)
     with op1:
-        st.markdown("**🏭 Empresa por faena y mes**")
-        st.caption("Carga F30, F30-1 y accidentabilidad por período mensual.")
-        if st.button("Abrir empresa por faena", type="primary", use_container_width=True, key="doc_center_faena"):
-            go("Documentos Empresa (Faena)")
+        with st.container(border=True):
+            st.markdown("**🏭 Empresa por faena y mes**")
+            st.caption("F30, F30-1 y accidentabilidad.")
+            if st.button("Abrir empresa por faena", type="primary", use_container_width=True, key="doc_center_faena"):
+                go("Documentos Empresa (Faena)")
     with op2:
-        st.markdown("**👷 Documentos de trabajadores**")
-        st.caption("Gestiona obligatorios por cargo, trabajador y faena seleccionada.")
-        if st.button("Abrir trabajadores", type="primary", use_container_width=True, key="doc_center_trab"):
-            go("Documentos Trabajador")
+        with st.container(border=True):
+            st.markdown("**👷 Documentos de trabajadores**")
+            st.caption("Obligatorios por cargo y trabajador.")
+            if st.button("Abrir trabajadores", type="primary", use_container_width=True, key="doc_center_trab"):
+                go("Documentos Trabajador")
     with op3:
-        st.markdown("**📦 Exportar expediente ZIP**")
-        st.caption("Revisa pendientes, selecciona documentos y genera expediente descargable.")
-        if st.button("Abrir exportación ZIP", type="primary", use_container_width=True, key="doc_center_zip"):
-            go("Exportar (ZIP)")
+        with st.container(border=True):
+            st.markdown("**📦 Exportar expediente ZIP**")
+            st.caption("Expediente final e historial.")
+            if st.button("Abrir exportación ZIP", type="primary", use_container_width=True, key="doc_center_zip"):
+                go("Exportar (ZIP)")
+
+    st.markdown("### Última actividad")
+    r1, r2, r3 = st.columns(3)
+    with r1:
+        with st.container(border=True):
+            st.markdown("**🏭 Empresa por faena**")
+            recent = _doc_center_recent_df(
+                "SELECT doc_tipo, nombre_archivo, created_at FROM faena_empresa_documentos ORDER BY created_at DESC LIMIT 5"
+            )
+            if recent.empty:
+                st.info("Sin actividad reciente.")
+            else:
+                st.dataframe(recent, use_container_width=True, hide_index=True)
+    with r2:
+        with st.container(border=True):
+            st.markdown("**👷 Trabajadores**")
+            recent = _doc_center_recent_df(
+                """
+                SELECT td.doc_tipo, td.nombre_archivo, td.created_at
+                FROM trabajador_documentos td
+                ORDER BY td.created_at DESC
+                LIMIT 5
+                """
+            )
+            if recent.empty:
+                st.info("Sin actividad reciente.")
+            else:
+                st.dataframe(recent, use_container_width=True, hide_index=True)
+    with r3:
+        with st.container(border=True):
+            st.markdown("**📦 Exportaciones ZIP**")
+            recent = _doc_center_recent_df(
+                "SELECT file_path, created_at FROM export_historial ORDER BY created_at DESC LIMIT 5"
+            )
+            if recent.empty:
+                st.info("Sin exportaciones recientes.")
+            else:
+                st.dataframe(recent, use_container_width=True, hide_index=True)
 
 
 def page_documentos_empresa():
