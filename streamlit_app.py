@@ -5184,11 +5184,19 @@ def get_login_logo_bytes():
             _record_soft_error("line_3452", _exc)
     return get_brand_logo_bytes(LOGIN_LOGO_URL)
 
+def _asset_cache_fingerprint(path: str) -> str:
+    try:
+        stat = os.stat(path)
+        return f"{stat.st_size}:{stat.st_mtime_ns}"
+    except Exception:
+        return "missing"
+
 @st.cache_data(ttl=21600, show_spinner=False)
-def get_login_panel_approved_bytes():
-    if os.path.exists(LOCAL_LOGIN_PANEL_APPROVED_PATH):
+def get_login_panel_approved_bytes(path: str, fingerprint: str):
+    del fingerprint
+    if os.path.exists(path):
         try:
-            with open(LOCAL_LOGIN_PANEL_APPROVED_PATH, "rb") as fp:
+            with open(path, "rb") as fp:
                 return fp.read()
         except Exception:
             return None
@@ -5197,7 +5205,10 @@ def get_login_panel_approved_bytes():
 @st.cache_data(ttl=86400, show_spinner=False)
 def get_login_panel_b64() -> str:
     """Base64 cacheado del panel de login — evita re-encode en cada rerun."""
-    b = get_login_panel_approved_bytes()
+    b = get_login_panel_approved_bytes(
+        LOCAL_LOGIN_PANEL_APPROVED_PATH,
+        _asset_cache_fingerprint(LOCAL_LOGIN_PANEL_APPROVED_PATH),
+    )
     if not b:
         return ""
     return base64.b64encode(b).decode()
