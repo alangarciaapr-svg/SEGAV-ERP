@@ -7,14 +7,14 @@ from __future__ import annotations
 
 from html import escape
 import re
-from typing import Any, Callable
+from typing import Any
 
 import streamlit as st
 
 _FLASH_KEY = "_segav_action_feedback_queue"
 _PATCHED_FLAG = "_segav_action_feedback_installed"
 _TOAST_COUNTER_KEY = "_segav_action_feedback_toast_counter"
-_MAX_FLASH_MESSAGES = 4
+_MAX_FLASH_MESSAGES = 3
 
 _DESTRUCTIVE_RE = re.compile(
     r"\b(eliminad[oa]s?|borrad[oa]s?|quitad[oa]s?|rechazad[oa]s?|desactivad[oa]s?|revocad[oa]s?)\b",
@@ -83,13 +83,6 @@ def _looks_destructive(message: Any) -> bool:
     return bool(_DESTRUCTIVE_RE.search(text))
 
 
-def _call_with_default_icon(func: Callable[..., Any], body: Any, default_icon: str, *args: Any, **kwargs: Any) -> Any:
-    # No pisa iconos explícitos enviados por el código existente.
-    if not args and "icon" not in kwargs:
-        kwargs["icon"] = default_icon
-    return func(body, *args, **kwargs)
-
-
 def _compact_message(body: Any) -> str:
     text = _plain_text(body).strip()
     if len(text) <= 180:
@@ -119,62 +112,45 @@ def _floating_toast(body: Any, *, icon: str, kind: str) -> Any:
 
 
 def install_action_feedback() -> None:
-    """Instala wrappers visuales sobre st.success/error/warning una sola vez.
+    """Instala el toast flotante unificado una sola vez.
 
-    Esto mantiene compatibilidad con el código existente, pero estandariza iconos
-    y fuerza que acciones destructivas comunicadas como `success` aparezcan en rojo.
+    Los mensajes de contenido (`st.success`, `st.error`, `st.warning`) quedan
+    inline para no convertir listados de estado en avisos flotantes.
     """
     if getattr(st, _PATCHED_FLAG, False):
         return
 
-    original_success = st.success
-    original_error = st.error
-    original_warning = st.warning
-    original_info = st.info
+    original_toast = getattr(st, "toast", None)
 
-    def _flash(body: Any, icon: str, kind: str, fallback: Callable[..., Any]) -> Any:
-        # Muestra el aviso como toast flotante; la posición final la define el CSS global.
-        # Si st.toast no estuviera disponible, cae al alert en línea de siempre.
-        message = _compact_message(body)
+    def toast(body: Any = None, *args: Any, **kwargs: Any) -> Any:
+        icon = str(kwargs.get("icon") or "").strip()
+        text = _plain_text(body)
+        kind = "success"
+        if icon in {"❌", "🟥", "×", "!", "🔒"} or _looks_destructive(text):
+            kind = "error"
+        elif icon in {"⚠️", "!"}:
+            kind = "warning"
+        elif icon in {"ℹ️", "☁️"}:
+            kind = "info"
         try:
-            return _floating_toast(message, icon=icon, kind=kind)
+            return _floating_toast(text, icon=icon or "✓", kind=kind)
         except Exception:
-            try:
-                return fallback(message, icon=icon)
-            except Exception:
-                return fallback(message)
+            if callable(original_toast):
+                return original_toast(body, *args, **kwargs)
+            return None
 
-    def success(body: Any = None, *args: Any, **kwargs: Any) -> Any:
-        icon = kwargs.get("icon")
-        if _looks_destructive(body):
-            return _flash(body, icon or "×", "delete", original_error)
-        return _flash(body, icon or "✓", "success", original_success)
-
-    def error(body: Any = None, *args: Any, **kwargs: Any) -> Any:
-        icon = kwargs.get("icon")
-        return _flash(body, icon or "!", "error", original_error)
-
-    def warning(body: Any = None, *args: Any, **kwargs: Any) -> Any:
-        return _call_with_default_icon(original_warning, body, "⚠️", *args, **kwargs)
-
-    def info(body: Any = None, *args: Any, **kwargs: Any) -> Any:
-        return _call_with_default_icon(original_info, body, "ℹ️", *args, **kwargs)
-
-    st.success = success  # type: ignore[assignment]
-    st.error = error  # type: ignore[assignment]
-    st.warning = warning  # type: ignore[assignment]
-    st.info = info  # type: ignore[assignment]
+    st.toast = toast  # type: ignore[assignment]
     setattr(st, _PATCHED_FLAG, True)
 
 
 def notify_success(message: str) -> None:
     install_action_feedback()
-    st.success(message)
+    _floating_toast(message, icon="✓", kind="success")
 
 
 def notify_error(message: str) -> None:
     install_action_feedback()
-    st.error(message)
+    _floating_toast(message, icon="!", kind="error")
 
 
 def notify_warning(message: str) -> None:
@@ -188,7 +164,7 @@ def notify_warning(message: str) -> None:
 def notify_delete(message: str) -> None:
     install_action_feedback()
     # Acción destructiva: rojo aunque técnicamente haya sido exitosa.
-    st.error(message, icon="×")
+    _floating_toast(message, icon="×", kind="delete")
 
 
 def queue_action_feedback(kind: str, message: str) -> None:
