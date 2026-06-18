@@ -64,29 +64,138 @@ else:
 
 install_action_feedback()
 
-# Avisos flotantes centrados: los mensajes de éxito (verde) y error/rechazo (rojo)
-# se muestran como toast en el centro de la ventana, no incrustados en el contenido.
+# Avisos flotantes de acciones: aparecen arriba a la derecha para no cubrir el
+# botón "Manage app" de Streamlit Cloud ni el flujo principal de trabajo.
 st.markdown(
     """
     <style>
+    .segav-floating-toast {
+        position: fixed;
+        right: 22px;
+        top: calc(22px + (var(--segav-toast-index, 0) * 82px));
+        width: min(420px, calc(100vw - 44px));
+        min-height: 58px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px 16px;
+        color: #0f172a;
+        background: rgba(255,255,255,.97);
+        border: 1px solid rgba(15,23,42,.10);
+        border-left: 6px solid var(--segav-toast-color, #16a34a);
+        border-radius: 14px;
+        box-shadow: 0 18px 46px rgba(15,23,42,.20);
+        backdrop-filter: blur(12px);
+        z-index: 2147483000;
+        animation: segav-toast-custom-in .18s ease-out, segav-toast-custom-out .28s ease-in 5.6s forwards;
+        pointer-events: none;
+    }
+    .segav-floating-toast::after {
+        content: "";
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        bottom: 8px;
+        height: 3px;
+        border-radius: 999px;
+        background: var(--segav-toast-color, #16a34a);
+        opacity: .85;
+        animation: segav-toast-progress 5.4s linear forwards;
+        transform-origin: left center;
+    }
+    .segav-toast-icon {
+        min-width: 24px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--segav-toast-color, #16a34a) 14%, transparent);
+        color: var(--segav-toast-color, #16a34a);
+        font-weight: 900;
+    }
+    .segav-toast-message {
+        font-size: .94rem;
+        line-height: 1.35;
+        font-weight: 780;
+        padding-bottom: 10px;
+    }
+    .segav-toast-success { --segav-toast-color: #16a34a; }
+    .segav-toast-delete,
+    .segav-toast-error,
+    .segav-toast-danger { --segav-toast-color: #dc2626; }
+    .segav-toast-warning { --segav-toast-color: #f59e0b; }
+    .segav-toast-info { --segav-toast-color: #2563eb; }
+    @keyframes segav-toast-custom-in {
+        from { opacity: 0; transform: translateY(-8px) scale(.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes segav-toast-custom-out {
+        to { opacity: 0; transform: translateY(-8px) scale(.98); }
+    }
+    @keyframes segav-toast-progress {
+        to { transform: scaleX(0); }
+    }
     div[data-testid="stToast"]{
         position: fixed !important;
-        right: 24px !important;
-        bottom: 24px !important;
+        right: 22px !important;
+        top: 22px !important;
+        bottom: auto !important;
         left: auto !important;
-        top: auto !important;
         transform: none !important;
-        min-width: 280px;
+        width: min(420px, calc(100vw - 44px)) !important;
+        min-width: 300px;
         max-width: 420px;
-        padding: 14px 20px !important;
-        font-size: 1rem !important;
-        font-weight: 600 !important;
-        border-radius: 12px !important;
-        box-shadow: 0 12px 40px rgba(0,0,0,0.25) !important;
+        padding: 14px 18px !important;
+        font-size: .95rem !important;
+        font-weight: 750 !important;
+        line-height: 1.35 !important;
+        color: #0f172a !important;
+        background: rgba(255,255,255,.96) !important;
+        border: 1px solid rgba(15,23,42,.10) !important;
+        border-left: 6px solid #16a34a !important;
+        border-radius: 14px !important;
+        box-shadow: 0 18px 46px rgba(15,23,42,.20) !important;
+        backdrop-filter: blur(12px);
         z-index: 2147483000 !important;
+        animation: segav-toast-in .22s ease-out;
     }
-    div[data-testid="stToast"]:nth-of-type(2){ bottom: 96px !important; }
-    div[data-testid="stToast"]:nth-of-type(3){ bottom: 168px !important; }
+    div[data-testid="stToast"] * {
+        color: inherit !important;
+    }
+    div[data-testid="stToast"]:has([data-testid="stMarkdownContainer"] p:first-child)::after {
+        content: "";
+        display: block;
+        height: 3px;
+        width: 100%;
+        margin-top: 10px;
+        border-radius: 999px;
+        background: linear-gradient(90deg,#16a34a,#22c55e);
+        opacity: .85;
+    }
+    div[data-testid="stToast"]:nth-of-type(2){ top: 102px !important; }
+    div[data-testid="stToast"]:nth-of-type(3){ top: 182px !important; }
+    div[data-testid="stToast"]:nth-of-type(4){ top: 262px !important; }
+    @keyframes segav-toast-in {
+        from { opacity: 0; transform: translateY(-8px) scale(.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @media (max-width: 720px) {
+        .segav-floating-toast {
+            right: 12px;
+            top: calc(12px + (var(--segav-toast-index, 0) * 82px));
+            width: calc(100vw - 24px);
+        }
+        div[data-testid="stToast"]{
+            right: 12px !important;
+            top: 12px !important;
+            width: calc(100vw - 24px) !important;
+            min-width: 0 !important;
+        }
+        div[data-testid="stToast"]:nth-of-type(2){ top: 92px !important; }
+        div[data-testid="stToast"]:nth-of-type(3){ top: 172px !important; }
+        div[data-testid="stToast"]:nth-of-type(4){ top: 252px !important; }
+    }
     </style>
     """,
     unsafe_allow_html=True,

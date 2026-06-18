@@ -5,6 +5,7 @@ uniforme para el usuario, incluso cuando Streamlit ejecuta `st.rerun()`.
 """
 from __future__ import annotations
 
+from html import escape
 import re
 from typing import Any, Callable
 
@@ -12,6 +13,8 @@ import streamlit as st
 
 _FLASH_KEY = "_segav_action_feedback_queue"
 _PATCHED_FLAG = "_segav_action_feedback_installed"
+_TOAST_COUNTER_KEY = "_segav_action_feedback_toast_counter"
+_MAX_FLASH_MESSAGES = 4
 
 _DESTRUCTIVE_RE = re.compile(
     r"\b(eliminad[oa]s?|borrad[oa]s?|quitad[oa]s?|rechazad[oa]s?|desactivad[oa]s?|revocad[oa]s?)\b",
@@ -87,6 +90,34 @@ def _call_with_default_icon(func: Callable[..., Any], body: Any, default_icon: s
     return func(body, *args, **kwargs)
 
 
+def _compact_message(body: Any) -> str:
+    text = _plain_text(body).strip()
+    if len(text) <= 180:
+        return text
+    return text[:177].rstrip() + "..."
+
+
+def _floating_toast(body: Any, *, icon: str, kind: str) -> Any:
+    message = _compact_message(body)
+    safe_kind = str(kind or "success").lower()
+    if safe_kind not in {"success", "delete", "error", "danger", "warning", "info"}:
+        safe_kind = "success"
+    try:
+        idx = int(st.session_state.get(_TOAST_COUNTER_KEY, 0) or 0) % _MAX_FLASH_MESSAGES
+        st.session_state[_TOAST_COUNTER_KEY] = (idx + 1) % _MAX_FLASH_MESSAGES
+    except Exception:
+        idx = 0
+    return st.markdown(
+        f'''
+        <div class="segav-floating-toast segav-toast-{safe_kind}" style="--segav-toast-index:{idx};">
+          <span class="segav-toast-icon">{escape(str(icon or ""))}</span>
+          <span class="segav-toast-message">{escape(message)}</span>
+        </div>
+        ''',
+        unsafe_allow_html=True,
+    )
+
+
 def install_action_feedback() -> None:
     """Instala wrappers visuales sobre st.success/error/warning una sola vez.
 
@@ -101,26 +132,27 @@ def install_action_feedback() -> None:
     original_warning = st.warning
     original_info = st.info
 
-    def _flash(body: Any, icon: str, fallback: Callable[..., Any]) -> Any:
-        # Muestra el aviso como toast flotante (centrado por CSS en la app).
+    def _flash(body: Any, icon: str, kind: str, fallback: Callable[..., Any]) -> Any:
+        # Muestra el aviso como toast flotante; la posición final la define el CSS global.
         # Si st.toast no estuviera disponible, cae al alert en línea de siempre.
+        message = _compact_message(body)
         try:
-            return st.toast(str(body), icon=icon)
+            return _floating_toast(message, icon=icon, kind=kind)
         except Exception:
             try:
-                return fallback(body, icon=icon)
+                return fallback(message, icon=icon)
             except Exception:
-                return fallback(body)
+                return fallback(message)
 
     def success(body: Any = None, *args: Any, **kwargs: Any) -> Any:
         icon = kwargs.get("icon")
         if _looks_destructive(body):
-            return _flash(body, icon or "🟥", original_error)
-        return _flash(body, icon or "✅", original_success)
+            return _flash(body, icon or "×", "delete", original_error)
+        return _flash(body, icon or "✓", "success", original_success)
 
     def error(body: Any = None, *args: Any, **kwargs: Any) -> Any:
         icon = kwargs.get("icon")
-        return _flash(body, icon or "❌", original_error)
+        return _flash(body, icon or "!", "error", original_error)
 
     def warning(body: Any = None, *args: Any, **kwargs: Any) -> Any:
         return _call_with_default_icon(original_warning, body, "⚠️", *args, **kwargs)
@@ -147,13 +179,16 @@ def notify_error(message: str) -> None:
 
 def notify_warning(message: str) -> None:
     install_action_feedback()
-    st.warning(message)
+    try:
+        _floating_toast(message, icon="!", kind="warning")
+    except Exception:
+        st.warning(message)
 
 
 def notify_delete(message: str) -> None:
     install_action_feedback()
     # Acción destructiva: rojo aunque técnicamente haya sido exitosa.
-    st.error(message, icon="🟥")
+    st.error(message, icon="×")
 
 
 def queue_action_feedback(kind: str, message: str) -> None:
@@ -161,9 +196,11 @@ def queue_action_feedback(kind: str, message: str) -> None:
     if not message:
         return
     queue = list(st.session_state.get(_FLASH_KEY, []))
-    queue.append({"kind": kind or "success", "message": str(message)})
+    item = {"kind": kind or "success", "message": _compact_message(message)}
+    if not queue or queue[-1] != item:
+        queue.append(item)
     # Evita acumular mensajes antiguos si el usuario ejecuta muchas acciones rápidas.
-    st.session_state[_FLASH_KEY] = queue[-5:]
+    st.session_state[_FLASH_KEY] = queue[-_MAX_FLASH_MESSAGES:]
 
 
 def queue_action_feedback_from_tag(tag: str | None) -> None:

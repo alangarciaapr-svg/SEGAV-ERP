@@ -12,6 +12,7 @@ Tables created by bootstrap:
 from __future__ import annotations
 
 from datetime import datetime
+from html import escape
 from typing import Callable
 
 # Notification categories
@@ -36,6 +37,93 @@ CATEGORY_LABELS = {
     CAT_APPROVAL_REQ: "Aprobación solicitada",
     CAT_SYSTEM: "Sistema",
 }
+
+CATEGORY_COLORS = {
+    CAT_USER_PENDING: "#2563eb",
+    CAT_DOC_EXPIRED: "#dc2626",
+    CAT_DOC_UPLOADED: "#16a34a",
+    CAT_APPROVAL_REQ: "#7c3aed",
+    CAT_SYSTEM: "#475569",
+}
+
+
+def _inject_notification_css(st_module) -> None:
+    if getattr(st_module, "_segav_notification_css_loaded", False):
+        return
+    st_module.markdown(
+        """
+        <style>
+        .segav-notif-badge {
+            border:1px solid rgba(220,38,38,.22);
+            background:linear-gradient(135deg,rgba(254,242,242,.98),rgba(254,226,226,.92));
+            border-radius:14px;
+            padding:10px 12px;
+            color:#991b1b;
+            font-weight:900;
+            text-align:center;
+            box-shadow:0 12px 24px rgba(127,29,29,.12);
+        }
+        .segav-notif-card {
+            border:1px solid rgba(148,163,184,.24);
+            border-left:5px solid var(--notif-color, #475569);
+            background:rgba(255,255,255,.88);
+            border-radius:12px;
+            padding:10px 11px;
+            margin:8px 0 6px 0;
+            box-shadow:0 8px 18px rgba(15,23,42,.08);
+        }
+        .segav-notif-card.read {
+            opacity:.68;
+            background:rgba(248,250,252,.72);
+            border-left-color:#94a3b8;
+        }
+        .segav-notif-top {
+            display:flex;
+            gap:8px;
+            align-items:flex-start;
+            justify-content:space-between;
+        }
+        .segav-notif-title {
+            color:#0f172a;
+            font-size:.88rem;
+            font-weight:900;
+            line-height:1.2;
+        }
+        .segav-notif-meta {
+            color:#64748b;
+            font-size:.72rem;
+            font-weight:800;
+            text-transform:uppercase;
+            letter-spacing:.03em;
+            margin-top:3px;
+        }
+        .segav-notif-body {
+            color:#475569;
+            font-size:.78rem;
+            line-height:1.35;
+            margin-top:6px;
+        }
+        .segav-notif-dot {
+            min-width:9px;
+            height:9px;
+            border-radius:50%;
+            background:var(--notif-color, #475569);
+            margin-top:4px;
+            box-shadow:0 0 0 4px rgba(37,99,235,.10);
+        }
+        .segav-notif-empty {
+            border:1px dashed rgba(148,163,184,.42);
+            border-radius:12px;
+            padding:12px;
+            color:#64748b;
+            text-align:center;
+            background:rgba(248,250,252,.72);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    setattr(st_module, "_segav_notification_css_loaded", True)
 
 # SQL for table creation (SQLite)
 CREATE_TABLE_SQLITE = """
@@ -172,11 +260,11 @@ def mark_all_read(execute_fn: Callable, user_id: int | None = None, is_superadmi
 
 def render_notification_badge(st_module, count: int) -> None:
     """Render a notification count badge in the sidebar."""
+    _inject_notification_css(st_module)
     if count > 0:
         badge_text = str(count) if count < 100 else "99+"
         st_module.markdown(
-            f'<div class="segav-sidecard segav-sidebar-center" style="background:linear-gradient(135deg,#fee2e2,#fecaca);border-color:#fca5a5;">'
-            f'<strong style="color:#dc2626;">🔔 {badge_text} notificación{"es" if count != 1 else ""} sin leer</strong></div>',
+            f'<div class="segav-notif-badge">🔔 {badge_text} notificación{"es" if count != 1 else ""} sin leer</div>',
             unsafe_allow_html=True,
         )
 
@@ -184,12 +272,19 @@ def render_notification_badge(st_module, count: int) -> None:
 def render_notification_panel(st_module, fetch_df_fn, execute_fn, user_id, is_superadmin_flag, go_fn=None):
     """Render a full notification panel (for sidebar expander or page)."""
     st = st_module
+    _inject_notification_css(st)
     df = get_notifications(fetch_df_fn, user_id, is_superadmin_flag, limit=30)
     if df is None or df.empty:
-        st.caption("No hay notificaciones recientes.")
+        st.markdown('<div class="segav-notif-empty">Sin notificaciones recientes.</div>', unsafe_allow_html=True)
         return
 
-    if st.button("Marcar todas como leídas", key="notif_mark_all_read", use_container_width=True):
+    unread_count = 0
+    try:
+        unread_count = int((df["is_read"].fillna(0).astype(int) == 0).sum())
+    except Exception:
+        unread_count = 0
+    st.caption(f"{unread_count} sin leer · {len(df)} recientes")
+    if unread_count and st.button("Marcar todo como leído", key="notif_mark_all_read", use_container_width=True):
         mark_all_read(execute_fn, user_id, is_superadmin_flag)
         st.rerun()
 
@@ -197,27 +292,39 @@ def render_notification_panel(st_module, fetch_df_fn, execute_fn, user_id, is_su
         nid = int(row.get("id", 0))
         cat = str(row.get("category", "system"))
         icon = CATEGORY_ICONS.get(cat, "🔔")
-        title = str(row.get("title", ""))
-        body = str(row.get("body", ""))
+        color = CATEGORY_COLORS.get(cat, "#475569")
+        label = CATEGORY_LABELS.get(cat, "Sistema")
+        title = escape(str(row.get("title", "")))
+        body = escape(str(row.get("body", "")))
         is_read = int(row.get("is_read", 0))
         link_page = str(row.get("link_page", ""))
-        created = str(row.get("created_at", ""))[:16]
+        created = escape(str(row.get("created_at", ""))[:16])
 
-        style = "opacity:0.6;" if is_read else "font-weight:600;"
+        read_class = "read" if is_read else "unread"
+        status = "Leída" if is_read else "Nueva"
         st.markdown(
-            f'<div style="{style} padding:4px 0; border-bottom:1px solid rgba(0,0,0,0.06);">'
-            f'{icon} <strong>{title}</strong><br>'
-            f'<span style="font-size:0.85em; opacity:0.7;">{body} · {created}</span></div>',
+            f'''
+            <div class="segav-notif-card {read_class}" style="--notif-color:{color};">
+              <div class="segav-notif-top">
+                <div>
+                  <div class="segav-notif-title">{icon} {title}</div>
+                  <div class="segav-notif-meta">{escape(label)} · {status} · {created}</div>
+                </div>
+                <span class="segav-notif-dot"></span>
+              </div>
+              <div class="segav-notif-body">{body or "Sin detalle."}</div>
+            </div>
+            ''',
             unsafe_allow_html=True,
         )
-        cols = st.columns([0.5, 0.5])
+        cols = st.columns([1, 1])
         if not is_read:
             with cols[0]:
-                if st.button("✓ Leída", key=f"notif_read_{nid}", use_container_width=True):
+                if st.button("Leída", key=f"notif_read_{nid}", use_container_width=True):
                     mark_as_read(execute_fn, nid)
                     st.rerun()
         if link_page and go_fn:
             with cols[1]:
-                if st.button(f"Ir a {link_page}", key=f"notif_go_{nid}", use_container_width=True):
+                if st.button("Abrir", key=f"notif_go_{nid}", use_container_width=True, help=f"Ir a {link_page}"):
                     st.session_state["nav_page"] = link_page
                     st.rerun()
