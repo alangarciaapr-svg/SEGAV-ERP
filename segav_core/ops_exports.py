@@ -70,7 +70,7 @@ def page_export_zip(
     is_superadmin=None,
     audit_log=None,
 ):
-    ui_header("Exportar (ZIP)", "Genera carpeta por faena con documentos de trabajadores y deja historial.")
+    ui_header("Exportar expediente ZIP", "Selecciona una faena, revisa pendientes y genera un expediente descargable.")
     tenant_key = str(current_tenant_key() or current_segav_client_key() or '').strip()
     tenant_name = tenant_key
     try:
@@ -81,7 +81,7 @@ def page_export_zip(
                 tenant_name = str(_row.iloc[0].get("cliente_nombre") or tenant_key)
     except Exception:
         pass
-    st.caption(f"Empresa activa para esta exportación: {tenant_name} ({tenant_key})")
+    st.caption(f"Empresa activa: {tenant_name} ({tenant_key})")
 
     _scope_restricted = allowed_mandante_ids is not None
     _allowed_mands = [int(x) for x in (allowed_mandante_ids or [])]
@@ -111,21 +111,22 @@ def page_export_zip(
     idx = opts.index(default_id) if default_id in opts else 0
 
     faena_id = st.selectbox(
-        "Faena",
+        "1. Faena a exportar",
         opts,
         index=idx,
         format_func=lambda x: f"{x} - {faenas[faenas['id']==x].iloc[0]['mandante']} / {faenas[faenas['id']==x].iloc[0]['nombre']} ({faenas[faenas['id']==x].iloc[0]['estado']})",
     )
     st.session_state["selected_faena_id"] = int(faena_id)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["✅ Pendientes", "📦 Generar ZIP", "🗂️ Historial", "📅 Exportar por mes", "📄 Reporte Cumplimiento"])
+    st.caption("Flujo rápido: revisar pendientes → seleccionar documentos → generar ZIP.")
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["✅ Revisión", "📦 Generar", "🗂️ Historial", "📅 Mensual", "📄 Reporte"])
 
     legal_blockers, legal_warnings = _legal_export_blockers(fetch_df, int(faena_id))
 
     with tab1:
         pend = pendientes_obligatorios(int(faena_id))
         miss_emp = pendientes_empresa_faena(int(faena_id))
-        st.write("**Pendientes obligatorios (antes de exportar):**")
+        st.write("**Trabajadores**")
         if not pend:
             st.info("(sin trabajadores asignados)")
         else:
@@ -136,14 +137,14 @@ def page_export_zip(
                     st.success(f"{k} — OK")
 
         st.divider()
-        st.write("**Documentos empresa (por faena):**")
+        st.write("**Documentos de empresa por faena**")
         if miss_emp:
             st.error("Faltan: " + ", ".join(miss_emp))
         else:
             st.success("OK (requeridos completos).")
 
         st.divider()
-        st.write("**Control legal crítico:**")
+        st.write("**Control legal crítico**")
         if legal_blockers is not None and not legal_blockers.empty:
             st.error("Hay documentos críticos vencidos. La exportación quedará bloqueada hasta renovarlos.")
             st.dataframe(legal_blockers, use_container_width=True, hide_index=True)
@@ -154,8 +155,8 @@ def page_export_zip(
             st.dataframe(legal_warnings.head(10), use_container_width=True, hide_index=True)
 
     with tab2:
-        st.markdown("### 📦 Selecciona los documentos para el ZIP")
-        st.caption("Expande cada sección, revisa los documentos disponibles y desmarca los que no quieras incluir.")
+        st.markdown("### Generar expediente")
+        st.caption("Por defecto se incluyen los documentos disponibles. Puedes desmarcar lo que no corresponda.")
 
         # ── Controles globales: marcar todo / ninguno ──────────────────────
         _bulk_keys = [
@@ -164,14 +165,14 @@ def page_export_zip(
         ]
         _bc1, _bc2, _bc3 = st.columns([1, 1, 3])
         with _bc1:
-            if st.button("☑️ Seleccionar todo", use_container_width=True, key="exp2_select_all"):
+            if st.button("☑️ Todo", use_container_width=True, key="exp2_select_all"):
                 for _k in list(st.session_state.keys()):
                     if _k in _bulk_keys or _k.startswith(f"exp2_tdocs_{int(faena_id)}_"):
                         del st.session_state[_k]
                 st.session_state["exp2_bulk_mode"] = "all"
                 st.rerun()
         with _bc2:
-            if st.button("⬜ Ninguno", use_container_width=True, key="exp2_select_none"):
+            if st.button("⬜ Limpiar", use_container_width=True, key="exp2_select_none"):
                 for _k in list(st.session_state.keys()):
                     if _k in _bulk_keys or _k.startswith(f"exp2_tdocs_{int(faena_id)}_"):
                         del st.session_state[_k]
@@ -228,7 +229,7 @@ def page_export_zip(
                 inc_anexos = len(sel_anexo_ids) > 0
                 _total_selected += len(sel_anexo_ids)
 
-        # 3. Documentos empresa global
+        # 3. Documentos de empresa base
         if _scope_restricted:
             _ph = ','.join(['?'] * len(_allowed_mands))
             emp_global_df = fetch_df(
@@ -241,7 +242,7 @@ def page_export_zip(
         sel_emp_global_ids = []
         if _has_emp_global:
             _n_eg = len(emp_global_df)
-            with st.expander(f"🏢 Documentos empresa global ({_n_eg} archivo{'s' if _n_eg != 1 else ''})", expanded=False):
+            with st.expander(f"🏢 Documentos de empresa ({_n_eg} archivo{'s' if _n_eg != 1 else ''})", expanded=False):
                 eg_labels = {}
                 for _, r in emp_global_df.iterrows():
                     did = int(r["id"])
@@ -250,7 +251,7 @@ def page_export_zip(
                     eg_labels[did] = f"{_avail} {r.get('doc_tipo', '-')} · {nombre}"
                 eg_ids = list(eg_labels.keys())
                 sel_emp_global_ids = st.multiselect(
-                    "Documentos empresa global a incluir",
+                    "Documentos de empresa a incluir",
                     eg_ids,
                     default=_bulk_default(eg_ids),
                     format_func=lambda x, lb=eg_labels: lb.get(int(x), str(x)),
@@ -258,7 +259,7 @@ def page_export_zip(
                 )
                 _total_selected += len(sel_emp_global_ids)
 
-        # 4. Documentos empresa por faena
+        # 4. Documentos de empresa por faena
         emp_faena_df = fetch_df(
             "SELECT id, doc_tipo, nombre_archivo, file_path, bucket, object_path FROM faena_empresa_documentos WHERE faena_id=? ORDER BY doc_tipo, nombre_archivo, id",
             (int(faena_id),),
@@ -267,7 +268,7 @@ def page_export_zip(
         emp_faena_doc_sel_ids = None
         if _has_emp_faena:
             _n_ef = len(emp_faena_df)
-            with st.expander(f"🏭 Documentos empresa por faena ({_n_ef} archivo{'s' if _n_ef != 1 else ''})", expanded=False):
+            with st.expander(f"🏭 Documentos de empresa por faena ({_n_ef} archivo{'s' if _n_ef != 1 else ''})", expanded=False):
                 ef_labels = {}
                 for _, r in emp_faena_df.iterrows():
                     did = int(r["id"])
@@ -276,7 +277,7 @@ def page_export_zip(
                     ef_labels[did] = f"{_avail} {r.get('doc_tipo', '-')} · {nombre}"
                 ef_ids = list(ef_labels.keys())
                 emp_faena_doc_sel_ids = st.multiselect(
-                    "Documentos empresa (faena) a incluir",
+                    "Documentos de empresa por faena a incluir",
                     ef_ids,
                     default=_bulk_default(ef_ids),
                     format_func=lambda x, lb=ef_labels: lb.get(int(x), str(x)),
@@ -371,15 +372,15 @@ def page_export_zip(
         if not _has_anexos:
             _missing.append("anexos")
         if not _has_emp_global:
-            _missing.append("docs empresa global")
+            _missing.append("documentos de empresa")
         if not _has_emp_faena:
-            _missing.append("docs empresa por faena")
+            _missing.append("documentos de empresa por faena")
         if not _has_workers:
             _missing.append("trabajadores asignados")
         if _missing:
             st.caption(f"No disponibles para esta faena: {', '.join(_missing)}")
 
-        st.markdown(f"**Total documentos seleccionados: {_total_selected}**")
+        st.markdown(f"**Documentos seleccionados: {_total_selected}**")
 
         if _total_selected == 0:
             st.info("Selecciona al menos un documento para generar el ZIP.")
@@ -391,7 +392,7 @@ def page_export_zip(
             if _blocked:
                 st.button("🚫 Generar ZIP", type="primary", use_container_width=True, disabled=True)
                 st.caption("Exportación bloqueada por documentos críticos vencidos.")
-            elif st.button("📦 Generar ZIP y guardar en historial", type="primary", use_container_width=True, disabled=_disabled):
+            elif st.button("📦 Generar ZIP", type="primary", use_container_width=True, disabled=_disabled):
                 _prog = st.progress(0, text="Preparando exportación…")
                 try:
                     # Build selection flags from user choices
@@ -435,7 +436,7 @@ def page_export_zip(
                     _prog.empty()
                     st.error(f"No se pudo generar ZIP: {e}")
         with col_info:
-            st.caption("El ZIP se guarda en Supabase Storage para que persista entre reinicios.")
+            st.caption("El ZIP queda guardado en historial y disponible para descarga.")
 
     with tab3:
         _is_sa = is_superadmin() if callable(is_superadmin) else False
@@ -551,12 +552,12 @@ def page_export_zip(
             month = st.number_input("Mes", min_value=1, max_value=12, value=date.today().month, step=1, key="exp_mes_month")
 
         inc_mes_emp_global = st.checkbox(
-            "Incluir documentos empresa global en export mensual",
+            "Incluir documentos de empresa en export mensual",
             value=True,
             key="exp_mes_inc_emp_global",
         )
 
-        if st.button("Generar ZIP mensual y guardar en historial", type="primary", use_container_width=True, key="exp_mes_btn"):
+        if st.button("Generar ZIP mensual", type="primary", use_container_width=True, key="exp_mes_btn"):
             try:
                 zip_bytes, ym = export_zip_for_mes(int(year), int(month), include_global_empresa_docs=inc_mes_emp_global)
                 path_export = persist_export_mes(ym, zip_bytes)

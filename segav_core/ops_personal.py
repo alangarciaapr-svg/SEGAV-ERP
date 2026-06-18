@@ -835,9 +835,10 @@ def page_documentos_trabajador(
     can_edit_doc_type = bool(_ignored.get("can_edit_doc_type", False))
     can_manage_docs = bool(_ignored.get("can_manage_docs", True))
     ui_header(
-        "Documentos Trabajador",
-        "Carga documentos obligatorios por trabajador. Puedes trabajar por FAENA: selecciona una faena y verás solo los trabajadores asignados.",
+        "Documentos de trabajadores",
+        "Selecciona faena y trabajador para cargar, revisar o gestionar sus documentos obligatorios.",
     )
+    st.caption("Flujo rápido: faena → trabajador → cargar o revisar documentos.")
 
     # Lista de faenas para selector local (en este mismo apartado)
     _scope_restricted = allowed_mandante_ids is not None
@@ -873,19 +874,20 @@ def page_documentos_trabajador(
     c1, c2 = st.columns([3, 1])
     with c1:
         faena_pick = st.selectbox(
-            "Faena (opcional)",
+            "1. Faena de trabajo",
             ids,
             index=default_index,
             format_func=lambda x: "(sin faena)" if x is None else (
                 f"{int(x)} - {faenas[faenas['id']==x].iloc[0]['mandante']} / {faenas[faenas['id']==x].iloc[0]['nombre']} ({faenas[faenas['id']==x].iloc[0]['estado']})"
             ),
             key="docs_faena_pick",
+            help="Elige una faena para trabajar solo con sus trabajadores asignados.",
         )
         st.session_state["selected_faena_id"] = None if faena_pick is None else int(faena_pick)
 
     with c2:
         default_scoped = True if faena_pick is not None else False
-        scoped = st.toggle("Solo esta faena", value=default_scoped, key="docs_scoped_toggle")
+        scoped = st.toggle("Filtrar por faena", value=default_scoped, key="docs_scoped_toggle")
 
     st.divider()
 
@@ -909,7 +911,7 @@ def page_documentos_trabajador(
             return
 
         # Pendientes por faena (resumen accionable)
-        with st.expander("✅ Pendientes de la faena (por trabajador)", expanded=False):
+        with st.expander("Pendientes de esta faena", expanded=False):
             pend = pendientes_obligatorios(int(faena_pick))
             if not pend:
                 st.info("(sin asignaciones)")
@@ -949,7 +951,7 @@ def page_documentos_trabajador(
         r = trab[trab["id"] == x].iloc[0]
         return f"{r['apellidos']} {r['nombres']} ({r['rut']})"
 
-    tid = st.selectbox("Trabajador", trab["id"].tolist(), format_func=_fmt_trab_docs, key="docs_trabajador_pick")
+    tid = st.selectbox("2. Trabajador", trab["id"].tolist(), format_func=_fmt_trab_docs, key="docs_trabajador_pick")
 
     # Estado documental del trabajador (global: se reutiliza entre faenas)
     docs = fetch_df(
@@ -962,14 +964,14 @@ def page_documentos_trabajador(
     faltan = [d for d in req_docs if d not in tipos_presentes]
 
     col1, col2, col3 = st.columns([1, 1, 2])
-    col1.metric("Obligatorios", len(req_docs))
+    col1.metric("Requeridos", len(req_docs))
     col2.metric("Cargados", len([d for d in req_docs if d in tipos_presentes]))
-    col3.metric("Faltan", len(faltan))
+    col3.metric("Pendientes", len(faltan))
 
     cargo_label = canonical_cargo_label(trabajador_row.get("cargo"))
     st.caption(f"Cargo del trabajador: **{cargo_label}**")
 
-    with st.expander("Ver documentos obligatorios por cargo", expanded=False):
+    with st.expander("Catálogo de obligatorios por cargo", expanded=False):
         st.dataframe(pd.DataFrame(cargo_docs_catalog_rows()), use_container_width=True, hide_index=True)
 
     if faltan:
@@ -982,11 +984,11 @@ def page_documentos_trabajador(
         tab2 = st.container()
         tab1 = None
     else:
-        tab1, tab2 = st.tabs(["📎 Cargar documento", "📋 Documentos cargados"])
+        tab1, tab2 = st.tabs(["📎 Cargar", "📋 Revisar / gestionar"])
 
     if tab1 is not None:
       with tab1:
-        st.caption("Tipos obligatorios configurados para este trabajador:")
+        st.caption("Obligatorios configurados para este trabajador:")
         st.code("\n".join(doc_tipo_label(d) for d in req_docs))
 
         colx1, colx2 = st.columns([1, 2])
@@ -1001,7 +1003,7 @@ def page_documentos_trabajador(
 
         ups = render_doc_uploader("up_doc_trabajador")
         render_upload_help()
-        if st.button("Guardar documento(s)", type="primary"):
+        if st.button("Guardar documentos", type="primary"):
             if not ups:
                 st.error("Debes subir al menos un archivo.")
                 st.stop()
