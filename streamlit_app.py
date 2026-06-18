@@ -1,6 +1,7 @@
 import os
 import re
 import io
+import html
 import zipfile
 import hashlib
 import base64
@@ -7008,6 +7009,18 @@ html,body{
 [data-testid="stHorizontalBlock"]>div:first-child .stMarkdown,
 [data-testid="stHorizontalBlock"]>div:first-child p{color:#1e293b!important;}
 
+.segav-login-alert{
+    display:flex;align-items:flex-start;gap:10px;
+    width:100%;box-sizing:border-box;margin:0 0 16px 0;
+    padding:12px 14px;border-radius:12px;
+    border:1px solid #fecaca;border-left:4px solid #dc2626;
+    background:#fff5f5;color:#991b1b;
+    font-size:13px;font-weight:700;line-height:1.35;
+}
+.segav-login-alert span:first-child{
+    flex:0 0 auto;font-size:15px;line-height:1.2;margin-top:1px;
+}
+
 @media (min-width:1680px){
     [data-testid="stHorizontalBlock"]>div:last-child img{
         object-fit:cover!important;object-position:center top!important;
@@ -7067,7 +7080,10 @@ html,body{
 
         # Error
         if err_msg:
-            st.error(err_msg, icon="🔒")
+            st.markdown(
+                f'<div class="segav-login-alert"><span>!</span><span>{html.escape(err_msg)}</span></div>',
+                unsafe_allow_html=True,
+            )
 
         # Label Usuario
         st.markdown(
