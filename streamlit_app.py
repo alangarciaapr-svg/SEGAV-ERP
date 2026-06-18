@@ -57,7 +57,7 @@ _log = get_logger("streamlit_app")
 # ----------------------------
 LOCAL_BRAND_LOGO_PATH = os.path.join(os.path.dirname(__file__), "assets", "branding", "segav_logo.png")
 LOCAL_LOGIN_HERO_PATH = os.path.join(os.path.dirname(__file__), "assets", "branding", "login_hero_segav.svg")
-LOCAL_LOGIN_PANEL_APPROVED_PATH = os.path.join(os.path.dirname(__file__), "assets", "branding", "login_right_approved.png")
+LOCAL_LOGIN_PANEL_APPROVED_PATH = os.path.join(os.path.dirname(__file__), "assets", "branding", "login_right_professional.png")
 if os.path.exists(LOCAL_BRAND_LOGO_PATH):
     st.set_page_config(page_title="SEGAV ERP", page_icon=LOCAL_BRAND_LOGO_PATH, layout="wide", initial_sidebar_state="expanded")
 else:
