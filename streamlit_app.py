@@ -6910,6 +6910,13 @@ html,body{
     padding:0!important;height:100vh!important;overflow:hidden!important;
     margin-right:0!important;background:#0d2238!important;
 }
+.segav-login-hero{
+    position:fixed!important;
+    top:0!important;right:0!important;bottom:0!important;
+    width:60vw!important;height:100vh!important;
+    margin:0!important;padding:0!important;
+    overflow:hidden!important;background:#0d2238!important;
+}
 [data-testid="stHorizontalBlock"]>div:last-child img{
     width:100%!important;height:100vh!important;
     object-fit:contain!important;object-position:center top!important;display:block!important;
@@ -7075,6 +7082,7 @@ html,body{
         display:none!important;width:0!important;max-width:0!important;
         flex:0 0 0!important;
     }
+    .segav-login-hero{display:none!important;}
 }
 </style>
 """, unsafe_allow_html=True)
@@ -7253,7 +7261,7 @@ html,body{
         if panel_src:
             st.markdown(
                 f'<div class="segav-login-hero" style="height:100vh;overflow:hidden;margin:0;padding:0;'
-                f'width:100%;position:relative;background:#0d2238;">'
+                f'width:100%;background:#0d2238;">'
                 f'<img src="{panel_src}" style="width:100%;height:100vh;'
                 f'object-fit:contain;object-position:center top;display:block;'
                 f'position:absolute;top:0;left:0;" alt="SEGAV ERP">'
