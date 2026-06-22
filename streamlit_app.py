@@ -1391,28 +1391,28 @@ EPP_TIPOS = [
 ROLES_EMPRESA = ["ADMIN", "OPERADOR", "LECTOR", "SUPERVISOR"]
 SGSST_MATRIZ_BASE = [
     # ── DS 44 — Sistema de Gestión de Seguridad y Salud en el Trabajo ──────
-    {"norma": "DS 44", "articulo": "Art. 3-5", "tema": "Implementación SGSST", "obligacion": "Mantener un sistema de gestión preventivo con política, instrumentos y seguimiento documentado.", "aplica_a": "Empresa", "periodicidad": "Permanente", "responsable": "Gerencia / Prevención", "evidencia": "Manual SGSST, registros y seguimiento", "estado": "EN CURSO"},
-    {"norma": "DS 44", "articulo": "Art. 7", "tema": "Matriz de riesgos (MIPER)", "obligacion": "Identificar peligros y evaluar riesgos por faena, tarea y cargo. Actualizar ante cambios.", "aplica_a": "Faenas / Cargos", "periodicidad": "Anual o por cambio", "responsable": "Prevención", "evidencia": "MIPER vigente", "estado": "PENDIENTE"},
-    {"norma": "DS 44", "articulo": "Art. 8", "tema": "Programa preventivo anual", "obligacion": "Planificar actividades preventivas con responsables, plazos, indicadores y evidencias.", "aplica_a": "Empresa / Faenas", "periodicidad": "Anual", "responsable": "Gerencia / Prevención", "evidencia": "Programa anual y cierres", "estado": "PENDIENTE"},
-    {"norma": "DS 44", "articulo": "Art. 9-10", "tema": "ODI y capacitación", "obligacion": "Entregar Obligación de Informar (ODI) al ingreso y capacitación preventiva periódica.", "aplica_a": "Trabajadores", "periodicidad": "Ingreso y periódica", "responsable": "Jefaturas / Prevención", "evidencia": "Registros ODI firmados y certificados", "estado": "EN CURSO"},
-    {"norma": "DS 44", "articulo": "Art. 11", "tema": "Plan de emergencia", "obligacion": "Disponer de plan de emergencias, simulacros anuales y responsables designados.", "aplica_a": "Empresa / Faenas", "periodicidad": "Anual", "responsable": "Gerencia / Faenas", "evidencia": "Plan y registros de simulacro", "estado": "PENDIENTE"},
-    {"norma": "DS 44", "articulo": "Art. 12", "tema": "Reglamento interno HSMAT", "obligacion": "Mantener Reglamento Interno de Higiene y Seguridad actualizado y entregado a trabajadores.", "aplica_a": "Empresa", "periodicidad": "Anual", "responsable": "Gerencia / RRHH", "evidencia": "RIOHS vigente con cargo de recepción", "estado": "PENDIENTE"},
-    {"norma": "DS 44", "articulo": "Art. 13", "tema": "Investigación de accidentes", "obligacion": "Investigar todo accidente/incidente, identificar causas y definir medidas correctivas.", "aplica_a": "Empresa / Faenas", "periodicidad": "Cada evento", "responsable": "Prevención / Jefatura", "evidencia": "Informes de investigación", "estado": "PENDIENTE"},
-    {"norma": "DS 44", "articulo": "Art. 14", "tema": "Auditoría SGSST", "obligacion": "Realizar auditorías internas anuales del sistema de gestión.", "aplica_a": "Empresa", "periodicidad": "Anual", "responsable": "Prevención / Auditor", "evidencia": "Informe de auditoría", "estado": "PENDIENTE"},
+    {"norma": "DS 44", "articulo": "Art. 22", "tema": "Implementación SGSST", "obligacion": "Mantener un sistema de gestión con política, estructura, planificación, evaluación y mejora continua.", "aplica_a": "Empresa", "periodicidad": "Permanente", "responsable": "Gerencia / Prevención", "evidencia": "Política, estructura, programa, evaluaciones y registros", "estado": "EN CURSO"},
+    {"norma": "DS 44", "articulo": "Art. 7", "tema": "Matriz de riesgos (MIPER)", "obligacion": "Identificar peligros y evaluar riesgos por proceso, tarea y puesto de trabajo, con enfoque de género.", "aplica_a": "Empresa / Puestos de trabajo", "periodicidad": "Anual o ante cambios/eventos", "responsable": "Prevención", "evidencia": "MIPER vigente e informada", "estado": "PENDIENTE"},
+    {"norma": "DS 44", "articulo": "Arts. 8 y 14", "tema": "Programa de trabajo preventivo", "obligacion": "Definir medidas, responsables y plazos; controlar su ejecución y evaluar el programa al menos anualmente.", "aplica_a": "Empresa", "periodicidad": "Anual", "responsable": "Gerencia / Prevención", "evidencia": "Programa aprobado, seguimiento y evaluación", "estado": "PENDIENTE"},
+    {"norma": "DS 44", "articulo": "Arts. 15 y 16", "tema": "Información y capacitación", "obligacion": "Informar los riesgos antes del inicio y capacitar preventivamente por al menos 8 horas con periodicidad máxima de dos años.", "aplica_a": "Personas trabajadoras", "periodicidad": "Ingreso, cambios y periódica", "responsable": "Jefaturas / Prevención", "evidencia": "Registros de información, asistencia y contenidos", "estado": "EN CURSO"},
+    {"norma": "DS 44", "articulo": "Arts. 18-20", "tema": "Emergencias, catástrofes y desastres", "obligacion": "Mantener planes, procedimientos, responsables y simulacros para situaciones de emergencia.", "aplica_a": "Empresa / Centros de trabajo", "periodicidad": "Permanente y simulacros periódicos", "responsable": "Gerencia / Prevención", "evidencia": "Plan, difusión y registros de simulacro", "estado": "PENDIENTE"},
+    {"norma": "DS 44", "articulo": "Arts. 56-61", "tema": "Reglamento interno de higiene y seguridad", "obligacion": "Mantenerlo vigente, entregarlo gratuitamente y revisarlo al menos una vez al año.", "aplica_a": "Empresa", "periodicidad": "Anual", "responsable": "Gerencia / RRHH", "evidencia": "Reglamento vigente y constancias de entrega", "estado": "PENDIENTE"},
+    {"norma": "DS 44", "articulo": "Título V", "tema": "Investigación de accidentes y enfermedades", "obligacion": "Investigar eventos, identificar causas y definir medidas correctivas con trazabilidad.", "aplica_a": "Empresa", "periodicidad": "Cada evento", "responsable": "Prevención / Jefatura", "evidencia": "Investigaciones y cierres", "estado": "PENDIENTE"},
+    {"norma": "DS 44", "articulo": "Arts. 14 y 22", "tema": "Evaluación y mejora continua", "obligacion": "Evaluar periódicamente el desempeño del sistema y adoptar mejoras correctivas.", "aplica_a": "Empresa", "periodicidad": "Al menos anual", "responsable": "Gerencia / Prevención", "evidencia": "Evaluaciones, auditorías y plan de mejora", "estado": "PENDIENTE"},
     # ── Ley 16.744 — Seguro Social contra Accidentes del Trabajo ───────────
     {"norma": "Ley 16.744", "articulo": "Art. 1-5", "tema": "Seguro obligatorio", "obligacion": "Mantener afiliación vigente y cotización al día con organismo administrador (mutualidad/ISL).", "aplica_a": "Empresa", "periodicidad": "Mensual", "responsable": "Gerencia / Contabilidad", "evidencia": "Certificado de adhesión y cotizaciones", "estado": "EN CURSO"},
-    {"norma": "Ley 16.744", "articulo": "Art. 65-71", "tema": "Comité Paritario (CPHS)", "obligacion": "Constituir CPHS si la empresa tiene ≥25 trabajadores. Reuniones mensuales y actas.", "aplica_a": "Empresa", "periodicidad": "Mensual", "responsable": "Gerencia / CPHS", "evidencia": "Actas de reunión y acuerdos", "estado": "EN CURSO"},
+    {"norma": "Ley 16.744", "articulo": "Art. 66 / DS 44 Art. 23", "tema": "Comité Paritario (CPHS)", "obligacion": "Constituir CPHS donde trabajen más de 25 personas y mantener evidencia de su funcionamiento.", "aplica_a": "Empresa / Centro de trabajo", "periodicidad": "Permanente", "responsable": "Gerencia / CPHS", "evidencia": "Constitución, actas y acuerdos", "estado": "EN CURSO"},
     {"norma": "Ley 16.744", "articulo": "Art. 66 bis", "tema": "Subcontratación (Ley 20.123)", "obligacion": "Coordinar sistema de gestión con empresas contratistas y subcontratistas en faenas.", "aplica_a": "Empresa / Contratistas", "periodicidad": "Permanente", "responsable": "Gerencia / Mandante", "evidencia": "Convenios de coordinación y registros", "estado": "PENDIENTE"},
     {"norma": "Ley 16.744", "articulo": "Art. 68", "tema": "Obligación de informar riesgos", "obligacion": "Informar oportuna y convenientemente a trabajadores sobre riesgos, medidas preventivas y métodos correctos.", "aplica_a": "Trabajadores", "periodicidad": "Ingreso y cambios", "responsable": "Jefatura / Prevención", "evidencia": "ODI firmadas", "estado": "EN CURSO"},
-    {"norma": "Ley 16.744", "articulo": "Art. 76", "tema": "Denuncia de accidentes (DIAT/DIEP)", "obligacion": "Denunciar todo accidente del trabajo o enfermedad profesional dentro de 24 horas.", "aplica_a": "Empresa", "periodicidad": "Cada evento", "responsable": "Prevención / RRHH", "evidencia": "DIAT/DIEP presentado", "estado": "PENDIENTE"},
+    {"norma": "Ley 16.744", "articulo": "Art. 76", "tema": "Denuncia de accidentes y enfermedades", "obligacion": "Denunciar inmediatamente al organismo administrador y notificar accidentes graves o fatales a las autoridades correspondientes.", "aplica_a": "Empresa", "periodicidad": "Cada evento", "responsable": "Prevención / RRHH", "evidencia": "DIAT/DIEP y notificaciones", "estado": "PENDIENTE"},
     {"norma": "Ley 16.744", "articulo": "Art. 184 CT", "tema": "Deber de protección", "obligacion": "Tomar todas las medidas necesarias para proteger eficazmente la vida y salud de los trabajadores.", "aplica_a": "Empresa", "periodicidad": "Permanente", "responsable": "Gerencia", "evidencia": "Registros de gestión preventiva", "estado": "EN CURSO"},
-    {"norma": "Ley 16.744", "articulo": "Art. 21 DS 40", "tema": "Departamento de Prevención", "obligacion": "Constituir Depto. de Prevención si la empresa tiene ≥100 trabajadores.", "aplica_a": "Empresa", "periodicidad": "Permanente", "responsable": "Gerencia", "evidencia": "Existencia y funcionamiento del departamento", "estado": "PENDIENTE"},
+    {"norma": "Ley 16.744", "articulo": "Art. 66 / DS 44 Art. 50", "tema": "Departamento de Prevención", "obligacion": "Constituir Departamento de Prevención cuando la empresa tenga más de 100 personas trabajadoras.", "aplica_a": "Empresa", "periodicidad": "Permanente", "responsable": "Gerencia", "evidencia": "Existencia y funcionamiento del departamento", "estado": "PENDIENTE"},
     # ── DS 594 — Condiciones Sanitarias y Ambientales Básicas ──────────────
-    {"norma": "DS 594", "articulo": "Art. 3-6", "tema": "Condiciones generales de construcción", "obligacion": "Pisos, paredes, cielos en buen estado. Pasillos despejados, buena iluminación y ventilación.", "aplica_a": "Faenas / Planta", "periodicidad": "Mensual", "responsable": "Supervisor / Mantención", "evidencia": "Checklist DS 594", "estado": "PENDIENTE"},
-    {"norma": "DS 594", "articulo": "Art. 12-15", "tema": "Agua potable y servicios higiénicos", "obligacion": "Proveer agua potable, servicios higiénicos según dotación, duchas si corresponde.", "aplica_a": "Faenas / Planta", "periodicidad": "Mensual", "responsable": "Supervisor / Faena", "evidencia": "Inspecciones y registros", "estado": "PENDIENTE"},
-    {"norma": "DS 594", "articulo": "Art. 22", "tema": "Comedores", "obligacion": "Disponer de comedores separados del área de trabajo cuando corresponda (≥10 trabajadores).", "aplica_a": "Faenas", "periodicidad": "Permanente", "responsable": "Gerencia / Faena", "evidencia": "Fotografías y checklist", "estado": "PENDIENTE"},
-    {"norma": "DS 594", "articulo": "Art. 32-36", "tema": "Ventilación", "obligacion": "Mantener ventilación natural o forzada suficiente. Control de contaminantes ambientales.", "aplica_a": "Faenas / Planta", "periodicidad": "Semestral", "responsable": "Prevención / Mantención", "evidencia": "Mediciones y registros", "estado": "PENDIENTE"},
-    {"norma": "DS 594", "articulo": "Art. 44-46", "tema": "Señalización y extintores", "obligacion": "Señalización de seguridad visible. Extintores vigentes, correctamente ubicados y señalizados.", "aplica_a": "Faenas / Planta", "periodicidad": "Mensual", "responsable": "Supervisor / Mantención", "evidencia": "Inspecciones y certificados de carga", "estado": "PENDIENTE"},
+    {"norma": "DS 594", "articulo": "Arts. 1-6", "tema": "Condiciones generales del lugar de trabajo", "obligacion": "Mantener condiciones sanitarias y ambientales que protejan la vida y salud, incluyendo infraestructura en buen estado.", "aplica_a": "Empresa / Centros de trabajo", "periodicidad": "Permanente", "responsable": "Gerencia / Mantención", "evidencia": "Checklist DS 594 e inspecciones", "estado": "PENDIENTE"},
+    {"norma": "DS 594", "articulo": "Título II", "tema": "Saneamiento básico", "obligacion": "Proveer agua potable, servicios higiénicos, disposición de residuos y condiciones de orden y limpieza.", "aplica_a": "Empresa / Centros de trabajo", "periodicidad": "Permanente", "responsable": "Gerencia / Mantención", "evidencia": "Inspecciones y registros", "estado": "PENDIENTE"},
+    {"norma": "DS 594", "articulo": "Título II", "tema": "Comedores", "obligacion": "Disponer de comedores separados del área de trabajo cuando corresponda y mantenerlos en condiciones sanitarias adecuadas.", "aplica_a": "Centros de trabajo", "periodicidad": "Permanente", "responsable": "Gerencia / Administración", "evidencia": "Fotografías y checklist", "estado": "PENDIENTE"},
+    {"norma": "DS 594", "articulo": "Títulos III-IV", "tema": "Condiciones y contaminantes ambientales", "obligacion": "Controlar ventilación y exposición a agentes físicos, químicos y biológicos según límites vigentes.", "aplica_a": "Empresa / Centros de trabajo", "periodicidad": "Según riesgo", "responsable": "Prevención / Mantención", "evidencia": "Mediciones, evaluaciones y vigilancia", "estado": "PENDIENTE"},
+    {"norma": "DS 594", "articulo": "Título III", "tema": "Prevención de incendios y señalización", "obligacion": "Mantener señalización, vías de evacuación y equipos de extinción adecuados y operativos.", "aplica_a": "Empresa / Centros de trabajo", "periodicidad": "Periódica", "responsable": "Prevención / Mantención", "evidencia": "Inspecciones y certificados", "estado": "PENDIENTE"},
     {"norma": "DS 594", "articulo": "Art. 53-55", "tema": "Elementos de protección personal (EPP)", "obligacion": "Proporcionar EPP adecuados y gratuitos según riesgos. Capacitar en su uso y mantención.", "aplica_a": "Trabajadores", "periodicidad": "Permanente", "responsable": "Jefatura / Prevención", "evidencia": "Cargo de entrega EPP firmado", "estado": "EN CURSO"},
     {"norma": "DS 594", "articulo": "Art. 56-65", "tema": "Ruido ocupacional", "obligacion": "Evaluar exposición a ruido. Implementar programa de vigilancia si se exceden LPP.", "aplica_a": "Trabajadores expuestos", "periodicidad": "Anual", "responsable": "Prevención / Mutual", "evidencia": "Informes de medición y programa", "estado": "PENDIENTE"},
     {"norma": "DS 594", "articulo": "Art. 109-110", "tema": "Condiciones ambientales (calor/frío)", "obligacion": "Evaluar y controlar exposición a temperaturas extremas. Pausas y medidas de control.", "aplica_a": "Faenas expuestas", "periodicidad": "Según temporada", "responsable": "Prevención / Supervisor", "evidencia": "Protocolo y mediciones", "estado": "PENDIENTE"},
@@ -3516,13 +3516,21 @@ def ensure_sgsst_seed_data():
                     datetime.now().isoformat(timespec='seconds'), datetime.now().isoformat(timespec='seconds'),
                 ),
             )
-        existing = fetch_df("SELECT norma, tema, obligacion FROM sgsst_matriz_legal WHERE COALESCE(cliente_key,'')=?", (tenant_key,))
+        existing = fetch_df("SELECT norma, tema FROM sgsst_matriz_legal WHERE COALESCE(cliente_key,'')=?", (tenant_key,))
         existing_keys = set()
         if existing is not None and not existing.empty:
-            existing_keys = set((str(r[0] or ''), str(r[1] or ''), str(r[2] or '')) for r in existing[["norma", "tema", "obligacion"]].itertuples(index=False, name=None))
+            existing_keys = set((str(r[0] or ''), str(r[1] or '')) for r in existing[["norma", "tema"]].itertuples(index=False, name=None))
         for item in SGSST_MATRIZ_BASE:
-            key = (item['norma'], item['tema'], item['obligacion'])
+            key = (item['norma'], item['tema'])
             if key in existing_keys:
+                execute(
+                    """
+                    UPDATE sgsst_matriz_legal
+                    SET articulo=?, obligacion=?, aplica_a=?, periodicidad=?, responsable=?, evidencia=?, updated_at=?
+                    WHERE COALESCE(cliente_key,'')=? AND norma=? AND tema=?
+                    """,
+                    (item.get('articulo'), item.get('obligacion'), item.get('aplica_a'), item.get('periodicidad'), item.get('responsable'), item.get('evidencia'), datetime.now().isoformat(timespec='seconds'), tenant_key, item.get('norma'), item.get('tema')),
+                )
                 continue
             execute(
                 """
@@ -8264,8 +8272,6 @@ PAGES = [
     "Mi Perfil",
     # Prevención de Riesgos
     "Mi Empresa / SGSST",
-    "Cumplimiento / Alertas",
-    "Aprobaciones / Auditoría legal",
     # Documentación
     "Centro Documental",
     "Documentos Empresa (Faena)",
@@ -8456,8 +8462,6 @@ with st.sidebar:
         "Asignar Trabajadores": "🧩 Asignar Trabajadores",
         "Mi Perfil": "👤 Mi Perfil",
         "Mi Empresa / SGSST": "🦺 SGSST",
-        "Cumplimiento / Alertas": "🚨 Cumplimiento / Alertas",
-        "Aprobaciones / Auditoría legal": "✅ Aprobaciones Legales",
         "Centro Documental": "📁 Centro Documental",
         "Documentos Empresa (Faena)": "🏭 Empresa por faena",
         "Documentos Trabajador": "👷 Trabajadores",
@@ -8497,8 +8501,6 @@ with st.sidebar:
         ]),
         "prev": ("🦺 Prevención de Riesgos", [
             "Mi Empresa / SGSST",
-            "Cumplimiento / Alertas",
-            "Aprobaciones / Auditoría legal",
         ]),
         "docs": ("🗂️ Documentación", [
             "Centro Documental",
@@ -9257,7 +9259,6 @@ def page_audit_trail():
 
 PAGE_PERM_ROUTE = {
     "Dashboard": "view_dashboard",
-    "Cumplimiento / Alertas": "view_sgsst",
     "Mi Empresa / SGSST": "view_sgsst",
     "Mandantes": "view_mandantes",
     "Contratos de Faena": "view_contratos",
@@ -9269,7 +9270,6 @@ PAGE_PERM_ROUTE = {
     "Asignar Trabajadores": "view_asignaciones",
     "Documentos Trabajador": "view_docs_trabajador",
     "Exportar (ZIP)": "view_export",
-    "Aprobaciones / Auditoría legal": "view_legal_audit",
     "Auditoría de acciones": "view_legal_audit",
     "Backup / Restore": "view_backup",
     "Arquitectura / Escalabilidad": "manage_users",
@@ -9281,7 +9281,6 @@ if p in PAGE_PERM_ROUTE and PAGE_PERM_ROUTE[p]:
 
 _PAGE_RENDERERS = {
     "Dashboard": page_dashboard,
-    "Cumplimiento / Alertas": page_compliance_alerts,
     "Mi Empresa / SGSST": page_sgsst,
     "Mandantes": page_mandantes,
     "Contratos de Faena": page_contratos_faena,
@@ -9293,7 +9292,6 @@ _PAGE_RENDERERS = {
     "Asignar Trabajadores": page_asignar_trabajadores,
     "Documentos Trabajador": page_documentos_trabajador,
     "Exportar (ZIP)": page_export_zip,
-    "Aprobaciones / Auditoría legal": page_aprobaciones_legal,
     "Auditoría de acciones": page_audit_trail,
     "Backup / Restore": page_backup_restore,
     "Arquitectura / Escalabilidad": page_architecture_scalability,

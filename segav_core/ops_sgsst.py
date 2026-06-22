@@ -74,7 +74,12 @@ def page_sgsst(
     safe_name=None,
     read_only=False,
 ):
-    ui_header("Centro SG-SST", "Estado preventivo, cumplimiento y gestión operativa de la empresa.")
+    ui_header("Sistema de Gestión de Seguridad y Salud en el Trabajo", "Gestión preventiva integral de la empresa conforme a la Ley 16.744, el DS 44 y el DS 594.")
+    st.caption(
+        "Base normativa oficial: [Ley 16.744](https://www.bcn.cl/leychile/navegar?idNorma=28650) · "
+        "[DS 44](https://www.bcn.cl/leychile/navegar?idNorma=1205298) · "
+        "[DS 594](https://www.bcn.cl/leychile/navegar?idNorma=167766)"
+    )
     ensure_sgsst_seed_data()
     _u = current_user() or {}
     _is_superadmin = str(_u.get("role") or "").upper() == "SUPERADMIN"
@@ -175,7 +180,6 @@ def page_sgsst(
                     st.rerun()
 
     stats = {
-        "faenas_activas": int(fetch_value("SELECT COUNT(*) FROM faenas WHERE estado='ACTIVA'", default=0) or 0),
         "trabajadores": int(fetch_value("SELECT COUNT(*) FROM trabajadores", default=0) or 0),
         "matriz_pendiente": int(fetch_value("SELECT COUNT(*) FROM sgsst_matriz_legal WHERE COALESCE(estado,'PENDIENTE') <> 'CERRADO'", default=0) or 0),
         "programa_abierto": int(fetch_value("SELECT COUNT(*) FROM sgsst_programa_anual WHERE COALESCE(estado,'PENDIENTE') <> 'CERRADO'", default=0) or 0),
@@ -186,7 +190,7 @@ def page_sgsst(
     }
 
     # ── Compliance score ────────────────────────────────────────────────
-    _total_modules = 8
+    _total_modules = 9
     _modules_ok = 0
     if stats["matriz_pendiente"] == 0 and int(fetch_value("SELECT COUNT(*) FROM sgsst_matriz_legal", default=0) or 0) > 0:
         _modules_ok += 1
@@ -202,7 +206,9 @@ def page_sgsst(
         _modules_ok += 1
     if company.get("razon_social"):
         _modules_ok += 1
-    if int(fetch_value("SELECT COUNT(*) FROM sgsst_cphs", default=0) or 0) > 0:
+    if int(fetch_value("SELECT COUNT(*) FROM sgsst_riohs", default=0) or 0) > 0:
+        _modules_ok += 1
+    if stats["trabajadores"] <= 25 or int(fetch_value("SELECT COUNT(*) FROM sgsst_cphs", default=0) or 0) > 0:
         _modules_ok += 1
     _compliance_pct = int((_modules_ok / _total_modules) * 100) if _total_modules > 0 else 0
     _compliance_color = "🟢" if _compliance_pct >= 75 else ("🟡" if _compliance_pct >= 40 else "🔴")
@@ -294,43 +300,6 @@ def page_sgsst(
         _queue["_orden"] = _queue["Prioridad"].map(_priority_order).fillna(9)
         return _queue.sort_values(["_orden", "Plazo", "Área"]).drop(columns=["_orden"]).reset_index(drop=True)
 
-    def _faena_status() -> pd.DataFrame:
-        _faenas = _safe_sgsst_df(
-            "SELECT id, nombre FROM faenas WHERE COALESCE(estado,'ACTIVA')='ACTIVA' ORDER BY nombre"
-        )
-        if _faenas.empty:
-            return pd.DataFrame()
-        _miper = _safe_sgsst_df("SELECT faena_id, nivel_riesgo, estado FROM sgsst_miper")
-        _ins = _safe_sgsst_df("SELECT faena_id, resultado FROM sgsst_inspecciones")
-        _inc = _safe_sgsst_df("SELECT faena_id, estado FROM sgsst_incidentes")
-        _cap = _safe_sgsst_df("SELECT faena_id, vigencia FROM sgsst_capacitaciones")
-        _rows = []
-        for _, _faena in _faenas.iterrows():
-            _fid = _faena.get("id")
-            _fm = _miper[_miper.get("faena_id", pd.Series(dtype=object)) == _fid] if not _miper.empty else pd.DataFrame()
-            _fi = _ins[_ins.get("faena_id", pd.Series(dtype=object)) == _fid] if not _ins.empty else pd.DataFrame()
-            _fc = _inc[_inc.get("faena_id", pd.Series(dtype=object)) == _fid] if not _inc.empty else pd.DataFrame()
-            _fcap = _cap[_cap.get("faena_id", pd.Series(dtype=object)) == _fid] if not _cap.empty else pd.DataFrame()
-            _critical = sum(
-                pd.to_numeric(_row.get("nivel_riesgo"), errors="coerce") >= 15 and _record_is_open(_row.get("estado"))
-                for _, _row in _fm.iterrows()
-            )
-            _findings = sum(str(_row.get("resultado") or "OBSERVACIÓN").upper() != "CUMPLE" for _, _row in _fi.iterrows())
-            _open_inc = sum(_record_is_open(_row.get("estado")) for _, _row in _fc.iterrows())
-            _expired = 0
-            for _, _row in _fcap.iterrows():
-                _due = parse_date_maybe(_row.get("vigencia"))
-                _due_date = _due.date() if hasattr(_due, "date") else _due
-                _expired += int(bool(_due_date and _due_date < date.today()))
-            _total = int(_critical + _findings + _open_inc + _expired)
-            _light = "🔴" if (_critical or _open_inc or _total >= 3) else ("🟡" if _total else "🟢")
-            _rows.append({
-                "Estado": _light, "Faena": str(_faena.get("nombre") or f"Faena {_fid}"),
-                "Riesgos críticos": int(_critical), "Hallazgos": int(_findings),
-                "Incidentes": int(_open_inc), "Capacitaciones vencidas": int(_expired),
-            })
-        return pd.DataFrame(_rows)
-
     def _search_records(term: str) -> pd.DataFrame:
         _needle = str(term or "").strip().casefold()
         if not _needle:
@@ -372,18 +341,18 @@ def page_sgsst(
     # ── Navegación: área de trabajo + herramientas relacionadas ───────
     _SGSST_SECTIONS = {
         "🏠 Inicio": ["🏠 Inicio"],
-        "📋 Cumplimiento": ["🏢 Resumen", "📋 Cumplimiento Legal", "🧭 Autoevaluación DS 44", "📊 Estadísticas", "💰 Cotización"],
-        "🏢 Empresa": ["📐 Requisitos DS 44", "🏭 Ficha empresa", "🧩 Catálogos", "🏗️ Subcontratistas", "📕 RIOHS"],
-        "⚠️ Prevención": ["⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER", "🧯 Inspecciones", "📋 Checklist 594"],
-        "👷 Personas": ["🩹 Incidentes", "📝 DIAT/DIEP", "🎓 Capacitaciones", "🦺 EPP", "👷 CPHS", "🔬 Vigilancia"],
-        "📎 Documentos": ["📎 Evidencias", "🧾 Auditoría"],
+        "🏢 Organización": ["🏢 Resumen", "📐 Requisitos DS 44", "🏭 Ficha empresa", "👷 CPHS", "📕 RIOHS"],
+        "🧭 Plan preventivo": ["🧭 Autoevaluación DS 44", "📋 Diagnóstico normativo", "⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER"],
+        "🛡️ Controles": ["🧯 Inspecciones", "📋 Checklist 594", "🩹 Incidentes", "📝 DIAT/DIEP"],
+        "👷 Personas y salud": ["🎓 Capacitaciones", "🦺 EPP", "🔬 Vigilancia"],
+        "📎 Registros": ["📎 Evidencias", "🧾 Auditoría", "📊 Estadísticas", "💰 Cotización", "🏗️ Subcontratistas", "🧩 Catálogos"],
     }
     _section_names = list(_SGSST_SECTIONS.keys())
 
     # Modo solo lectura (LECTOR): solo secciones de consulta, sin edición
     if read_only:
         _SGSST_SECTIONS = {
-            "📋 Consulta SGSST": ["🏢 Resumen", "📋 Cumplimiento Legal", "🧭 Autoevaluación DS 44", "📊 Estadísticas"],
+            "📋 Consulta SGSST": ["🏢 Resumen", "📋 Diagnóstico normativo", "🧭 Autoevaluación DS 44", "📊 Estadísticas"],
         }
         _section_names = list(_SGSST_SECTIONS.keys())
         st.info("🔎 Modo consulta (solo lectura): puedes revisar el estado del SGSST y descargar el expediente, pero no modificar registros.")
@@ -426,7 +395,7 @@ def page_sgsst(
     if _sgsst_section == "🏠 Inicio":
         st.markdown(f"#### {_compliance_color} Cumplimiento SG-SST: {_modules_ok}/{_total_modules} módulos ({_compliance_pct}%)")
         segmented_progress(_compliance_pct, label="Cumplimiento SG-SST")
-        st.caption("Ficha Empresa · Matriz Legal · Programa Anual · MIPER · DS 594 · Incidentes · Capacitaciones · CPHS")
+        st.caption("Ficha Empresa · Matriz Legal · Programa Preventivo · MIPER · DS 594 · Incidentes · Capacitaciones · Reglamento Interno · CPHS cuando corresponda")
 
         st.markdown("#### Pendientes prioritarios")
         _priority_df = _priority_queue()
@@ -440,25 +409,17 @@ def page_sgsst(
             _pc3.metric("Prioridad media", int(_priority_counts.get("Media", 0)))
             st.dataframe(_priority_df.head(12), use_container_width=True, hide_index=True)
 
-        st.markdown("#### Estado por faena")
-        _faena_df = _faena_status()
-        if _faena_df.empty:
-            st.info("No hay faenas activas para evaluar.")
-        else:
-            st.dataframe(_faena_df, use_container_width=True, hide_index=True)
-
         # Dashboard de empresa: identidad + completitud de la ficha
         _prof = _ds44.company_profile_status(company)
         _n_trab_home = int(fetch_value("SELECT COUNT(*) FROM trabajadores", default=0) or 0)
         _tier_home = _ds44.worker_tier(_n_trab_home)
-        _faenas_act = int(fetch_value("SELECT COUNT(*) FROM faenas WHERE COALESCE(estado,'ACTIVA')='ACTIVA'", default=0) or 0)
 
         _razon = company.get("razon_social") or "Empresa sin nombre definido"
         st.markdown(f"### 🏢 {_razon}")
         _id1, _id2, _id3, _id4 = st.columns(4)
         _id1.metric("RUT", str(company.get("rut") or "—"))
         _id2.metric("👷 Trabajadores", _n_trab_home)
-        _id3.metric("🏗️ Faenas activas", _faenas_act)
+        _id3.metric("🛡️ Cumplimiento SG-SST", f"{_compliance_pct}%")
         _id4.metric("📐 Tramo DS 44", _tier_home["rango"])
 
         _info_cols = st.columns(3)
@@ -492,7 +453,7 @@ def page_sgsst(
                 for _k, _lbl in _prof["missing"]:
                     st.write("• " + _lbl)
             if st.button("✏️ Completar ficha de empresa", key=K("home_goto_ficha"), use_container_width=True):
-                st.session_state[K("sgsst_jump_section")] = "🏢 Empresa"
+                st.session_state[K("sgsst_jump_section")] = "🏢 Organización"
                 st.rerun()
         else:
             st.success("✅ Ficha de empresa completa.")
@@ -551,12 +512,12 @@ def page_sgsst(
             st.rerun()
 
         _cards = [
-            ("⚖️ Matriz legal pendiente", stats["matriz_pendiente"], "⚠️ Prevención", "matriz"),
-            ("⚠️ Riesgos críticos MIPER", stats["miper_criticos"], "⚠️ Prevención", "miper"),
-            ("📅 Programa anual abierto", stats["programa_abierto"], "⚠️ Prevención", "prog"),
-            ("🧯 Hallazgos DS 594", stats["ds594_abierto"], "⚠️ Prevención", "ds594"),
-            ("🩹 Incidentes abiertos", stats["incidentes_abiertos"], "👷 Personas", "inc"),
-            ("🎓 Capacitaciones vencidas", stats["cap_vencidas"], "👷 Personas", "cap"),
+            ("⚖️ Matriz legal pendiente", stats["matriz_pendiente"], "🧭 Plan preventivo", "matriz"),
+            ("⚠️ Riesgos críticos MIPER", stats["miper_criticos"], "🧭 Plan preventivo", "miper"),
+            ("📅 Programa anual abierto", stats["programa_abierto"], "🧭 Plan preventivo", "prog"),
+            ("🧯 Hallazgos DS 594", stats["ds594_abierto"], "🛡️ Controles", "ds594"),
+            ("🩹 Incidentes abiertos", stats["incidentes_abiertos"], "🛡️ Controles", "inc"),
+            ("🎓 Capacitaciones vencidas", stats["cap_vencidas"], "👷 Personas y salud", "cap"),
         ]
         _rows = [_cards[i:i + 3] for i in range(0, len(_cards), 3)]
         for _row in _rows:
@@ -571,11 +532,11 @@ def page_sgsst(
         st.divider()
         st.markdown("#### 🧭 Áreas del sistema")
         _quick = [
-            ("📋 Cumplimiento", "Resumen, evaluación legal, estadísticas y cotización"),
-            ("🏢 Empresa", "Requisitos DS 44, ficha, catálogos, contratistas y RIOHS"),
-            ("⚠️ Prevención", "Matriz legal, programa, MIPER e inspecciones"),
-            ("👷 Personas", "Incidentes, DIAT/DIEP, capacitación, EPP y vigilancia"),
-            ("📎 Documentos", "Evidencias del sistema y trazabilidad de acciones"),
+            ("🏢 Organización", "Estructura preventiva, responsables, CPHS y reglamento interno"),
+            ("🧭 Plan preventivo", "Diagnóstico legal, MIPER y programa de trabajo preventivo"),
+            ("🛡️ Controles", "Inspecciones, condiciones DS 594 e investigación de eventos"),
+            ("👷 Personas y salud", "Información, capacitación, EPP y vigilancia ocupacional"),
+            ("📎 Registros", "Evidencias, auditoría, estadísticas y trazabilidad"),
         ]
         for _start in range(0, len(_quick), 3):
             _quick_row = _quick[_start:_start + 3]
@@ -593,7 +554,7 @@ def page_sgsst(
 
     # Map visible tab index to original tab index
     _ALL_TABS = [
-        "🏢 Resumen", "📋 Cumplimiento Legal", "📊 Estadísticas", "💰 Cotización",
+        "🏢 Resumen", "📋 Diagnóstico normativo", "📊 Estadísticas", "💰 Cotización",
         "📐 Requisitos DS 44", "🏭 Ficha empresa", "🧩 Catálogos",
         "⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER", "🧯 Inspecciones",
         "📋 Checklist 594", "🩹 Incidentes", "🎓 Capacitaciones", "🦺 EPP",
@@ -611,7 +572,6 @@ def page_sgsst(
 
     if 0 in tabs:
       with tabs[0]:
-        cfg = segav_erp_config_map()
         clientes_df = segav_clientes_df()
         current_client_key = current_segav_client_key()
         current_client = {}
@@ -620,37 +580,34 @@ def page_sgsst(
             if rowc.empty:
                 rowc = clientes_df.iloc[[0]]
             current_client = rowc.iloc[0].to_dict()
-        faenas_activas = int(fetch_value("SELECT COUNT(*) FROM faenas WHERE COALESCE(estado,'ACTIVA')='ACTIVA'", default=0) or 0)
         total_trab = int(fetch_value("SELECT COUNT(*) FROM trabajadores", default=0) or 0)
-        total_clientes = int(len(clientes_df)) if clientes_df is not None else 0
-        total_cargos = int(len(segav_cargos_df())) if segav_cargos_df() is not None else 0
-        total_docs_empresa = len(get_empresa_required_doc_types())
+        total_evidencias = int(fetch_value("SELECT COUNT(*) FROM sgsst_evidencias", default=0) or 0)
+        tramo_empresa = _ds44.worker_tier(total_trab)
 
         k1, k2, k3, k4, k5 = st.columns(5)
-        k1.metric("Clientes activos", total_clientes)
-        k2.metric("Faenas activas", faenas_activas)
-        k3.metric("Trabajadores", total_trab)
-        k4.metric("Cargos parametrizados", total_cargos)
-        k5.metric("Docs empresa base", total_docs_empresa)
+        k1.metric("Trabajadores", total_trab)
+        k2.metric("Tramo DS 44", tramo_empresa["rango"])
+        k3.metric("Riesgos críticos", stats["miper_criticos"])
+        k4.metric("Programa abierto", stats["programa_abierto"])
+        k5.metric("Evidencias", total_evidencias)
 
         left, right = st.columns([1.2, 1])
         with left:
-            st.markdown("### Vista ejecutiva")
+            st.markdown("### Identificación de la empresa")
             resumen = [
-                ("ERP", cfg.get("erp_name", "SEGAV ERP")),
-                ("Vertical", cfg.get("erp_vertical", "General")),
-                ("Plantilla actual", cfg.get("template_actual", "GENERAL")),
-                ("Cliente actual", current_client.get("cliente_nombre") or cfg.get("cliente_actual") or "Sin definir"),
-                ("Razón social operativa", company.get("razon_social") or "Sin definir"),
+                ("Razón social", company.get("razon_social") or current_client.get("cliente_nombre") or "Sin definir"),
+                ("RUT", company.get("rut") or current_client.get("rut") or "Sin definir"),
+                ("Actividad económica", company.get("actividad") or "Sin definir"),
                 ("Organismo administrador", company.get("organismo_admin") or "Sin definir"),
                 ("Prevencionista", company.get("prevencionista") or "Sin definir"),
                 ("Dotación total", company.get("dotacion_total") or 0),
+                ("Política SST", f"v{company.get('politica_version') or '—'} · {company.get('politica_fecha') or 'sin fecha'}"),
             ]
             for label, value in resumen:
                 st.write(f"**{label}:** {value}")
             st.info(
-                "SEGAV ERP ya cuenta con capa comercial configurable: catálogos, clientes, plantillas por rubro y parámetros por cliente, sin eliminar la operación actual.",
-                icon="🧭",
+                "La entidad empleadora es responsable de integrar la prevención en todos los niveles de la organización y mantener evidencia de su gestión.",
+                icon="🛡️",
             )
         with right:
             st.markdown("### Estado general")
@@ -658,33 +615,22 @@ def page_sgsst(
             cphs_msg = "CPHS obligatorio" if dotacion > 25 else "CPHS aún no obligatorio (monitorear dotación)"
             estado_rows = pd.DataFrame([
                 {"Indicador": "Ley 16.744 / Dotación", "Estado": cphs_msg},
-                {"Indicador": "DS 44", "Estado": "Base ERP visible cargada"},
-                {"Indicador": "DS 594", "Estado": "Checklist inicial habilitado"},
-                {"Indicador": "Multiempresa", "Estado": cfg.get("multiempresa", "SI")},
-                {"Indicador": "Implementación", "Estado": cfg.get("modo_implementacion", "CONFIGURABLE")},
+                {"Indicador": "DS 44", "Estado": "MIPER, programa y autoevaluación habilitados"},
+                {"Indicador": "DS 594", "Estado": "Inspección de condiciones de trabajo habilitada"},
+                {"Indicador": "Ley 16.744", "Estado": "Incidentes, DIAT/DIEP y EPP centralizados"},
+                {"Indicador": "Trazabilidad", "Estado": f"{total_evidencias} evidencia(s) registrada(s)"},
             ])
             st.dataframe(estado_rows, use_container_width=True, hide_index=True)
             b1, b2, b3 = st.columns(3)
             with b1:
-                if st.button("Ir a Docs Empresa", use_container_width=True, key=K("sgsst_go_docs_emp")):
-                    go("Documentos Empresa")
+                if st.button("Centro Documental", use_container_width=True, key=K("sgsst_go_docs_emp")):
+                    go("Centro Documental")
             with b2:
-                if st.button("Ir a Docs Faena", use_container_width=True, key=K("sgsst_go_docs_faena")):
-                    go("Documentos Empresa (Faena)")
+                if st.button("Documentos trabajadores", use_container_width=True, key=K("sgsst_go_docs_faena")):
+                    go("Documentos Trabajador")
             with b3:
-                if st.button("Ir a Trabajadores", use_container_width=True, key=K("sgsst_go_trab")):
+                if st.button("Trabajadores", use_container_width=True, key=K("sgsst_go_trab")):
                     go("Trabajadores")
-
-        st.markdown("### Dashboard comercial / ERP")
-        dash_rows = pd.DataFrame([
-            {"Bloque": "Producto", "Valor": cfg.get("erp_slogan", "") or "Sin definir"},
-            {"Bloque": "Cliente actual", "Valor": current_client.get("cliente_nombre") or cfg.get("cliente_actual") or "Sin definir"},
-            {"Bloque": "RUT cliente", "Valor": current_client.get("rut") or clean_rut(company.get("rut") or "") or "Sin definir"},
-            {"Bloque": "Vertical actual", "Valor": cfg.get("erp_vertical", "General")},
-            {"Bloque": "Modo comercial", "Valor": cfg.get("multiempresa", "SI")},
-            {"Bloque": "Plantilla activa", "Valor": cfg.get("template_actual", "GENERAL")},
-        ])
-        st.dataframe(dash_rows, use_container_width=True, hide_index=True)
 
         # ── Expediente de fiscalización (PDF) ──────────────────────────────
         st.divider()
@@ -708,7 +654,7 @@ def page_sgsst(
                     _autoeval = [{"nombre": e["nombre"], "norma": e["norma"], "estado": _saved.get(e["key"], "No cumple")} for e in _elem]
                     # MIPER
                     _miper_rows = []
-                    _dfm = fetch_df("SELECT COALESCE(f.nombre,'(Empresa)') AS faena, COALESCE(m.tipo_riesgo,'') AS tipo, m.peligro, m.riesgo, m.nivel_riesgo AS vep, COALESCE(m.estado,'PENDIENTE') AS estado FROM sgsst_miper m LEFT JOIN faenas f ON f.id=m.faena_id ORDER BY m.nivel_riesgo DESC")
+                    _dfm = fetch_df("SELECT COALESCE(f.nombre,'(Empresa general)') AS faena, COALESCE(m.tipo_riesgo,'') AS tipo, m.peligro, m.riesgo, m.nivel_riesgo AS vep, COALESCE(m.estado,'PENDIENTE') AS estado FROM sgsst_miper m LEFT JOIN faenas f ON f.id=m.faena_id ORDER BY m.nivel_riesgo DESC")
                     if _dfm is not None and not _dfm.empty:
                         for _, _r in _dfm.iterrows():
                             _miper_rows.append({"faena": _r["faena"], "tipo": _r["tipo"], "peligro": _r["peligro"], "riesgo": _r["riesgo"], "nivel": _miper.nivel(int(_r["vep"] or 1))["nivel"], "estado": _r["estado"]})
@@ -737,7 +683,7 @@ def page_sgsst(
                 except Exception as _exc:
                     st.error(f"No se pudo generar el expediente: {_exc}")
 
-    # ── Tab 1: Cumplimiento Legal ──────────────────────────────────────────
+    # ── Tab 1: Diagnóstico normativo ───────────────────────────────────────
     if 1 in tabs:
       with tabs[1]:
         try:
@@ -876,17 +822,17 @@ def page_sgsst(
 
             def _faena_lbl(x):
                 if x == 0:
-                    return "(Sin faena / general)"
+                    return "Empresa general"
                 try:
                     return str(_faenas_ev[_faenas_ev["id"] == x].iloc[0]["nombre"])
                 except Exception:
-                    return f"Faena {x}"
+                    return f"Centro de trabajo {x}"
 
             with st.expander("➕ Subir nueva evidencia", expanded=True):
                 ev1, ev2 = st.columns(2)
                 with ev1:
                     ev_modulo = st.selectbox("Módulo / actividad", _MODULOS_EV, key=K("ev_modulo"))
-                    ev_faena = st.selectbox("Faena (opcional)", _faena_opts, format_func=_faena_lbl, key=K("ev_faena"))
+                    ev_faena = st.selectbox("Centro de trabajo (opcional)", _faena_opts, format_func=_faena_lbl, key=K("ev_faena"))
                 with ev2:
                     ev_ref = st.text_input("Referencia del registro", key=K("ev_ref"), placeholder="Ej: MIPER fila 12, Acta CPHS N°5, Inspección 05-03")
                     ev_desc = st.text_input("Descripción", key=K("ev_desc"), placeholder="Breve descripción de la evidencia")
@@ -921,7 +867,7 @@ def page_sgsst(
             with _fcol1:
                 _filtro_mod = st.selectbox("Filtrar por módulo", ["(Todos)"] + _MODULOS_EV, key=K("ev_filtro_mod"))
             with _fcol2:
-                _filtro_faena = st.selectbox("Filtrar por faena", _faena_opts + [-1], format_func=lambda x: "(Todas)" if x == -1 else _faena_lbl(x), index=len(_faena_opts), key=K("ev_filtro_faena"))
+                _filtro_faena = st.selectbox("Centro de trabajo", _faena_opts + [-1], format_func=lambda x: "Todos" if x == -1 else _faena_lbl(x), index=len(_faena_opts), key=K("ev_filtro_faena"))
 
             _q = "SELECT id, modulo, faena_id, referencia, descripcion, nombre_archivo, file_path, bucket, object_path, created_by, created_at FROM sgsst_evidencias WHERE 1=1"
             _params = []
@@ -1010,7 +956,8 @@ def page_sgsst(
         st.divider()
         st.caption(
             "ℹ️ Los umbrales se ajustan solos: al pasar de 9→10 trabajadores se exige RIOHS, "
-            "al superar 25 se exige Comité Paritario, y sobre 100 el Departamento de Prevención. "
+            "toda entidad debe mantener su Reglamento Interno de Higiene y Seguridad; entre 10 y 25 personas corresponde Delegado de SST cuando no exista Comité, "
+            "con más de 25 se exige Comité Paritario, y con más de 100 el Departamento de Prevención. "
             "Revisa el detalle de cumplimiento en la pestaña **🧭 Autoevaluación DS 44**."
         )
 
@@ -1060,19 +1007,19 @@ def page_sgsst(
             st.success("Documentación obligatoria por cargo actualizada.")
             st.rerun()
 
-        st.write("#### Documentos empresa / mandante / faena")
+        st.write("#### Documentos de empresa y centros de trabajo")
         emp_df = segav_empresa_docs_df()
         if emp_df is not None and not emp_df.empty:
-            st.dataframe(emp_df.rename(columns={"doc_tipo":"Tipo", "obligatorio":"Obligatorio", "mensual":"Mensual", "por_mandante":"Por mandante", "por_faena":"Por faena", "sort_order":"Orden"}), use_container_width=True, hide_index=True)
-        emp_docs_selected = st.multiselect("Documentos requeridos empresa/faena", list(DOC_TIPO_LABELS.keys()), default=get_empresa_monthly_doc_types(), key=K("segav_docs_empresa_multi"), format_func=doc_tipo_label)
-        if st.button("Guardar documentos empresa/faena", key=K("segav_docs_empresa_save")):
+            st.dataframe(emp_df.rename(columns={"doc_tipo":"Tipo", "obligatorio":"Obligatorio", "mensual":"Mensual", "por_mandante":"Por mandante", "por_faena":"Por centro", "sort_order":"Orden"}), use_container_width=True, hide_index=True)
+        emp_docs_selected = st.multiselect("Documentos requeridos de empresa", list(DOC_TIPO_LABELS.keys()), default=get_empresa_monthly_doc_types(), key=K("segav_docs_empresa_multi"), format_func=doc_tipo_label)
+        if st.button("Guardar documentos de empresa", key=K("segav_docs_empresa_save")):
             now = datetime.now().isoformat(timespec='seconds')
             execute("DELETE FROM segav_erp_docs_empresa", ())
             for idx, doc_tipo in enumerate(emp_docs_selected, start=1):
                 execute("INSERT INTO segav_erp_docs_empresa(doc_tipo, obligatorio, mensual, por_mandante, por_faena, sort_order, updated_at) VALUES(?,?,?,?,?,?,?)", (doc_tipo, 1, 1, 1, 1, idx, now))
             clear_app_caches()
             sgsst_log("Catálogos ERP", "Guardar docs empresa", ', '.join(emp_docs_selected))
-            st.success("Documentos empresa/faena actualizados.")
+            st.success("Documentos de empresa actualizados.")
             st.rerun()
 
     if 5 in tabs:
@@ -1205,7 +1152,7 @@ def page_sgsst(
         anio_view = st.number_input("Año", min_value=2024, max_value=2100, value=date.today().year, step=1, key=K("sgsst_prog_anio_view"))
         df_prog = fetch_df(
             """
-            SELECT p.id, p.anio, COALESCE(f.nombre,'(Empresa)') AS faena, p.objetivo, p.actividad, p.responsable, p.fecha_compromiso, p.estado, p.avance, p.evidencia
+            SELECT p.id, p.anio, COALESCE(f.nombre,'Empresa general') AS centro_trabajo, p.objetivo, p.actividad, p.responsable, p.fecha_compromiso, p.estado, p.avance, p.evidencia
             FROM sgsst_programa_anual p
             LEFT JOIN faenas f ON f.id=p.faena_id
             WHERE p.anio=?
@@ -1223,7 +1170,7 @@ def page_sgsst(
             responsable = st.text_input("Responsable", key=K("sgsst_prog_resp"))
             fecha_comp = st.date_input("Fecha compromiso", value=date.today(), key=K("sgsst_prog_fecha"))
         with p2:
-            faena_id = st.selectbox("Faena vinculada", faena_opts, key=K("sgsst_prog_faena"), format_func=lambda x: "(Empresa)" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
+            faena_id = st.selectbox("Centro de trabajo (opcional)", faena_opts, key=K("sgsst_prog_faena"), format_func=lambda x: "Empresa general" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
             estado = st.selectbox("Estado", SGSST_ESTADOS, key=K("sgsst_prog_estado"))
             avance = st.slider("Avance %", min_value=0, max_value=100, value=0, step=5, key=K("sgsst_prog_avance"))
             evidencia = st.text_input("Evidencia / entregable", key=K("sgsst_prog_evidencia"))
@@ -1246,9 +1193,9 @@ def page_sgsst(
         st.caption("Metodología Guía ISP (DS 44): VEP = Probabilidad × Consecuencia, con evaluación inicial y residual, enfoque de género y jerarquía de controles.")
         faenas_df = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
         faena_opts = [None] + faenas_df["id"].tolist() if not faenas_df.empty else [None]
-        faena_filter = st.selectbox("Filtrar por faena", faena_opts, key=K("sgsst_miper_filter"), format_func=lambda x: "(Todas)" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
+        faena_filter = st.selectbox("Centro de trabajo", faena_opts, key=K("sgsst_miper_filter"), format_func=lambda x: "Todos / empresa general" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
         q = """
-            SELECT m.id, COALESCE(f.nombre,'(Empresa)') AS faena, m.tipo_riesgo, m.proceso, m.tarea, m.cargo, m.genero, m.peligro, m.riesgo,
+            SELECT m.id, COALESCE(f.nombre,'Empresa general') AS centro_trabajo, m.tipo_riesgo, m.proceso, m.tarea, m.cargo, m.genero, m.peligro, m.riesgo,
                    m.probabilidad, m.severidad, m.nivel_riesgo AS vep, m.vep_residual, m.responsable, m.plazo, m.estado
             FROM sgsst_miper m
             LEFT JOIN faenas f ON f.id=m.faena_id
@@ -1271,7 +1218,7 @@ def page_sgsst(
 
         m1, m2 = st.columns(2)
         with m1:
-            m_faena = st.selectbox("Faena", faena_opts, key=K("sgsst_miper_faena"), format_func=lambda x: "(Empresa)" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
+            m_faena = st.selectbox("Centro de trabajo (opcional)", faena_opts, key=K("sgsst_miper_faena"), format_func=lambda x: "Empresa general" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
             tipo_riesgo = st.selectbox("Tipo de riesgo", _miper.TIPOS_RIESGO, key=K("sgsst_miper_tipo"))
             proceso = st.text_input("Proceso", key=K("sgsst_miper_proceso"))
             tarea = st.text_input("Tarea / puesto de trabajo", key=K("sgsst_miper_tarea"))
@@ -1362,11 +1309,11 @@ def page_sgsst(
         # ── Mapa de riesgos (DS 44 art. 62) ────────────────────────────────
         st.divider()
         st.markdown("#### 🗺️ Mapa de riesgos")
-        st.caption("Vista de criticidad de los riesgos de la MIPER por faena y tipo, según niveles VEP de la Guía ISP. Exigido por el DS 44 junto con la matriz.")
+        st.caption("Vista consolidada de los riesgos de la empresa por proceso y tipo, según niveles VEP de la Guía ISP.")
         _map_df = fetch_df("""
-            SELECT COALESCE(f.nombre,'(Empresa)') AS faena, COALESCE(m.tipo_riesgo,'Sin tipo') AS tipo,
+            SELECT COALESCE(NULLIF(m.proceso,''),'Proceso general') AS proceso, COALESCE(m.tipo_riesgo,'Sin tipo') AS tipo,
                    m.nivel_riesgo AS vep, COALESCE(m.estado,'PENDIENTE') AS estado
-            FROM sgsst_miper m LEFT JOIN faenas f ON f.id=m.faena_id
+            FROM sgsst_miper m
         """)
         if _map_df is None or _map_df.empty:
             st.info("Agrega riesgos a la MIPER para generar el mapa de riesgos.")
@@ -1374,9 +1321,9 @@ def page_sgsst(
             def _banda(v):
                 return _miper.nivel(int(v or 1))["nivel"]
             _map_df["nivel"] = _map_df["vep"].apply(_banda)
-            # Conteo por faena × nivel
+            # Conteo empresarial por proceso y nivel
             _orden = ["Intolerable", "Importante", "Moderado", "Tolerable", "Trivial"]
-            _piv = _map_df.pivot_table(index="faena", columns="nivel", values="vep", aggfunc="count", fill_value=0)
+            _piv = _map_df.pivot_table(index="proceso", columns="nivel", values="vep", aggfunc="count", fill_value=0)
             for _col in _orden:
                 if _col not in _piv.columns:
                     _piv[_col] = 0
@@ -1399,7 +1346,7 @@ def page_sgsst(
         faenas_df = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
         faena_opts = [None] + faenas_df["id"].tolist() if not faenas_df.empty else [None]
         ins_q = """
-            SELECT i.id, COALESCE(f.nombre,'(Planta)') AS faena, i.tipo, i.area, i.item, i.resultado, i.responsable, i.plazo, i.observacion, i.accion_correctiva
+            SELECT i.id, COALESCE(f.nombre,'Empresa general') AS centro_trabajo, i.tipo, i.area, i.item, i.resultado, i.responsable, i.plazo, i.observacion, i.accion_correctiva
             FROM sgsst_inspecciones i
             LEFT JOIN faenas f ON f.id=i.faena_id
             ORDER BY i.id DESC
@@ -1407,7 +1354,7 @@ def page_sgsst(
         st.dataframe(fetch_df(ins_q), use_container_width=True, hide_index=True)
         i1, i2 = st.columns(2)
         with i1:
-            ins_faena = st.selectbox("Faena / planta", faena_opts, key=K("sgsst_ins_faena"), format_func=lambda x: "PLANTA" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
+            ins_faena = st.selectbox("Centro de trabajo (opcional)", faena_opts, key=K("sgsst_ins_faena"), format_func=lambda x: "Empresa general" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
             ins_tipo = st.selectbox("Tipo inspección", ["DS 594", "Orden y aseo", "Extintores", "Campamento", "Otro"], key=K("sgsst_ins_tipo"))
             ins_area = st.text_input("Área", key=K("sgsst_ins_area"))
             ins_item = st.text_input("Ítem", key=K("sgsst_ins_item"))
@@ -1431,7 +1378,7 @@ def page_sgsst(
                 st.rerun()
 
         # Evidencias por inspección
-        _insp_rows = fetch_df("SELECT i.id, COALESCE(f.nombre,'(Planta)') AS faena, i.tipo, i.area FROM sgsst_inspecciones i LEFT JOIN faenas f ON f.id=i.faena_id ORDER BY i.id DESC LIMIT 100")
+        _insp_rows = fetch_df("SELECT i.id, COALESCE(f.nombre,'Empresa general') AS faena, i.tipo, i.area FROM sgsst_inspecciones i LEFT JOIN faenas f ON f.id=i.faena_id ORDER BY i.id DESC LIMIT 100")
         if _insp_rows is not None and not _insp_rows.empty:
             with st.expander("📎 Adjuntar evidencia a una inspección"):
                 _sel_insp = st.selectbox("Inspección", _insp_rows["id"].tolist(), format_func=lambda x: f"#{int(x)} · {str(_insp_rows[_insp_rows['id']==x].iloc[0]['faena'])} · {str(_insp_rows[_insp_rows['id']==x].iloc[0].get('tipo',''))}", key=K("insp_ev_sel"))
@@ -1444,12 +1391,10 @@ def page_sgsst(
         st.caption("Checklist estandarizado para verificar cumplimiento de condiciones sanitarias y ambientales según DS 594.")
         _checklist_items = DS594_CHECKLIST_ITEMS or {}
         faenas_df = fetch_df("SELECT id, nombre FROM faenas ORDER BY nombre")
-        faena_opts_ck = faenas_df["id"].tolist() if not faenas_df.empty else []
-        if not faena_opts_ck:
-            st.info("Crea una faena primero para realizar inspecciones.")
-        else:
-            ck_faena = st.selectbox("Faena a inspeccionar", faena_opts_ck, key=K("ck594_faena"),
-                format_func=lambda x: str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
+        faena_opts_ck = [None] + (faenas_df["id"].tolist() if not faenas_df.empty else [])
+        if faena_opts_ck:
+            ck_faena = st.selectbox("Centro de trabajo (opcional)", faena_opts_ck, key=K("ck594_faena"),
+                format_func=lambda x: "Empresa general" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
             ck_inspector = st.text_input("Inspector", key=K("ck594_inspector"), placeholder="Nombre del inspector")
             ck_fecha = st.date_input("Fecha inspección", value=date.today(), key=K("ck594_fecha"))
 
@@ -1508,7 +1453,7 @@ def page_sgsst(
                         obs_text = obs_dict.get((cat, item), "")
                         execute(
                             "INSERT INTO sgsst_checklist_ds594(faena_id, fecha_inspeccion, inspector, categoria, item, cumple, estado, observacion, created_at) VALUES(?,?,?,?,?,?,?,?,?)",
-                            (int(ck_faena), ck_fecha.isoformat(), ck_inspector.strip(), cat, item, cumple_int, estado_code, obs_text, now),
+                            (int(ck_faena) if ck_faena else None, ck_fecha.isoformat(), ck_inspector.strip(), cat, item, cumple_int, estado_code, obs_text, now),
                         )
                         saved += 1
                     except Exception:
@@ -1516,19 +1461,19 @@ def page_sgsst(
                             # Fallback si la columna 'estado' aún no existe en esta BD
                             execute(
                                 "INSERT INTO sgsst_checklist_ds594(faena_id, fecha_inspeccion, inspector, categoria, item, cumple, observacion, created_at) VALUES(?,?,?,?,?,?,?,?)",
-                                (int(ck_faena), ck_fecha.isoformat(), ck_inspector.strip(), cat, item, cumple_int, obs_dict.get((cat, item), ""), now),
+                                (int(ck_faena) if ck_faena else None, ck_fecha.isoformat(), ck_inspector.strip(), cat, item, cumple_int, obs_dict.get((cat, item), ""), now),
                             )
                             saved += 1
                         except Exception:
                             pass
-                sgsst_log("Checklist DS 594", "Guardar", f"Faena {ck_faena} · {saved} ítems · {_cumple_count}/{_aplica_count} cumple")
+                sgsst_log("Checklist DS 594", "Guardar", f"Empresa/centro {ck_faena or 'general'} · {saved} ítems · {_cumple_count}/{_aplica_count} cumple")
                 st.success(f"Checklist guardado: {saved} ítems. Cumplimiento: {_cumple_count}/{_aplica_count} aplicables.")
                 st.rerun()
 
             st.divider()
             st.markdown("#### Historial de inspecciones")
             hist = fetch_df("""
-                SELECT c.fecha_inspeccion, COALESCE(f.nombre,'?') AS faena, c.inspector,
+                SELECT c.fecha_inspeccion, COALESCE(f.nombre,'Empresa general') AS faena, c.inspector,
                        c.categoria, c.item,
                        CASE
                            WHEN COALESCE(c.estado,'') = 'NO_APLICA' THEN '➖ No aplica'
@@ -1543,7 +1488,7 @@ def page_sgsst(
             """)
             if hist is not None and not hist.empty:
                 st.dataframe(hist.rename(columns={
-                    "fecha_inspeccion":"Fecha","faena":"Faena","inspector":"Inspector",
+                    "fecha_inspeccion":"Fecha","faena":"Centro de trabajo","inspector":"Inspector",
                     "categoria":"Categoría","item":"Ítem","resultado":"Cumple"
                 }), use_container_width=True, hide_index=True)
             else:
@@ -1558,7 +1503,7 @@ def page_sgsst(
         faena_opts = [None] + faenas_df["id"].tolist() if not faenas_df.empty else [None]
         df_inc = fetch_df(
             """
-            SELECT i.id, i.fecha, i.tipo, i.gravedad, COALESCE(f.nombre,'(Sin faena)') AS faena,
+            SELECT i.id, i.fecha, i.tipo, i.gravedad, COALESCE(f.nombre,'Empresa general') AS centro_trabajo,
                    CASE WHEN t.id IS NULL THEN '(Sin trabajador)' ELSE t.rut || ' · ' || t.apellidos || ', ' || t.nombres END AS trabajador,
                    i.estado, i.dias_perdidos, i.descripcion
             FROM sgsst_incidentes i
@@ -1574,7 +1519,7 @@ def page_sgsst(
             inc_tipo = st.selectbox("Tipo", SGSST_TIPOS_EVENTO, key=K("sgsst_inc_tipo"))
             inc_grav = st.selectbox("Gravedad", SGSST_GRAVEDADES, key=K("sgsst_inc_grav"))
             inc_trab = st.selectbox("Trabajador", trab_opts, key=K("sgsst_inc_trab"), format_func=lambda x: "(Sin trabajador)" if x is None else f"{trab_df[trab_df['id']==x].iloc[0]['rut']} · {trab_df[trab_df['id']==x].iloc[0]['apellidos']}, {trab_df[trab_df['id']==x].iloc[0]['nombres']}")
-            inc_faena = st.selectbox("Faena", faena_opts, key=K("sgsst_inc_faena"), format_func=lambda x: "(Sin faena)" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
+            inc_faena = st.selectbox("Centro de trabajo (opcional)", faena_opts, key=K("sgsst_inc_faena"), format_func=lambda x: "Empresa general" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
         with x2:
             inc_desc = st.text_area("Descripción", key=K("sgsst_inc_desc"), height=110)
             inc_oa = st.text_input("Organismo administrador", value=str(company.get("organismo_admin") or ""), key=K("sgsst_inc_oa"))
@@ -1625,7 +1570,7 @@ def page_sgsst(
         df_cap = fetch_df(
             """
             SELECT c.id, c.tipo, c.tema, c.fecha, c.vigencia, c.horas, c.relator, c.estado,
-                   COALESCE(f.nombre,'(Sin faena)') AS faena,
+                   COALESCE(f.nombre,'Empresa general') AS centro_trabajo,
                    CASE WHEN t.id IS NULL THEN '(Sin trabajador)' ELSE t.rut || ' · ' || t.apellidos || ', ' || t.nombres END AS trabajador
             FROM sgsst_capacitaciones c
             LEFT JOIN faenas f ON f.id=c.faena_id
@@ -1644,7 +1589,7 @@ def page_sgsst(
         with c2:
             cap_relator = st.text_input("Relator / organismo", key=K("sgsst_cap_relator"))
             cap_trab = st.selectbox("Trabajador", trab_opts, key=K("sgsst_cap_trab"), format_func=lambda x: "(General)" if x is None else f"{trab_df[trab_df['id']==x].iloc[0]['rut']} · {trab_df[trab_df['id']==x].iloc[0]['apellidos']}, {trab_df[trab_df['id']==x].iloc[0]['nombres']}")
-            cap_faena = st.selectbox("Faena", faena_opts, key=K("sgsst_cap_faena"), format_func=lambda x: "(General)" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
+            cap_faena = st.selectbox("Centro de trabajo (opcional)", faena_opts, key=K("sgsst_cap_faena"), format_func=lambda x: "Empresa general" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
             cap_estado = st.selectbox("Estado", ["VIGENTE", "POR VENCER", "VENCIDA"], key=K("sgsst_cap_estado"))
             cap_evid = st.text_input("Evidencia", key=K("sgsst_cap_evid"))
         if st.button("Registrar capacitación / ODI", key=K("sgsst_add_cap")):
@@ -1682,7 +1627,7 @@ def page_sgsst(
             # ── Historial ─────────────────────────────────────────────────
             epp_hist = fetch_df("""
                 SELECT e.id, t.rut, t.apellidos||' '||t.nombres AS trabajador, t.cargo,
-                       COALESCE(f.nombre,'PLANTA') AS faena,
+                       COALESCE(f.nombre,'Empresa general') AS faena,
                        e.epp_tipo, e.fecha_entrega, e.fecha_vencimiento, e.cantidad, e.talla, e.marca, e.observacion
                 FROM sgsst_epp_entrega e
                 JOIN trabajadores t ON t.id=e.trabajador_id
@@ -1697,7 +1642,7 @@ def page_sgsst(
                     mask = epp_view.apply(lambda r: any(qq in str(v).lower() for v in r), axis=1)
                     epp_view = epp_view[mask]
                 st.dataframe(epp_view.rename(columns={
-                    "rut":"RUT","trabajador":"Trabajador","cargo":"Cargo","faena":"Faena",
+                    "rut":"RUT","trabajador":"Trabajador","cargo":"Cargo","faena":"Centro de trabajo",
                     "epp_tipo":"EPP","fecha_entrega":"Entrega","fecha_vencimiento":"Vencimiento",
                     "cantidad":"Cant.","talla":"Talla","marca":"Marca","observacion":"Obs."
                 }), use_container_width=True, hide_index=True)
@@ -1716,8 +1661,8 @@ def page_sgsst(
                 epp_venc = st.date_input("Fecha vencimiento (opcional)", value=None, key=K("epp_venc"))
             with e2:
                 faena_opts_epp = [None] + (faenas_df["id"].tolist() if not faenas_df.empty else [])
-                epp_faena = st.selectbox("Faena", faena_opts_epp, key=K("epp_faena"),
-                    format_func=lambda x: "PLANTA" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
+                epp_faena = st.selectbox("Centro de trabajo (opcional)", faena_opts_epp, key=K("epp_faena"),
+                    format_func=lambda x: "Empresa general" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
                 epp_cant = st.number_input("Cantidad", min_value=1, value=1, key=K("epp_cant"))
                 epp_talla = st.text_input("Talla", key=K("epp_talla"))
                 epp_marca = st.text_input("Marca", key=K("epp_marca"))
@@ -1746,7 +1691,7 @@ def page_sgsst(
     if 16 in tabs:
       with tabs[16]:
         st.markdown("### 👷 Comité Paritario de Higiene y Seguridad (CPHS)")
-        st.caption("Ley 16.744 Art. 65-71: obligatorio para empresas con ≥25 trabajadores. Gestiona elecciones, miembros y actas de reunión.")
+        st.caption("Ley 16.744 Art. 66 y DS 44 Art. 23: obligatorio cuando trabajen más de 25 personas. Gestiona elecciones, integrantes y actas.")
 
         # Comité vigente
         cphs_df = fetch_df("SELECT * FROM sgsst_cphs ORDER BY id DESC LIMIT 1")
@@ -1816,7 +1761,7 @@ def page_sgsst(
         diat_df = fetch_df("""
             SELECT d.id, d.tipo, d.fecha_accidente, d.fecha_denuncia, d.numero_denuncia,
                    COALESCE(t.rut,'') AS rut, COALESCE(t.apellidos||' '||t.nombres,'Sin asignar') AS trabajador,
-                   COALESCE(f.nombre,'PLANTA') AS faena,
+                   COALESCE(f.nombre,'Empresa general') AS faena,
                    d.tipo_lesion, d.parte_cuerpo, d.dias_perdidos, d.estado
             FROM sgsst_diat_diep d
             LEFT JOIN trabajadores t ON t.id=d.trabajador_id
@@ -1827,7 +1772,7 @@ def page_sgsst(
             st.dataframe(diat_df.rename(columns={
                 "tipo":"Tipo","fecha_accidente":"Fecha Acc.","fecha_denuncia":"Fecha Denuncia",
                 "numero_denuncia":"N° Denuncia","rut":"RUT","trabajador":"Trabajador",
-                "faena":"Faena","tipo_lesion":"Lesión","parte_cuerpo":"Parte cuerpo",
+                "faena":"Centro de trabajo","tipo_lesion":"Lesión","parte_cuerpo":"Parte cuerpo",
                 "dias_perdidos":"Días perdidos","estado":"Estado"
             }), use_container_width=True, hide_index=True)
 
@@ -1840,8 +1785,8 @@ def page_sgsst(
             di_tipo = st.selectbox("Tipo de denuncia", ["DIAT", "DIEP"], key=K("diat_tipo"))
             di_trab = st.selectbox("Trabajador", [None] + (trab_df["id"].tolist() if trab_df is not None and not trab_df.empty else []), key=K("diat_trab"),
                 format_func=lambda x: "(Sin asignar)" if x is None else f"{trab_df[trab_df['id']==x].iloc[0]['rut']} · {trab_df[trab_df['id']==x].iloc[0]['apellidos']}")
-            di_faena = st.selectbox("Faena", [None] + (faenas_df["id"].tolist() if faenas_df is not None and not faenas_df.empty else []), key=K("diat_faena"),
-                format_func=lambda x: "PLANTA" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
+            di_faena = st.selectbox("Centro de trabajo (opcional)", [None] + (faenas_df["id"].tolist() if faenas_df is not None and not faenas_df.empty else []), key=K("diat_faena"),
+                format_func=lambda x: "Empresa general" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
             di_fecha_acc = st.date_input("Fecha del accidente", value=date.today(), key=K("diat_fecha_acc"))
             di_hora = st.text_input("Hora del accidente", key=K("diat_hora"), placeholder="HH:MM")
             di_fecha_den = st.date_input("Fecha de denuncia", value=date.today(), key=K("diat_fecha_den"))
@@ -1878,7 +1823,7 @@ def page_sgsst(
         vig_df = fetch_df("""
             SELECT v.id, v.protocolo, COALESCE(t.rut,'') AS rut,
                    COALESCE(t.apellidos||' '||t.nombres,'General') AS trabajador,
-                   COALESCE(f.nombre,'PLANTA') AS faena,
+                   COALESCE(f.nombre,'Empresa general') AS faena,
                    v.agente, v.nivel_exposicion, v.fecha_evaluacion, v.fecha_proxima, v.resultado, v.estado
             FROM sgsst_vigilancia v
             LEFT JOIN trabajadores t ON t.id=v.trabajador_id
@@ -1887,7 +1832,7 @@ def page_sgsst(
         """)
         if vig_df is not None and not vig_df.empty:
             st.dataframe(vig_df.rename(columns={
-                "protocolo":"Protocolo","rut":"RUT","trabajador":"Trabajador","faena":"Faena",
+                "protocolo":"Protocolo","rut":"RUT","trabajador":"Trabajador","faena":"Centro de trabajo",
                 "agente":"Agente","nivel_exposicion":"Nivel","fecha_evaluacion":"Evaluación",
                 "fecha_proxima":"Próxima","resultado":"Resultado","estado":"Estado"
             }), use_container_width=True, hide_index=True)
@@ -1903,8 +1848,8 @@ def page_sgsst(
                 vi_prot = st.selectbox("Protocolo", PROTOCOLOS, key=K("vig_prot"))
                 vi_trab = st.selectbox("Trabajador", [None] + (trab_df["id"].tolist() if trab_df is not None and not trab_df.empty else []), key=K("vig_trab"),
                     format_func=lambda x: "(General)" if x is None else f"{trab_df[trab_df['id']==x].iloc[0]['rut']} · {trab_df[trab_df['id']==x].iloc[0]['apellidos']}")
-                vi_faena = st.selectbox("Faena", [None] + (faenas_df["id"].tolist() if faenas_df is not None and not faenas_df.empty else []), key=K("vig_faena"),
-                    format_func=lambda x: "PLANTA" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
+                vi_faena = st.selectbox("Centro de trabajo (opcional)", [None] + (faenas_df["id"].tolist() if faenas_df is not None and not faenas_df.empty else []), key=K("vig_faena"),
+                    format_func=lambda x: "Empresa general" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
                 vi_agente = st.text_input("Agente de riesgo", key=K("vig_agente"), placeholder="Ruido, sílice, etc.")
             with v2:
                 vi_nivel = st.selectbox("Nivel de exposición", ["BAJO", "MEDIO", "ALTO", "CRÍTICO"], key=K("vig_nivel"))
@@ -1931,7 +1876,7 @@ def page_sgsst(
         sub_df = fetch_df("""
             SELECT s.id, s.rut_empresa, s.razon_social,
                    COALESCE(m.nombre,'Sin mandante') AS mandante,
-                   COALESCE(f.nombre,'Sin faena') AS faena,
+                   COALESCE(f.nombre,'Empresa general') AS faena,
                    s.contacto, s.estado, s.docs_al_dia, s.fecha_inicio, s.fecha_termino
             FROM sgsst_subcontratistas s
             LEFT JOIN mandantes m ON m.id=s.mandante_id
@@ -1942,7 +1887,7 @@ def page_sgsst(
             view_sub = sub_df.copy()
             view_sub["docs_al_dia"] = view_sub["docs_al_dia"].apply(lambda x: "✅" if x else "❌")
             st.dataframe(view_sub.rename(columns={
-                "rut_empresa":"RUT","razon_social":"Empresa","mandante":"Mandante","faena":"Faena",
+                "rut_empresa":"RUT","razon_social":"Empresa","mandante":"Mandante","faena":"Centro de trabajo",
                 "contacto":"Contacto","estado":"Estado","docs_al_dia":"Docs OK",
                 "fecha_inicio":"Inicio","fecha_termino":"Término"
             }), use_container_width=True, hide_index=True)
@@ -1959,8 +1904,8 @@ def page_sgsst(
                 su_razon = st.text_input("Razón social", key=K("sub_razon"))
                 su_mand = st.selectbox("Mandante", [None] + (mand_df["id"].tolist() if mand_df is not None and not mand_df.empty else []), key=K("sub_mand"),
                     format_func=lambda x: "(Sin mandante)" if x is None else str(mand_df[mand_df['id']==x].iloc[0]['nombre']))
-                su_faena = st.selectbox("Faena", [None] + (faenas_df["id"].tolist() if faenas_df is not None and not faenas_df.empty else []), key=K("sub_faena"),
-                    format_func=lambda x: "(Sin faena)" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
+                su_faena = st.selectbox("Centro de trabajo (opcional)", [None] + (faenas_df["id"].tolist() if faenas_df is not None and not faenas_df.empty else []), key=K("sub_faena"),
+                    format_func=lambda x: "Empresa general" if x is None else str(faenas_df[faenas_df['id']==x].iloc[0]['nombre']))
             with s2:
                 su_contacto = st.text_input("Contacto", key=K("sub_contacto"))
                 su_email = st.text_input("Email", key=K("sub_email"))
@@ -1983,8 +1928,8 @@ def page_sgsst(
     # ── TAB 17: RIOHS ────────────────────────────────────────────────────
     if 20 in tabs:
       with tabs[20]:
-        st.markdown("### 📕 Reglamento Interno de Orden, Higiene y Seguridad (RIOHS)")
-        st.caption("DS 44 Art. 12: toda empresa debe mantener un RIOHS actualizado y entregado a cada trabajador con cargo de recepción.")
+        st.markdown("### 📕 Reglamento Interno de Higiene y Seguridad")
+        st.caption("DS 44 Arts. 56 a 61: toda entidad empleadora debe mantenerlo vigente, entregarlo gratuitamente y revisarlo al menos una vez al año.")
 
         riohs_df = fetch_df("SELECT id, version, fecha_vigencia, aprobado_por, observaciones, created_at FROM sgsst_riohs ORDER BY id DESC")
         if riohs_df is not None and not riohs_df.empty:

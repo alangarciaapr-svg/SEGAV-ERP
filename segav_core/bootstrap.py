@@ -739,16 +739,24 @@ def ensure_sgsst_seed_data():
                     datetime.now().isoformat(timespec='seconds'),
                 ),
             )
-        existing = fetch_df("SELECT norma, tema, obligacion FROM sgsst_matriz_legal")
+        existing = fetch_df("SELECT norma, tema FROM sgsst_matriz_legal")
         existing_keys = set()
         if existing is not None and not existing.empty:
             existing_keys = set(
-                (str(r[0] or ""), str(r[1] or ""), str(r[2] or ""))
-                for r in existing[["norma", "tema", "obligacion"]].itertuples(index=False, name=None)
+                (str(r[0] or ""), str(r[1] or ""))
+                for r in existing[["norma", "tema"]].itertuples(index=False, name=None)
             )
         for item in SGSST_MATRIZ_BASE:
-            key = (item["norma"], item["tema"], item["obligacion"])
+            key = (item["norma"], item["tema"])
             if key in existing_keys:
+                execute(
+                    """
+                    UPDATE sgsst_matriz_legal
+                    SET articulo=?, obligacion=?, aplica_a=?, periodicidad=?, responsable=?, evidencia=?, updated_at=?
+                    WHERE norma=? AND tema=?
+                    """,
+                    (item.get("articulo"), item.get("obligacion"), item.get("aplica_a"), item.get("periodicidad"), item.get("responsable"), item.get("evidencia"), datetime.now().isoformat(timespec="seconds"), item.get("norma"), item.get("tema")),
+                )
                 continue
             execute(
                 """

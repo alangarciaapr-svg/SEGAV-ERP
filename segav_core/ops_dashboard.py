@@ -508,7 +508,7 @@ def page_dashboard(
     if crit_faenas > 0:
         _pendientes.append(("🔴", f"{crit_faenas} faena(s) en estado CRÍTICO", "Faenas"))
     if legal_vencidos > 0:
-        _pendientes.append(("🔴", f"{legal_vencidos} documento(s) legal(es) vencidos", "Aprobaciones / Auditoría legal"))
+        _pendientes.append(("🔴", f"{legal_vencidos} documento(s) legal(es) vencidos", "Mi Empresa / SGSST"))
     if trabajadores_activos > 0 and habilitacion < 100:
         _no_ok = trabajadores_activos - trabajadores_ok
         _pendientes.append(("🟠", f"{_no_ok} trabajador(es) sin documentación completa", "Documentos Trabajador"))
@@ -520,7 +520,7 @@ def page_dashboard(
     if int(cap.get('vencidas', 0)) > 0:
         _pendientes.append(("🟡", f"{int(cap['vencidas'])} capacitación(es) vencida(s)", "Mi Empresa / SGSST"))
     if int(actions.get('vencidas', 0)) > 0:
-        _pendientes.append(("🟠", f"{int(actions['vencidas'])} plan(es) de acción vencido(s)", "Cumplimiento / Alertas"))
+        _pendientes.append(("🟠", f"{int(actions['vencidas'])} plan(es) de acción vencido(s)", "Mi Empresa / SGSST"))
 
     if _pendientes:
         st.markdown("#### ⚡ Acciones pendientes")
@@ -691,8 +691,8 @@ def page_dashboard(
         st.markdown("### Acciones sugeridas")
         a1, a2, a3 = st.columns(3)
         with a1:
-            if st.button("Ir a Cumplimiento / Alertas", use_container_width=True, key="dash_go_compliance"):
-                go("Cumplimiento / Alertas")
+            if st.button("Ir a Centro Documental", use_container_width=True, key="dash_go_compliance"):
+                go("Centro Documental")
         with a2:
             if st.button("Ir a Mi Empresa / SGSST", use_container_width=True, key="dash_go_sgsst"):
                 go("Mi Empresa / SGSST")

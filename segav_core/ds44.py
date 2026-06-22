@@ -95,47 +95,43 @@ def required_elements(n: int) -> list[dict]:
 
     elementos: list[dict] = [
         {"key": "politica_sst", "nombre": "Política de Seguridad y Salud en el Trabajo",
-         "norma": "DS 44 Art. 4", "detalle": "Documento firmado por la dirección, difundido a los trabajadores.", "auto": False},
+         "norma": "DS 44 Arts. 22 y 64", "detalle": "Compromiso de la entidad empleadora con la protección, el cumplimiento normativo y la mejora continua.", "auto": False},
         {"key": "iper", "nombre": "Matriz de Identificación de Peligros y Evaluación de Riesgos (IPER/MIPER)",
-         "norma": "DS 44", "detalle": "Identificación de peligros, evaluación de riesgos y medidas de control por cargo/proceso.", "auto": True},
+         "norma": "DS 44 Art. 7", "detalle": "Identificación de peligros y evaluación de riesgos por proceso, tarea y puesto de trabajo, con enfoque de género.", "auto": True},
         {"key": "pdtp", "nombre": "Programa de Trabajo Preventivo / Programa Anual",
-         "norma": "DS 44", "detalle": "Actividades preventivas con responsables y plazos.", "auto": True},
+         "norma": "DS 44 Arts. 8 y 14", "detalle": "Medidas preventivas y correctivas con responsables, plazos, control y evaluación anual.", "auto": True},
         {"key": "capacitaciones", "nombre": "Programa Anual de Capacitaciones",
-         "norma": "DS 44 / Ley 16.744", "detalle": "Plan de capacitación en SST con registro de asistencia.", "auto": True},
+         "norma": "DS 44 Art. 16", "detalle": "Capacitación preventiva de al menos 8 horas, con periodicidad máxima de dos años y registro de asistencia.", "auto": True},
         {"key": "odi", "nombre": "Obligación de Informar los Riesgos (ODI / Derecho a Saber)",
-         "norma": "DS 44 Art. 14", "detalle": "Informar riesgos a cada trabajador desde el primer contrato.", "auto": False},
+         "norma": "DS 44 Art. 15", "detalle": "Información previa al inicio de labores y cada vez que cambien procesos, tecnologías, materiales o sustancias.", "auto": False},
         {"key": "mapas_riesgo", "nombre": "Mapas de riesgo del lugar de trabajo",
-         "norma": "DS 44", "detalle": "Representación de los riesgos por área/faena.", "auto": False},
+         "norma": "DS 44 Art. 62", "detalle": "Representación visible de los principales riesgos en cada centro o lugar de trabajo.", "auto": False},
         {"key": "autoevaluacion", "nombre": "Autoevaluación / diagnóstico del sistema",
-         "norma": "DS 44", "detalle": "Instrumento de autoevaluación periódica (esta misma pauta).", "auto": False},
+         "norma": "DS 44 Arts. 14 y 64", "detalle": "Diagnóstico periódico y evaluación anual del programa para sostener la mejora continua.", "auto": False},
+        {"key": "riohs", "nombre": "Reglamento Interno de Higiene y Seguridad",
+         "norma": "DS 44 Arts. 56 a 61", "detalle": "Toda entidad empleadora debe mantenerlo vigente, entregarlo gratuitamente y revisarlo al menos una vez al año.", "auto": True},
     ]
-
-    if n >= 10:
-        elementos.append({
-            "key": "riohs", "nombre": "Reglamento Interno de Orden, Higiene y Seguridad (RIOHS)",
-            "norma": "Código del Trabajo Art. 153", "detalle": "Obligatorio desde 10 trabajadores; debe citar el DS 44 vigente.", "auto": True,
-        })
 
     if 10 <= n <= 25:
         elementos.append({
             "key": "delegado_sst", "nombre": "Delegado de Seguridad y Salud en el Trabajo",
-            "norma": "DS 44", "detalle": "En faenas de 10 a 25 trabajadores, en ausencia de Comité Paritario.", "auto": False,
+            "norma": "DS 44 Art. 66", "detalle": "En cada centro de trabajo con 10 a 25 personas, cuando no funcione un Comité Paritario.", "auto": False,
         })
 
     if n >= 26:
         elementos.append({
             "key": "cphs", "nombre": "Comité Paritario de Higiene y Seguridad (CPHS)",
-            "norma": "DS 44 Art. 54", "detalle": "Obligatorio desde 25 trabajadores.", "auto": True,
+            "norma": "DS 44 Art. 23 / Ley 16.744 Art. 66", "detalle": "Obligatorio en la empresa, sucursal, agencia o centro de trabajo con más de 25 personas.", "auto": True,
         })
         elementos.append({
             "key": "cphs_actas", "nombre": "Actas mensuales del CPHS",
-            "norma": "DS 44", "detalle": "Sesiones mensuales documentadas en actas.", "auto": True,
+            "norma": "DS 44", "detalle": "Funcionamiento y acuerdos del Comité documentados mediante actas.", "auto": True,
         })
 
     if n > 100:
         elementos.append({
             "key": "depto_prevencion", "nombre": "Departamento de Prevención de Riesgos (Experto)",
-            "norma": "DS 44", "detalle": "Obligatorio sobre 100 trabajadores, dirigido por un Experto en Prevención.", "auto": False,
+            "norma": "DS 44 Art. 50 / Ley 16.744 Art. 66", "detalle": "Obligatorio con más de 100 personas trabajadoras y dirigido por un experto.", "auto": False,
         })
 
     return elementos

@@ -386,8 +386,8 @@ La cotización adicional se revisa cada 2 años según el DS 67. Para obtener re
 
 
 def render_tab_cumplimiento_legal(st, fetch_df, fetch_value, execute, K, cliente_key=""):
-    """Tab: Cumplimiento legal por normativa."""
-    st.markdown("### ⚖️ Cumplimiento Legal")
+    """Tab: diagnóstico normativo del SG-SST."""
+    st.markdown("### ⚖️ Diagnóstico normativo")
     st.caption("Evalúa el cumplimiento de tu empresa según Ley 16.744, DS 594 y DS 44. Marca cada requisito y registra la evidencia.")
 
     norma_tab = st.radio(

@@ -22,10 +22,10 @@ def _keys(n):
     return {e["key"] for e in ds44.required_elements(n)}
 
 
-def test_micro_no_exige_riohs_ni_cphs():
+def test_micro_exige_reglamento_higiene_pero_no_cphs():
     k = _keys(5)
     assert "iper" in k and "pdtp" in k and "capacitaciones" in k
-    assert "riohs" not in k
+    assert "riohs" in k
     assert "cphs" not in k
     assert "delegado_sst" not in k
     assert "depto_prevencion" not in k
