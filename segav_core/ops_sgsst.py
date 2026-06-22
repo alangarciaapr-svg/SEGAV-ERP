@@ -207,6 +207,168 @@ def page_sgsst(
     _compliance_pct = int((_modules_ok / _total_modules) * 100) if _total_modules > 0 else 0
     _compliance_color = "🟢" if _compliance_pct >= 75 else ("🟡" if _compliance_pct >= 40 else "🔴")
 
+    def _safe_sgsst_df(sql: str) -> pd.DataFrame:
+        try:
+            _df = fetch_df(sql)
+            return _df if _df is not None else pd.DataFrame()
+        except Exception:
+            return pd.DataFrame()
+
+    def _record_is_open(value) -> bool:
+        return str(value or "").strip().upper() not in {"CERRADO", "NO APLICA", "NO_APLICA"}
+
+    def _date_label(value) -> str:
+        try:
+            _parsed = parse_date_maybe(value)
+            if _parsed:
+                return _parsed.date().isoformat() if hasattr(_parsed, "date") else _parsed.isoformat()
+        except Exception:
+            pass
+        return str(value or "").strip() or "—"
+
+    def _priority_queue() -> pd.DataFrame:
+        _items = []
+
+        _miper = _safe_sgsst_df(
+            "SELECT riesgo, tarea, nivel_riesgo, responsable, plazo, estado FROM sgsst_miper"
+        )
+        for _, _row in _miper.iterrows():
+            _level = pd.to_numeric(_row.get("nivel_riesgo"), errors="coerce")
+            if pd.notna(_level) and float(_level) >= 15 and _record_is_open(_row.get("estado")):
+                _items.append({
+                    "Prioridad": "Crítica", "Área": "Prevención", "Pendiente": str(_row.get("riesgo") or _row.get("tarea") or "Riesgo MIPER"),
+                    "Responsable": str(_row.get("responsable") or "Sin asignar"), "Plazo": _date_label(_row.get("plazo")),
+                })
+
+        _incidentes = _safe_sgsst_df(
+            "SELECT tipo, gravedad, descripcion, estado, fecha FROM sgsst_incidentes"
+        )
+        for _, _row in _incidentes.iterrows():
+            if _record_is_open(_row.get("estado")):
+                _severity = str(_row.get("gravedad") or "").upper()
+                _items.append({
+                    "Prioridad": "Crítica" if _severity in {"ALTA", "GRAVE/FATAL"} else "Alta",
+                    "Área": "Personas", "Pendiente": str(_row.get("descripcion") or _row.get("tipo") or "Incidente abierto"),
+                    "Responsable": "Prevención", "Plazo": _date_label(_row.get("fecha")),
+                })
+
+        _inspecciones = _safe_sgsst_df(
+            "SELECT tipo, item, resultado, responsable, plazo FROM sgsst_inspecciones"
+        )
+        for _, _row in _inspecciones.iterrows():
+            if str(_row.get("resultado") or "OBSERVACIÓN").strip().upper() != "CUMPLE":
+                _items.append({
+                    "Prioridad": "Alta", "Área": "Prevención", "Pendiente": str(_row.get("item") or _row.get("tipo") or "Hallazgo de inspección"),
+                    "Responsable": str(_row.get("responsable") or "Sin asignar"), "Plazo": _date_label(_row.get("plazo")),
+                })
+
+        _programa = _safe_sgsst_df(
+            "SELECT actividad, objetivo, responsable, fecha_compromiso, estado FROM sgsst_programa_anual"
+        )
+        for _, _row in _programa.iterrows():
+            if _record_is_open(_row.get("estado")):
+                _due = parse_date_maybe(_row.get("fecha_compromiso"))
+                _due_date = _due.date() if hasattr(_due, "date") else _due
+                _items.append({
+                    "Prioridad": "Alta" if _due_date and _due_date < date.today() else "Media",
+                    "Área": "Prevención", "Pendiente": str(_row.get("actividad") or _row.get("objetivo") or "Actividad del programa"),
+                    "Responsable": str(_row.get("responsable") or "Sin asignar"), "Plazo": _date_label(_row.get("fecha_compromiso")),
+                })
+
+        _capacitaciones = _safe_sgsst_df(
+            "SELECT tipo, tema, relator, vigencia FROM sgsst_capacitaciones"
+        )
+        for _, _row in _capacitaciones.iterrows():
+            _due = parse_date_maybe(_row.get("vigencia"))
+            _due_date = _due.date() if hasattr(_due, "date") else _due
+            if _due_date and _due_date < date.today():
+                _items.append({
+                    "Prioridad": "Alta", "Área": "Personas", "Pendiente": str(_row.get("tema") or _row.get("tipo") or "Capacitación vencida"),
+                    "Responsable": str(_row.get("relator") or "Sin asignar"), "Plazo": _date_label(_row.get("vigencia")),
+                })
+
+        if not _items:
+            return pd.DataFrame(columns=["Prioridad", "Área", "Pendiente", "Responsable", "Plazo"])
+        _priority_order = {"Crítica": 0, "Alta": 1, "Media": 2}
+        _queue = pd.DataFrame(_items)
+        _queue["_orden"] = _queue["Prioridad"].map(_priority_order).fillna(9)
+        return _queue.sort_values(["_orden", "Plazo", "Área"]).drop(columns=["_orden"]).reset_index(drop=True)
+
+    def _faena_status() -> pd.DataFrame:
+        _faenas = _safe_sgsst_df(
+            "SELECT id, nombre FROM faenas WHERE COALESCE(estado,'ACTIVA')='ACTIVA' ORDER BY nombre"
+        )
+        if _faenas.empty:
+            return pd.DataFrame()
+        _miper = _safe_sgsst_df("SELECT faena_id, nivel_riesgo, estado FROM sgsst_miper")
+        _ins = _safe_sgsst_df("SELECT faena_id, resultado FROM sgsst_inspecciones")
+        _inc = _safe_sgsst_df("SELECT faena_id, estado FROM sgsst_incidentes")
+        _cap = _safe_sgsst_df("SELECT faena_id, vigencia FROM sgsst_capacitaciones")
+        _rows = []
+        for _, _faena in _faenas.iterrows():
+            _fid = _faena.get("id")
+            _fm = _miper[_miper.get("faena_id", pd.Series(dtype=object)) == _fid] if not _miper.empty else pd.DataFrame()
+            _fi = _ins[_ins.get("faena_id", pd.Series(dtype=object)) == _fid] if not _ins.empty else pd.DataFrame()
+            _fc = _inc[_inc.get("faena_id", pd.Series(dtype=object)) == _fid] if not _inc.empty else pd.DataFrame()
+            _fcap = _cap[_cap.get("faena_id", pd.Series(dtype=object)) == _fid] if not _cap.empty else pd.DataFrame()
+            _critical = sum(
+                pd.to_numeric(_row.get("nivel_riesgo"), errors="coerce") >= 15 and _record_is_open(_row.get("estado"))
+                for _, _row in _fm.iterrows()
+            )
+            _findings = sum(str(_row.get("resultado") or "OBSERVACIÓN").upper() != "CUMPLE" for _, _row in _fi.iterrows())
+            _open_inc = sum(_record_is_open(_row.get("estado")) for _, _row in _fc.iterrows())
+            _expired = 0
+            for _, _row in _fcap.iterrows():
+                _due = parse_date_maybe(_row.get("vigencia"))
+                _due_date = _due.date() if hasattr(_due, "date") else _due
+                _expired += int(bool(_due_date and _due_date < date.today()))
+            _total = int(_critical + _findings + _open_inc + _expired)
+            _light = "🔴" if (_critical or _open_inc or _total >= 3) else ("🟡" if _total else "🟢")
+            _rows.append({
+                "Estado": _light, "Faena": str(_faena.get("nombre") or f"Faena {_fid}"),
+                "Riesgos críticos": int(_critical), "Hallazgos": int(_findings),
+                "Incidentes": int(_open_inc), "Capacitaciones vencidas": int(_expired),
+            })
+        return pd.DataFrame(_rows)
+
+    def _search_records(term: str) -> pd.DataFrame:
+        _needle = str(term or "").strip().casefold()
+        if not _needle:
+            return pd.DataFrame()
+        _sources = [
+            ("Prevención", "Matriz legal", "SELECT norma, articulo, tema, obligacion, estado, responsable, updated_at FROM sgsst_matriz_legal", ["tema", "obligacion"], "estado", "responsable", "updated_at"),
+            ("Prevención", "Programa anual", "SELECT actividad, objetivo, estado, responsable, fecha_compromiso FROM sgsst_programa_anual", ["actividad", "objetivo"], "estado", "responsable", "fecha_compromiso"),
+            ("Prevención", "MIPER", "SELECT proceso, tarea, cargo, peligro, riesgo, estado, responsable, plazo FROM sgsst_miper", ["riesgo", "tarea", "peligro"], "estado", "responsable", "plazo"),
+            ("Prevención", "Inspección", "SELECT tipo, area, item, observacion, resultado, responsable, plazo FROM sgsst_inspecciones", ["item", "observacion", "tipo"], "resultado", "responsable", "plazo"),
+            ("Personas", "Incidente", "SELECT tipo, gravedad, descripcion, medidas, estado, fecha FROM sgsst_incidentes", ["descripcion", "tipo", "medidas"], "estado", None, "fecha"),
+            ("Personas", "Capacitación", "SELECT tipo, tema, relator, estado, vigencia FROM sgsst_capacitaciones", ["tema", "tipo", "relator"], "estado", "relator", "vigencia"),
+            ("Personas", "Trabajador", "SELECT rut, nombres, apellidos, cargo, estado, vigencia_examen FROM trabajadores", ["apellidos", "nombres", "rut"], "estado", None, "vigencia_examen"),
+            ("Personas", "EPP", "SELECT epp_tipo, talla, marca, observacion, fecha_entrega, fecha_vencimiento FROM sgsst_epp_entrega", ["epp_tipo", "marca", "observacion"], None, None, "fecha_vencimiento"),
+            ("Empresa", "CPHS", "SELECT presidente, secretario, representantes_empresa, representantes_trabajadores, estado, vigencia_hasta FROM sgsst_cphs", ["presidente", "secretario"], "estado", "presidente", "vigencia_hasta"),
+            ("Empresa", "Subcontratista", "SELECT rut_empresa, razon_social, contacto, email, estado, fecha_termino FROM sgsst_subcontratistas", ["razon_social", "rut_empresa", "contacto"], "estado", "contacto", "fecha_termino"),
+            ("Empresa", "RIOHS", "SELECT version, aprobado_por, observaciones, fecha_vigencia FROM sgsst_riohs", ["version", "observaciones"], None, "aprobado_por", "fecha_vigencia"),
+            ("Documentos", "Evidencia", "SELECT modulo, referencia, descripcion, nombre_archivo, created_by, created_at FROM sgsst_evidencias", ["nombre_archivo", "descripcion", "referencia", "modulo"], None, "created_by", "created_at"),
+        ]
+        _matches = []
+        for _area, _kind, _sql, _title_fields, _status_field, _owner_field, _date_field in _sources:
+            _df = _safe_sgsst_df(_sql)
+            for _, _row in _df.head(500).iterrows():
+                _haystack = " ".join(str(_row.get(_col) or "") for _col in _df.columns).casefold()
+                if _needle not in _haystack:
+                    continue
+                _title = next((str(_row.get(_field) or "").strip() for _field in _title_fields if str(_row.get(_field) or "").strip()), "Registro SG-SST")
+                _matches.append({
+                    "Área": _area, "Tipo": _kind, "Registro": _title[:120],
+                    "Estado": str(_row.get(_status_field) or "—") if _status_field else "—",
+                    "Responsable": str(_row.get(_owner_field) or "—") if _owner_field else "—",
+                    "Fecha": _date_label(_row.get(_date_field)),
+                })
+                if len(_matches) >= 100:
+                    break
+            if len(_matches) >= 100:
+                break
+        return pd.DataFrame(_matches)
+
     # ── Navegación: área de trabajo + herramientas relacionadas ───────
     _SGSST_SECTIONS = {
         "🏠 Inicio": ["🏠 Inicio"],
@@ -245,11 +407,45 @@ def page_sgsst(
             f"{stats['incidentes_abiertos']} incidente(s) abierto(s)"
         )
 
+    _search_term = st.text_input(
+        "Buscar en SG-SST",
+        placeholder="Riesgo, actividad, responsable, trabajador o evidencia",
+        key=K("sgsst_global_search"),
+    )
+    if str(_search_term or "").strip():
+        _search_df = _search_records(_search_term)
+        st.markdown("#### Resultados de búsqueda")
+        if _search_df.empty:
+            st.info("No se encontraron registros coincidentes.")
+        else:
+            st.caption(f"{len(_search_df)} resultado(s) en los registros SG-SST de la empresa activa.")
+            st.dataframe(_search_df, use_container_width=True, hide_index=True)
+        return
+
     # ── Pantalla de Inicio: dashboard de empresa + accesos directos ────
     if _sgsst_section == "🏠 Inicio":
         st.markdown(f"#### {_compliance_color} Cumplimiento SG-SST: {_modules_ok}/{_total_modules} módulos ({_compliance_pct}%)")
         segmented_progress(_compliance_pct, label="Cumplimiento SG-SST")
         st.caption("Ficha Empresa · Matriz Legal · Programa Anual · MIPER · DS 594 · Incidentes · Capacitaciones · CPHS")
+
+        st.markdown("#### Pendientes prioritarios")
+        _priority_df = _priority_queue()
+        if _priority_df.empty:
+            st.success("No hay pendientes críticos, vencidos o abiertos.")
+        else:
+            _priority_counts = _priority_df["Prioridad"].value_counts()
+            _pc1, _pc2, _pc3 = st.columns(3)
+            _pc1.metric("Críticos", int(_priority_counts.get("Crítica", 0)))
+            _pc2.metric("Alta prioridad", int(_priority_counts.get("Alta", 0)))
+            _pc3.metric("Prioridad media", int(_priority_counts.get("Media", 0)))
+            st.dataframe(_priority_df.head(12), use_container_width=True, hide_index=True)
+
+        st.markdown("#### Estado por faena")
+        _faena_df = _faena_status()
+        if _faena_df.empty:
+            st.info("No hay faenas activas para evaluar.")
+        else:
+            st.dataframe(_faena_df, use_container_width=True, hide_index=True)
 
         # Dashboard de empresa: identidad + completitud de la ficha
         _prof = _ds44.company_profile_status(company)
