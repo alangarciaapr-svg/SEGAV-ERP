@@ -74,7 +74,7 @@ def page_sgsst(
     safe_name=None,
     read_only=False,
 ):
-    ui_header("Mi Empresa / SGSST", "Núcleo comercializable de SEGAV ERP: configurable para cualquier empresa, sin reemplazar lo ya existente.")
+    ui_header("Centro SG-SST", "Estado preventivo, cumplimiento y gestión operativa de la empresa.")
     ensure_sgsst_seed_data()
     _u = current_user() or {}
     _is_superadmin = str(_u.get("role") or "").upper() == "SUPERADMIN"
@@ -185,17 +185,6 @@ def page_sgsst(
         "cap_vencidas": int(fetch_value("SELECT COUNT(*) FROM sgsst_capacitaciones WHERE vigencia IS NOT NULL AND TRIM(vigencia)<>'' AND vigencia < ?", (date.today().isoformat(),), default=0) or 0),
     }
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Faenas activas", stats["faenas_activas"])
-    c2.metric("Trabajadores", stats["trabajadores"])
-    c3.metric("Matriz legal pendiente", stats["matriz_pendiente"])
-    c4.metric("Riesgos críticos MIPER", stats["miper_criticos"])
-    d1, d2, d3, d4 = st.columns(4)
-    d1.metric("Programa abierto", stats["programa_abierto"])
-    d2.metric("Hallazgos DS 594", stats["ds594_abierto"])
-    d3.metric("Incidentes abiertos", stats["incidentes_abiertos"])
-    d4.metric("Capacitaciones/ODI vencidas", stats["cap_vencidas"])
-
     # ── Compliance score ────────────────────────────────────────────────
     _total_modules = 8
     _modules_ok = 0
@@ -217,17 +206,15 @@ def page_sgsst(
         _modules_ok += 1
     _compliance_pct = int((_modules_ok / _total_modules) * 100) if _total_modules > 0 else 0
     _compliance_color = "🟢" if _compliance_pct >= 75 else ("🟡" if _compliance_pct >= 40 else "🔴")
-    st.markdown(f"#### {_compliance_color} Cumplimiento SGSST: {_modules_ok}/{_total_modules} módulos ({_compliance_pct}%)")
-    segmented_progress(_compliance_pct, label="Cumplimiento SGSST")
-    st.caption("Módulos: Ficha Empresa · Matriz Legal · Programa Anual · MIPER · DS 594 · Incidentes · Capacitaciones · CPHS")
 
-    # ── Navegación: pantalla de inicio + secciones tipo botón ──────────
+    # ── Navegación: área de trabajo + herramientas relacionadas ───────
     _SGSST_SECTIONS = {
         "🏠 Inicio": ["🏠 Inicio"],
-        "📋 Cumplimiento y Estadísticas": ["🏢 Resumen", "📋 Cumplimiento Legal", "🧭 Autoevaluación DS 44", "📊 Estadísticas", "💰 Cotización"],
-        "🏭 Configuración Empresa": ["📐 Requisitos DS 44", "🏭 Ficha empresa", "🧩 Catálogos"],
-        "⚠️ Riesgo Operacional": ["⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER", "🧯 Inspecciones", "📋 Checklist 594", "🩹 Incidentes", "📝 DIAT/DIEP"],
-        "👷 Personal y Documentos": ["🎓 Capacitaciones", "🦺 EPP", "🧾 Auditoría", "👷 CPHS", "🔬 Vigilancia", "🏗️ Subcontratistas", "📕 RIOHS", "📎 Evidencias"],
+        "📋 Cumplimiento": ["🏢 Resumen", "📋 Cumplimiento Legal", "🧭 Autoevaluación DS 44", "📊 Estadísticas", "💰 Cotización"],
+        "🏢 Empresa": ["📐 Requisitos DS 44", "🏭 Ficha empresa", "🧩 Catálogos", "🏗️ Subcontratistas", "📕 RIOHS"],
+        "⚠️ Prevención": ["⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER", "🧯 Inspecciones", "📋 Checklist 594"],
+        "👷 Personas": ["🩹 Incidentes", "📝 DIAT/DIEP", "🎓 Capacitaciones", "🦺 EPP", "👷 CPHS", "🔬 Vigilancia"],
+        "📎 Documentos": ["📎 Evidencias", "🧾 Auditoría"],
     }
     _section_names = list(_SGSST_SECTIONS.keys())
 
@@ -242,18 +229,28 @@ def page_sgsst(
     # Permitir que las tarjetas de Inicio salten a otra sección
     _jump = st.session_state.pop(K("sgsst_jump_section"), None)
     if _jump in _section_names:
-        st.session_state[K("sgsst_section_radio")] = _jump
+        st.session_state[K("sgsst_section_select")] = _jump
 
-    _sgsst_section = st.radio(
-        "Sección SGSST",
-        _section_names,
-        key=K("sgsst_section_radio"),
-        horizontal=True,
-        label_visibility="collapsed",
-    )
+    _nav_col, _status_col = st.columns([0.38, 0.62])
+    with _nav_col:
+        _sgsst_section = st.selectbox(
+            "Área de trabajo",
+            _section_names,
+            key=K("sgsst_section_select"),
+        )
+    with _status_col:
+        st.caption(
+            f"{_compliance_color} Estado general: **{_compliance_pct}%** · "
+            f"{stats['miper_criticos']} riesgo(s) crítico(s) · "
+            f"{stats['incidentes_abiertos']} incidente(s) abierto(s)"
+        )
 
     # ── Pantalla de Inicio: dashboard de empresa + accesos directos ────
     if _sgsst_section == "🏠 Inicio":
+        st.markdown(f"#### {_compliance_color} Cumplimiento SG-SST: {_modules_ok}/{_total_modules} módulos ({_compliance_pct}%)")
+        segmented_progress(_compliance_pct, label="Cumplimiento SG-SST")
+        st.caption("Ficha Empresa · Matriz Legal · Programa Anual · MIPER · DS 594 · Incidentes · Capacitaciones · CPHS")
+
         # Dashboard de empresa: identidad + completitud de la ficha
         _prof = _ds44.company_profile_status(company)
         _n_trab_home = int(fetch_value("SELECT COUNT(*) FROM trabajadores", default=0) or 0)
@@ -299,7 +296,7 @@ def page_sgsst(
                 for _k, _lbl in _prof["missing"]:
                     st.write("• " + _lbl)
             if st.button("✏️ Completar ficha de empresa", key=K("home_goto_ficha"), use_container_width=True):
-                st.session_state[K("sgsst_jump_section")] = "🏭 Configuración Empresa"
+                st.session_state[K("sgsst_jump_section")] = "🏢 Empresa"
                 st.rerun()
         else:
             st.success("✅ Ficha de empresa completa.")
@@ -358,12 +355,12 @@ def page_sgsst(
             st.rerun()
 
         _cards = [
-            ("⚖️ Matriz legal pendiente", stats["matriz_pendiente"], "⚠️ Riesgo Operacional", "matriz"),
-            ("⚠️ Riesgos críticos MIPER", stats["miper_criticos"], "⚠️ Riesgo Operacional", "miper"),
-            ("📅 Programa anual abierto", stats["programa_abierto"], "⚠️ Riesgo Operacional", "prog"),
-            ("🧯 Hallazgos DS 594", stats["ds594_abierto"], "⚠️ Riesgo Operacional", "ds594"),
-            ("🩹 Incidentes abiertos", stats["incidentes_abiertos"], "⚠️ Riesgo Operacional", "inc"),
-            ("🎓 Capacitaciones vencidas", stats["cap_vencidas"], "👷 Personal y Documentos", "cap"),
+            ("⚖️ Matriz legal pendiente", stats["matriz_pendiente"], "⚠️ Prevención", "matriz"),
+            ("⚠️ Riesgos críticos MIPER", stats["miper_criticos"], "⚠️ Prevención", "miper"),
+            ("📅 Programa anual abierto", stats["programa_abierto"], "⚠️ Prevención", "prog"),
+            ("🧯 Hallazgos DS 594", stats["ds594_abierto"], "⚠️ Prevención", "ds594"),
+            ("🩹 Incidentes abiertos", stats["incidentes_abiertos"], "👷 Personas", "inc"),
+            ("🎓 Capacitaciones vencidas", stats["cap_vencidas"], "👷 Personas", "cap"),
         ]
         _rows = [_cards[i:i + 3] for i in range(0, len(_cards), 3)]
         for _row in _rows:
@@ -377,19 +374,22 @@ def page_sgsst(
 
         st.divider()
         st.markdown("#### 🧭 Áreas del sistema")
-        _qc = st.columns(4)
         _quick = [
-            ("📋 Cumplimiento y Estadísticas", "Resumen, cumplimiento legal, estadísticas y cotización"),
-            ("🏭 Configuración Empresa", "Requisitos DS 44 automáticos, ficha de empresa y catálogos"),
-            ("⚠️ Riesgo Operacional", "Matriz, programa, MIPER, inspecciones, incidentes"),
-            ("👷 Personal y Documentos", "Capacitaciones, EPP, CPHS, vigilancia, RIOHS"),
+            ("📋 Cumplimiento", "Resumen, evaluación legal, estadísticas y cotización"),
+            ("🏢 Empresa", "Requisitos DS 44, ficha, catálogos, contratistas y RIOHS"),
+            ("⚠️ Prevención", "Matriz legal, programa, MIPER e inspecciones"),
+            ("👷 Personas", "Incidentes, DIAT/DIEP, capacitación, EPP y vigilancia"),
+            ("📎 Documentos", "Evidencias del sistema y trazabilidad de acciones"),
         ]
-        for _col, (_sec, _desc) in zip(_qc, _quick):
-            with _col:
-                st.markdown(f"**{_sec}**")
-                st.caption(_desc)
-                if st.button("Abrir", key=K(f"home_open_{_sec[:6]}"), use_container_width=True):
-                    _jump_to(_sec)
+        for _start in range(0, len(_quick), 3):
+            _quick_row = _quick[_start:_start + 3]
+            _qc = st.columns(len(_quick_row))
+            for _col, (_sec, _desc) in zip(_qc, _quick_row):
+                with _col:
+                    st.markdown(f"**{_sec}**")
+                    st.caption(_desc)
+                    if st.button("Abrir", key=K(f"home_open_{_sec[:6]}"), use_container_width=True):
+                        _jump_to(_sec)
         return
 
     _section_tabs = _SGSST_SECTIONS[_sgsst_section]
