@@ -78,7 +78,8 @@ def page_sgsst(
     st.caption(
         "Base normativa oficial: [Ley 16.744](https://www.bcn.cl/leychile/navegar?idNorma=28650) · "
         "[DS 44](https://www.bcn.cl/leychile/navegar?idNorma=1205298) · "
-        "[DS 594](https://www.bcn.cl/leychile/navegar?idNorma=167766)"
+        "[DS 594](https://www.bcn.cl/leychile/navegar?idNorma=167766) · "
+        "[DS 67](https://www.bcn.cl/leychile/navegar?idNorma=159800)"
     )
     ensure_sgsst_seed_data()
     _u = current_user() or {}
@@ -345,7 +346,7 @@ def page_sgsst(
         "🧭 Plan preventivo": ["🧭 Autoevaluación DS 44", "📋 Diagnóstico normativo", "⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER"],
         "🛡️ Controles": ["🧯 Inspecciones", "📋 Checklist 594", "🩹 Incidentes", "📝 DIAT/DIEP"],
         "👷 Personas y salud": ["🎓 Capacitaciones", "🦺 EPP", "🔬 Vigilancia"],
-        "📎 Registros": ["📎 Evidencias", "🧾 Auditoría", "📊 Estadísticas", "💰 Cotización", "🏗️ Subcontratistas", "🧩 Catálogos"],
+        "📎 Registros": ["📎 Evidencias", "🧾 Auditoría", "📊 Estadísticas", "💰 DS 67 / Cotización", "🏗️ Subcontratistas", "🧩 Catálogos"],
     }
     _section_names = list(_SGSST_SECTIONS.keys())
 
@@ -554,7 +555,7 @@ def page_sgsst(
 
     # Map visible tab index to original tab index
     _ALL_TABS = [
-        "🏢 Resumen", "📋 Diagnóstico normativo", "📊 Estadísticas", "💰 Cotización",
+        "🏢 Resumen", "📋 Diagnóstico normativo", "📊 Estadísticas", "💰 DS 67 / Cotización",
         "📐 Requisitos DS 44", "🏭 Ficha empresa", "🧩 Catálogos",
         "⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER", "🧯 Inspecciones",
         "📋 Checklist 594", "🩹 Incidentes", "🎓 Capacitaciones", "🦺 EPP",
@@ -930,7 +931,7 @@ def page_sgsst(
         try:
             ensure_estadisticas_tables(execute, DB_BACKEND)
             _ck_cot = str(current_segav_client_key() or "")
-            _render_cotizacion_new(st, fetch_df, fetch_value, K, cliente_key=_ck_cot, company=company)
+            _render_cotizacion_new(st, fetch_df, fetch_value, execute, K, cliente_key=_ck_cot, company=company)
         except Exception as _exc:
             st.error(f"Error al cargar cotización: {_exc}")
 

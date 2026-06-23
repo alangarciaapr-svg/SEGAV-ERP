@@ -1407,6 +1407,8 @@ SGSST_MATRIZ_BASE = [
     {"norma": "Ley 16.744", "articulo": "Art. 76", "tema": "Denuncia de accidentes y enfermedades", "obligacion": "Denunciar inmediatamente al organismo administrador y notificar accidentes graves o fatales a las autoridades correspondientes.", "aplica_a": "Empresa", "periodicidad": "Cada evento", "responsable": "Prevención / RRHH", "evidencia": "DIAT/DIEP y notificaciones", "estado": "PENDIENTE"},
     {"norma": "Ley 16.744", "articulo": "Art. 184 CT", "tema": "Deber de protección", "obligacion": "Tomar todas las medidas necesarias para proteger eficazmente la vida y salud de los trabajadores.", "aplica_a": "Empresa", "periodicidad": "Permanente", "responsable": "Gerencia", "evidencia": "Registros de gestión preventiva", "estado": "EN CURSO"},
     {"norma": "Ley 16.744", "articulo": "Art. 66 / DS 44 Art. 50", "tema": "Departamento de Prevención", "obligacion": "Constituir Departamento de Prevención cuando la empresa tenga más de 100 personas trabajadoras.", "aplica_a": "Empresa", "periodicidad": "Permanente", "responsable": "Gerencia", "evidencia": "Existencia y funcionamiento del departamento", "estado": "PENDIENTE"},
+    {"norma": "DS 67", "articulo": "Arts. 2-7", "tema": "Evaluación de siniestralidad efectiva", "obligacion": "Mantener datos mensuales de trabajadores y días perdidos, junto con invalideces y muertes computables, para los períodos anuales julio-junio.", "aplica_a": "Empresa", "periodicidad": "Mensual / bienal", "responsable": "Gerencia / RRHH / Prevención", "evidencia": "Nóminas, días perdidos, dictámenes y resolución de tasa", "estado": "PENDIENTE"},
+    {"norma": "DS 67", "articulo": "Art. 8", "tema": "Requisitos para rebaja o exención", "obligacion": "Acreditar cotizaciones al día y un SG-SST en funcionamiento durante el último período anual evaluado.", "aplica_a": "Empresa", "periodicidad": "Cada proceso de evaluación", "responsable": "Gerencia / Prevención", "evidencia": "Certificado de cotizaciones y acreditación del SG-SST", "estado": "PENDIENTE"},
     # ── DS 594 — Condiciones Sanitarias y Ambientales Básicas ──────────────
     {"norma": "DS 594", "articulo": "Arts. 1-6", "tema": "Condiciones generales del lugar de trabajo", "obligacion": "Mantener condiciones sanitarias y ambientales que protejan la vida y salud, incluyendo infraestructura en buen estado.", "aplica_a": "Empresa / Centros de trabajo", "periodicidad": "Permanente", "responsable": "Gerencia / Mantención", "evidencia": "Checklist DS 594 e inspecciones", "estado": "PENDIENTE"},
     {"norma": "DS 594", "articulo": "Título II", "tema": "Saneamiento básico", "obligacion": "Proveer agua potable, servicios higiénicos, disposición de residuos y condiciones de orden y limpieza.", "aplica_a": "Empresa / Centros de trabajo", "periodicidad": "Permanente", "responsable": "Gerencia / Mantención", "evidencia": "Inspecciones y registros", "estado": "PENDIENTE"},
@@ -4507,7 +4509,8 @@ MULTIEMPRESA_TABLES = [
     'sgsst_epp_entrega', 'sgsst_checklist_ds594',
     'sgsst_cphs', 'sgsst_cphs_actas', 'sgsst_diat_diep',
     'sgsst_vigilancia', 'sgsst_subcontratistas', 'sgsst_riohs',
-    'sgsst_ds44_autoeval', 'sgsst_evidencias',
+    'sgsst_ds44_autoeval', 'sgsst_evidencias', 'sgsst_estadisticas_mensuales',
+    'sgsst_cumplimiento_legal', 'sgsst_ds67_config', 'sgsst_ds67_eventos',
 ]
 
 
