@@ -362,7 +362,7 @@ def page_sgsst(
                WHERE (anio>? OR (anio=? AND mes>=7)) AND (anio<? OR (anio=? AND mes<=6))""",
             (_start_year, _start_year, _next_eval, _next_eval), default=0,
         ) or 0)
-        _ds67_events = int(fetch_value("SELECT COUNT(*) FROM sgsst_ds67_eventos WHERE COALESCE(computable,1)<>0", default=0) or 0)
+        _ds67_events = int(fetch_value("SELECT COUNT(*) FROM sgsst_ds67_eventos WHERE COALESCE(computable, TRUE) = TRUE", default=0) or 0)
         _ds67_rate = float(fetch_value("SELECT COALESCE(tasa_adicional_vigente,0) FROM sgsst_ds67_config ORDER BY id DESC LIMIT 1", default=0) or 0)
         _coverage_pct = min(100, int((_ds67_months / 36) * 100))
         _records_checks = [
