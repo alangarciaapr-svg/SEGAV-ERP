@@ -72,9 +72,18 @@ def page_sgsst(
     load_file_anywhere=None,
     sha256_bytes=None,
     safe_name=None,
+    module="sgsst",
     read_only=False,
 ):
-    ui_header("Sistema de Gestión de Seguridad y Salud en el Trabajo", "Gestión preventiva integral de la empresa conforme a la Ley 16.744, el DS 44 y el DS 594.")
+    _module = str(module or "sgsst").strip().lower()
+    _headers = {
+        "dashboard": ("Prevención de Riesgos", "Panel ejecutivo de cumplimiento, siniestralidad y trazabilidad preventiva de la empresa."),
+        "sgsst": ("Sistema de Gestión de Seguridad y Salud en el Trabajo", "Gestión preventiva integral conforme a la Ley 16.744, el DS 44 y el DS 594."),
+        "ds67": ("DS 67 / Cotización adicional", "Evaluación de siniestralidad efectiva, requisitos de rebaja y simulación de ahorro."),
+        "records": ("Carga de registros preventivos", "Ingreso centralizado de datos, eventos y evidencias que respaldan el SG-SST y el DS 67."),
+    }
+    _header_title, _header_subtitle = _headers.get(_module, _headers["sgsst"])
+    ui_header(_header_title, _header_subtitle)
     st.caption(
         "Base normativa oficial: [Ley 16.744](https://www.bcn.cl/leychile/navegar?idNorma=28650) · "
         "[DS 44](https://www.bcn.cl/leychile/navegar?idNorma=1205298) · "
@@ -339,15 +348,131 @@ def page_sgsst(
                 break
         return pd.DataFrame(_matches)
 
+    if _module == "dashboard":
+        try:
+            ensure_estadisticas_tables(execute, DB_BACKEND)
+        except Exception:
+            pass
+
+        _evidencias_total = int(fetch_value("SELECT COUNT(*) FROM sgsst_evidencias", default=0) or 0)
+        _next_eval = date.today().year if date.today().year % 2 == 1 else date.today().year + 1
+        _start_year = _next_eval - 3
+        _ds67_months = int(fetch_value(
+            """SELECT COUNT(*) FROM sgsst_estadisticas_mensuales
+               WHERE (anio>? OR (anio=? AND mes>=7)) AND (anio<? OR (anio=? AND mes<=6))""",
+            (_start_year, _start_year, _next_eval, _next_eval), default=0,
+        ) or 0)
+        _ds67_events = int(fetch_value("SELECT COUNT(*) FROM sgsst_ds67_eventos WHERE COALESCE(computable,1)<>0", default=0) or 0)
+        _ds67_rate = float(fetch_value("SELECT COALESCE(tasa_adicional_vigente,0) FROM sgsst_ds67_config ORDER BY id DESC LIMIT 1", default=0) or 0)
+        _coverage_pct = min(100, int((_ds67_months / 36) * 100))
+        _records_checks = [
+            _ds67_months > 0,
+            _evidencias_total > 0,
+            int(fetch_value("SELECT COUNT(*) FROM sgsst_incidentes", default=0) or 0) > 0,
+            int(fetch_value("SELECT COUNT(*) FROM sgsst_diat_diep", default=0) or 0) > 0,
+            int(fetch_value("SELECT COUNT(*) FROM sgsst_inspecciones", default=0) or 0) > 0,
+            int(fetch_value("SELECT COUNT(*) FROM sgsst_capacitaciones", default=0) or 0) > 0,
+        ]
+        _records_pct = int((sum(_records_checks) / len(_records_checks)) * 100)
+
+        st.markdown(f"### Sala de control preventiva · {company.get('razon_social') or 'Empresa activa'}")
+        _k1, _k2, _k3, _k4 = st.columns(4)
+        _k1.metric("Cumplimiento SG-SST", f"{_compliance_pct}%", help="Avance consolidado de los componentes preventivos habilitados.")
+        _k2.metric("Riesgos críticos", stats["miper_criticos"])
+        _k3.metric("Incidentes abiertos", stats["incidentes_abiertos"])
+        _k4.metric("Tasa adicional vigente", f"{_ds67_rate:.2f}%")
+
+        st.markdown("#### Módulos de Prevención de Riesgos")
+        _module_cols = st.columns(3)
+        _module_cards = [
+            {
+                "title": "SG-SST",
+                "icon": "🛡️",
+                "subtitle": "Ley 16.744 · DS 44 · DS 594",
+                "metric": f"{_modules_ok}/{_total_modules} componentes conformes",
+                "progress": _compliance_pct,
+                "page": "Mi Empresa / SGSST",
+                "button": "Abrir SG-SST",
+            },
+            {
+                "title": "DS 67 / Rebaja de tasa",
+                "icon": "📉",
+                "subtitle": "Siniestralidad efectiva y simulación",
+                "metric": f"{_ds67_months}/36 meses registrados",
+                "progress": _coverage_pct,
+                "page": "DS 67 / Cotización",
+                "button": "Abrir DS 67",
+            },
+            {
+                "title": "Carga de registros",
+                "icon": "📥",
+                "subtitle": "Datos mensuales, eventos y evidencias",
+                "metric": f"{_evidencias_total} evidencias · {_ds67_events} eventos DS 67",
+                "progress": _records_pct,
+                "page": "Registros Preventivos",
+                "button": "Cargar registros",
+            },
+        ]
+        for _column, _card in zip(_module_cols, _module_cards):
+            with _column:
+                with st.container(border=True):
+                    st.markdown(f"#### {_card['icon']} {_card['title']}")
+                    st.caption(_card["subtitle"])
+                    st.markdown(f"**{_card['metric']}**")
+                    segmented_progress(_card["progress"], label=_card["title"])
+                    _card_disabled = bool(read_only and _card["page"] != "Mi Empresa / SGSST")
+                    if st.button(_card["button"], key=K(f"dashboard_open_{_card['page']}"), use_container_width=True, type="primary", disabled=_card_disabled):
+                        go(_card["page"])
+
+        st.markdown("#### Estado para fiscalización y rebaja")
+        _readiness = pd.DataFrame([
+            {
+                "Componente": "SG-SST empresarial",
+                "Estado": "Conforme" if _compliance_pct >= 75 else "Requiere completar",
+                "Indicador": f"{_compliance_pct}%",
+                "Siguiente acción": "Mantener evaluación y mejora" if _compliance_pct >= 75 else "Completar componentes pendientes",
+            },
+            {
+                "Componente": "Registros DS 67",
+                "Estado": "Cobertura completa" if _ds67_months >= 36 else "Cobertura incompleta",
+                "Indicador": f"{_ds67_months}/36 meses",
+                "Siguiente acción": "Conciliar con mutualidad" if _ds67_months >= 36 else "Cargar meses faltantes",
+            },
+            {
+                "Componente": "Trazabilidad documental",
+                "Estado": "Con evidencia" if _evidencias_total else "Sin evidencia",
+                "Indicador": str(_evidencias_total),
+                "Siguiente acción": "Revisar vigencias" if _evidencias_total else "Adjuntar respaldos",
+            },
+        ])
+        st.dataframe(_readiness, use_container_width=True, hide_index=True)
+
+        st.markdown("#### Prioridades de gestión")
+        _priority_df = _priority_queue()
+        if _priority_df.empty:
+            st.success("No hay pendientes críticos, vencidos o abiertos.")
+        else:
+            st.dataframe(_priority_df.head(10), use_container_width=True, hide_index=True)
+        return
+
     # ── Navegación: área de trabajo + herramientas relacionadas ───────
-    _SGSST_SECTIONS = {
-        "🏠 Inicio": ["🏠 Inicio"],
-        "🏢 Organización": ["🏢 Resumen", "📐 Requisitos DS 44", "🏭 Ficha empresa", "👷 CPHS", "📕 RIOHS"],
-        "🧭 Plan preventivo": ["🧭 Autoevaluación DS 44", "📋 Diagnóstico normativo", "⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER"],
-        "🛡️ Controles": ["🧯 Inspecciones", "📋 Checklist 594", "🩹 Incidentes", "📝 DIAT/DIEP"],
-        "👷 Personas y salud": ["🎓 Capacitaciones", "🦺 EPP", "🔬 Vigilancia"],
-        "📎 Registros": ["📎 Evidencias", "🧾 Auditoría", "📊 Estadísticas", "💰 DS 67 / Cotización", "🏗️ Subcontratistas", "🧩 Catálogos"],
-    }
+    if _module == "ds67":
+        _SGSST_SECTIONS = {
+            "💰 DS 67 / Rebaja de tasa": ["💰 DS 67 / Cotización"],
+        }
+    elif _module == "records":
+        _SGSST_SECTIONS = {
+            "📥 Registros operativos": ["📊 Estadísticas", "🩹 Incidentes", "📝 DIAT/DIEP", "🧯 Inspecciones", "📋 Checklist 594"],
+            "📎 Evidencias y personas": ["📎 Evidencias", "🎓 Capacitaciones", "🦺 EPP", "🧾 Auditoría"],
+        }
+    else:
+        _SGSST_SECTIONS = {
+            "🏠 Inicio": ["🏠 Inicio"],
+            "🏢 Organización": ["🏢 Resumen", "📐 Requisitos DS 44", "🏭 Ficha empresa", "👷 CPHS", "📕 RIOHS", "🏗️ Subcontratistas"],
+            "🧭 Plan preventivo": ["🧭 Autoevaluación DS 44", "📋 Diagnóstico normativo", "⚖️ Matriz legal", "📅 Programa anual", "⚠️ MIPER"],
+            "🛡️ Controles": ["🧯 Inspecciones", "📋 Checklist 594"],
+            "👷 Personas y salud": ["🎓 Capacitaciones", "🦺 EPP", "🔬 Vigilancia"],
+        }
     _section_names = list(_SGSST_SECTIONS.keys())
 
     # Modo solo lectura (LECTOR): solo secciones de consulta, sin edición
@@ -359,23 +484,32 @@ def page_sgsst(
         st.info("🔎 Modo consulta (solo lectura): puedes revisar el estado del SGSST y descargar el expediente, pero no modificar registros.")
 
     # Permitir que las tarjetas de Inicio salten a otra sección
+    _section_state_key = K(f"sgsst_section_select_{_module}")
     _jump = st.session_state.pop(K("sgsst_jump_section"), None)
     if _jump in _section_names:
-        st.session_state[K("sgsst_section_select")] = _jump
+        st.session_state[_section_state_key] = _jump
 
-    _nav_col, _status_col = st.columns([0.38, 0.62])
-    with _nav_col:
-        _sgsst_section = st.selectbox(
-            "Área de trabajo",
-            _section_names,
-            key=K("sgsst_section_select"),
-        )
-    with _status_col:
+    if len(_section_names) == 1:
+        _sgsst_section = _section_names[0]
         st.caption(
             f"{_compliance_color} Estado general: **{_compliance_pct}%** · "
             f"{stats['miper_criticos']} riesgo(s) crítico(s) · "
             f"{stats['incidentes_abiertos']} incidente(s) abierto(s)"
         )
+    else:
+        _nav_col, _status_col = st.columns([0.38, 0.62])
+        with _nav_col:
+            _sgsst_section = st.selectbox(
+                "Área de trabajo",
+                _section_names,
+                key=_section_state_key,
+            )
+        with _status_col:
+            st.caption(
+                f"{_compliance_color} Estado general: **{_compliance_pct}%** · "
+                f"{stats['miper_criticos']} riesgo(s) crítico(s) · "
+                f"{stats['incidentes_abiertos']} incidente(s) abierto(s)"
+            )
 
     _search_term = st.text_input(
         "Buscar en SG-SST",
@@ -517,7 +651,7 @@ def page_sgsst(
             ("⚠️ Riesgos críticos MIPER", stats["miper_criticos"], "🧭 Plan preventivo", "miper"),
             ("📅 Programa anual abierto", stats["programa_abierto"], "🧭 Plan preventivo", "prog"),
             ("🧯 Hallazgos DS 594", stats["ds594_abierto"], "🛡️ Controles", "ds594"),
-            ("🩹 Incidentes abiertos", stats["incidentes_abiertos"], "🛡️ Controles", "inc"),
+            ("🏢 Datos de empresa pendientes", len(_prof["missing"]), "🏢 Organización", "empresa"),
             ("🎓 Capacitaciones vencidas", stats["cap_vencidas"], "👷 Personas y salud", "cap"),
         ]
         _rows = [_cards[i:i + 3] for i in range(0, len(_cards), 3)]
@@ -535,9 +669,8 @@ def page_sgsst(
         _quick = [
             ("🏢 Organización", "Estructura preventiva, responsables, CPHS y reglamento interno"),
             ("🧭 Plan preventivo", "Diagnóstico legal, MIPER y programa de trabajo preventivo"),
-            ("🛡️ Controles", "Inspecciones, condiciones DS 594 e investigación de eventos"),
+            ("🛡️ Controles", "Inspecciones y verificación de condiciones del DS 594"),
             ("👷 Personas y salud", "Información, capacitación, EPP y vigilancia ocupacional"),
-            ("📎 Registros", "Evidencias, auditoría, estadísticas y trazabilidad"),
         ]
         for _start in range(0, len(_quick), 3):
             _quick_row = _quick[_start:_start + 3]

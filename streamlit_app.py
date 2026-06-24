@@ -8274,7 +8274,10 @@ PAGES = [
     "Asignar Trabajadores",
     "Mi Perfil",
     # Prevención de Riesgos
+    "Prevención de Riesgos",
     "Mi Empresa / SGSST",
+    "DS 67 / Cotización",
+    "Registros Preventivos",
     # Documentación
     "Centro Documental",
     "Documentos Empresa (Faena)",
@@ -8299,6 +8302,7 @@ _IS_LECTOR_VIEW = str((current_user() or {}).get("role") or "").upper() == "LECT
 _LECTOR_PAGES = [
     "Dashboard",
     "Trabajadores",
+    "Prevención de Riesgos",
     "Mi Empresa / SGSST",
     "Centro Documental",
     "Documentos Empresa (Faena)",
@@ -8464,7 +8468,10 @@ with st.sidebar:
         "Trabajadores": "👷 Trabajadores",
         "Asignar Trabajadores": "🧩 Asignar Trabajadores",
         "Mi Perfil": "👤 Mi Perfil",
+        "Prevención de Riesgos": "📊 Dashboard preventivo",
         "Mi Empresa / SGSST": "🦺 SGSST",
+        "DS 67 / Cotización": "📉 DS 67 / Cotización",
+        "Registros Preventivos": "📥 Carga de registros",
         "Centro Documental": "📁 Centro Documental",
         "Documentos Empresa (Faena)": "🏭 Empresa por faena",
         "Documentos Trabajador": "👷 Trabajadores",
@@ -8503,7 +8510,10 @@ with st.sidebar:
             "Mi Perfil",
         ]),
         "prev": ("🦺 Prevención de Riesgos", [
+            "Prevención de Riesgos",
             "Mi Empresa / SGSST",
+            "DS 67 / Cotización",
+            "Registros Preventivos",
         ]),
         "docs": ("🗂️ Documentación", [
             "Centro Documental",
@@ -8527,6 +8537,7 @@ with st.sidebar:
             "consulta": ("🔎 Consulta (solo lectura)", [
                 "Dashboard",
                 "Trabajadores",
+                "Prevención de Riesgos",
                 "Mi Empresa / SGSST",
                 "Centro Documental",
                 "Documentos Empresa (Faena)",
@@ -8570,6 +8581,7 @@ with st.sidebar:
             **PAGE_LABELS,
             "Dashboard": "📊 Resumen",
             "Trabajadores": "👷 Trabajadores (consulta)",
+            "Prevención de Riesgos": "📊 Dashboard preventivo",
             "Mi Empresa / SGSST": "🦺 SGSST (consulta)",
             "Centro Documental": "📁 Centro documental",
             "Documentos Empresa (Faena)": "🏭 Empresa por faena",
@@ -8584,7 +8596,10 @@ with st.sidebar:
 
         # Section header as clickable styled button
         if st.button(f"{_arrow} {_sec_label}", key=f"sidebar_section_{_sec_key}", use_container_width=True, type="primary"):
-            if _is_open:
+            if _sec_key == "prev" and _current_page != "Prevención de Riesgos":
+                st.session_state["_sidebar_open_section"] = "prev"
+                st.session_state["nav_page"] = "Prevención de Riesgos"
+            elif _is_open:
                 st.session_state["_sidebar_open_section"] = None
             else:
                 st.session_state["_sidebar_open_section"] = _sec_key
@@ -9050,8 +9065,24 @@ def page_export_zip():
     return _ops_exports.page_export_zip(st=st, allowed_mandante_ids=current_user_mandante_scope_ids(), ui_header=ui_header, ui_tip=ui_tip, fetch_df=tenant_fetch_df, pendientes_obligatorios=pendientes_obligatorios, pendientes_empresa_faena=pendientes_empresa_faena, doc_tipo_join=doc_tipo_join, export_zip_for_faena=export_zip_for_faena, persist_export=persist_export, auto_backup_db=auto_backup_db, load_file_anywhere=load_file_anywhere, human_file_size=human_file_size, export_zip_for_mes=export_zip_for_mes, persist_export_mes=persist_export_mes, os=os, date=date, current_tenant_key=current_tenant_key, current_segav_client_key=current_segav_client_key, visible_clientes_df=visible_clientes_df, execute=tenant_execute, is_superadmin=is_superadmin, audit_log=audit_log)
 
 
+def _page_sgsst_module(module="sgsst"):
+    return _ops_sgsst.page_sgsst(fetch_df=tenant_fetch_df, fetch_value=tenant_fetch_value, execute=tenant_execute, clear_app_caches=clear_app_caches, ensure_sgsst_seed_data=ensure_sgsst_seed_data, segav_erp_config_map=segav_erp_config_map, segav_clientes_df=segav_clientes_df, current_segav_client_key=current_segav_client_key, segav_cargos_df=segav_cargos_df, get_empresa_required_doc_types=get_empresa_required_doc_types, clean_rut=clean_rut, go=go, segav_templates_df=segav_templates_df, ERP_TEMPLATE_PRESETS=ERP_TEMPLATE_PRESETS, apply_segav_template=apply_segav_template, sgsst_log=sgsst_log, make_erp_key=make_erp_key, segav_erp_value=segav_erp_value, ERP_CLIENT_PARAM_DEFAULTS=ERP_CLIENT_PARAM_DEFAULTS, set_segav_erp_config_value=set_segav_erp_config_value, segav_cliente_params=segav_cliente_params, segav_cargo_labels=segav_cargo_labels, segav_cargo_rules=segav_cargo_rules, DOC_OBLIGATORIOS=DOC_OBLIGATORIOS, DOC_TIPO_LABELS=DOC_TIPO_LABELS, doc_tipo_label=doc_tipo_label, segav_empresa_docs_df=segav_empresa_docs_df, get_empresa_monthly_doc_types=get_empresa_monthly_doc_types, parse_date_maybe=parse_date_maybe, SGSST_NORMAS=SGSST_NORMAS, SGSST_ESTADOS=SGSST_ESTADOS, SGSST_GRAVEDADES=SGSST_GRAVEDADES, SGSST_RESULTADOS=SGSST_RESULTADOS, SGSST_TIPOS_EVENTO=SGSST_TIPOS_EVENTO, SGSST_TIPOS_CAP=SGSST_TIPOS_CAP, doc_tipo_join=doc_tipo_join, current_user=current_user, segav_template_payload=segav_template_payload, DS594_CHECKLIST_ITEMS=DS594_CHECKLIST_ITEMS, EPP_TIPOS=EPP_TIPOS, ROLES_EMPRESA=ROLES_EMPRESA, is_company_admin_for_active_tenant=is_company_admin_for_active_tenant, save_company_logo_for_cliente=save_company_logo_for_cliente, get_company_logo_bytes=get_company_logo_bytes, save_file_online=save_file_online, prepare_upload_payload=prepare_upload_payload, load_file_anywhere=load_file_anywhere, sha256_bytes=sha256_bytes, safe_name=safe_name, module=module, DB_BACKEND=DB_BACKEND, read_only=(str((current_user() or {}).get("role") or "").upper() == "LECTOR"))
+
+
+def page_prevention_dashboard():
+    return _page_sgsst_module("dashboard")
+
+
 def page_sgsst():
-    return _ops_sgsst.page_sgsst(fetch_df=tenant_fetch_df, fetch_value=tenant_fetch_value, execute=tenant_execute, clear_app_caches=clear_app_caches, ensure_sgsst_seed_data=ensure_sgsst_seed_data, segav_erp_config_map=segav_erp_config_map, segav_clientes_df=segav_clientes_df, current_segav_client_key=current_segav_client_key, segav_cargos_df=segav_cargos_df, get_empresa_required_doc_types=get_empresa_required_doc_types, clean_rut=clean_rut, go=go, segav_templates_df=segav_templates_df, ERP_TEMPLATE_PRESETS=ERP_TEMPLATE_PRESETS, apply_segav_template=apply_segav_template, sgsst_log=sgsst_log, make_erp_key=make_erp_key, segav_erp_value=segav_erp_value, ERP_CLIENT_PARAM_DEFAULTS=ERP_CLIENT_PARAM_DEFAULTS, set_segav_erp_config_value=set_segav_erp_config_value, segav_cliente_params=segav_cliente_params, segav_cargo_labels=segav_cargo_labels, segav_cargo_rules=segav_cargo_rules, DOC_OBLIGATORIOS=DOC_OBLIGATORIOS, DOC_TIPO_LABELS=DOC_TIPO_LABELS, doc_tipo_label=doc_tipo_label, segav_empresa_docs_df=segav_empresa_docs_df, get_empresa_monthly_doc_types=get_empresa_monthly_doc_types, parse_date_maybe=parse_date_maybe, SGSST_NORMAS=SGSST_NORMAS, SGSST_ESTADOS=SGSST_ESTADOS, SGSST_GRAVEDADES=SGSST_GRAVEDADES, SGSST_RESULTADOS=SGSST_RESULTADOS, SGSST_TIPOS_EVENTO=SGSST_TIPOS_EVENTO, SGSST_TIPOS_CAP=SGSST_TIPOS_CAP, doc_tipo_join=doc_tipo_join, current_user=current_user, segav_template_payload=segav_template_payload, DS594_CHECKLIST_ITEMS=DS594_CHECKLIST_ITEMS, EPP_TIPOS=EPP_TIPOS, ROLES_EMPRESA=ROLES_EMPRESA, is_company_admin_for_active_tenant=is_company_admin_for_active_tenant, save_company_logo_for_cliente=save_company_logo_for_cliente, get_company_logo_bytes=get_company_logo_bytes, save_file_online=save_file_online, prepare_upload_payload=prepare_upload_payload, load_file_anywhere=load_file_anywhere, sha256_bytes=sha256_bytes, safe_name=safe_name, DB_BACKEND=DB_BACKEND, read_only=(str((current_user() or {}).get("role") or "").upper() == "LECTOR"))
+    return _page_sgsst_module("sgsst")
+
+
+def page_ds67():
+    return _page_sgsst_module("ds67")
+
+
+def page_prevention_records():
+    return _page_sgsst_module("records")
 
 
 def page_superadmin_empresas():
@@ -9262,7 +9293,10 @@ def page_audit_trail():
 
 PAGE_PERM_ROUTE = {
     "Dashboard": "view_dashboard",
+    "Prevención de Riesgos": "view_sgsst",
     "Mi Empresa / SGSST": "view_sgsst",
+    "DS 67 / Cotización": "view_sgsst",
+    "Registros Preventivos": "view_sgsst",
     "Mandantes": "view_mandantes",
     "Contratos de Faena": "view_contratos",
     "Faenas": "view_faenas",
@@ -9284,7 +9318,10 @@ if p in PAGE_PERM_ROUTE and PAGE_PERM_ROUTE[p]:
 
 _PAGE_RENDERERS = {
     "Dashboard": page_dashboard,
+    "Prevención de Riesgos": page_prevention_dashboard,
     "Mi Empresa / SGSST": page_sgsst,
+    "DS 67 / Cotización": page_ds67,
+    "Registros Preventivos": page_prevention_records,
     "Mandantes": page_mandantes,
     "Contratos de Faena": page_contratos_faena,
     "Faenas": page_faenas,
