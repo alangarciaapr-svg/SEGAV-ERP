@@ -158,9 +158,30 @@ CREATE_DS67_CONFIG_PG = """
 CREATE TABLE IF NOT EXISTS sgsst_ds67_config (
     id BIGSERIAL PRIMARY KEY,
     cliente_key TEXT NOT NULL DEFAULT '',
+    empresa_razon_social TEXT DEFAULT '',
+    empresa_rut TEXT DEFAULT '',
+    empresa_actividad TEXT DEFAULT '',
+    empresa_ciiu TEXT DEFAULT '',
+    empresa_contacto_ds67 TEXT DEFAULT '',
     fecha_adhesion TEXT,
     tasa_adicional_vigente NUMERIC DEFAULT 0,
     remuneracion_imponible_mensual NUMERIC DEFAULT 0,
+    mutualidad_nombre TEXT DEFAULT '',
+    mutualidad_codigo TEXT DEFAULT '',
+    numero_adherente TEXT DEFAULT '',
+    sucursal_mutual TEXT DEFAULT '',
+    ejecutivo_mutual TEXT DEFAULT '',
+    correo_mutual TEXT DEFAULT '',
+    telefono_mutual TEXT DEFAULT '',
+    portal_mutual_url TEXT DEFAULT '',
+    conexion_modo TEXT DEFAULT 'Manual controlado',
+    conexion_estado TEXT DEFAULT 'PENDIENTE',
+    api_endpoint TEXT DEFAULT '',
+    credencial_ref TEXT DEFAULT '',
+    autorizacion_intercambio BOOLEAN DEFAULT FALSE,
+    fecha_ultima_sincronizacion TEXT,
+    ultima_resolucion_tasa TEXT DEFAULT '',
+    notas_conexion TEXT DEFAULT '',
     cotizaciones_al_dia BOOLEAN DEFAULT FALSE,
     sgsst_acreditado BOOLEAN DEFAULT FALSE,
     muerte_prevenible_confirmada BOOLEAN DEFAULT FALSE,
@@ -173,9 +194,30 @@ CREATE_DS67_CONFIG_SQLITE = """
 CREATE TABLE IF NOT EXISTS sgsst_ds67_config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cliente_key TEXT NOT NULL DEFAULT '',
+    empresa_razon_social TEXT DEFAULT '',
+    empresa_rut TEXT DEFAULT '',
+    empresa_actividad TEXT DEFAULT '',
+    empresa_ciiu TEXT DEFAULT '',
+    empresa_contacto_ds67 TEXT DEFAULT '',
     fecha_adhesion TEXT,
     tasa_adicional_vigente REAL DEFAULT 0,
     remuneracion_imponible_mensual REAL DEFAULT 0,
+    mutualidad_nombre TEXT DEFAULT '',
+    mutualidad_codigo TEXT DEFAULT '',
+    numero_adherente TEXT DEFAULT '',
+    sucursal_mutual TEXT DEFAULT '',
+    ejecutivo_mutual TEXT DEFAULT '',
+    correo_mutual TEXT DEFAULT '',
+    telefono_mutual TEXT DEFAULT '',
+    portal_mutual_url TEXT DEFAULT '',
+    conexion_modo TEXT DEFAULT 'Manual controlado',
+    conexion_estado TEXT DEFAULT 'PENDIENTE',
+    api_endpoint TEXT DEFAULT '',
+    credencial_ref TEXT DEFAULT '',
+    autorizacion_intercambio INTEGER DEFAULT 0,
+    fecha_ultima_sincronizacion TEXT,
+    ultima_resolucion_tasa TEXT DEFAULT '',
+    notas_conexion TEXT DEFAULT '',
     cotizaciones_al_dia INTEGER DEFAULT 0,
     sgsst_acreditado INTEGER DEFAULT 0,
     muerte_prevenible_confirmada INTEGER DEFAULT 0,
@@ -183,6 +225,30 @@ CREATE TABLE IF NOT EXISTS sgsst_ds67_config (
     UNIQUE(cliente_key)
 );
 """
+
+DS67_CONFIG_EXTRA_COLUMNS = [
+    ("empresa_razon_social", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("empresa_rut", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("empresa_actividad", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("empresa_ciiu", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("empresa_contacto_ds67", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("mutualidad_nombre", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("mutualidad_codigo", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("numero_adherente", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("sucursal_mutual", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("ejecutivo_mutual", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("correo_mutual", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("telefono_mutual", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("portal_mutual_url", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("conexion_modo", "TEXT DEFAULT 'Manual controlado'", "TEXT DEFAULT 'Manual controlado'"),
+    ("conexion_estado", "TEXT DEFAULT 'PENDIENTE'", "TEXT DEFAULT 'PENDIENTE'"),
+    ("api_endpoint", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("credencial_ref", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("autorizacion_intercambio", "BOOLEAN DEFAULT FALSE", "INTEGER DEFAULT 0"),
+    ("fecha_ultima_sincronizacion", "TEXT", "TEXT"),
+    ("ultima_resolucion_tasa", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("notas_conexion", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+]
 
 CREATE_DS67_EVENTOS_PG = """
 CREATE TABLE IF NOT EXISTS sgsst_ds67_eventos (
@@ -251,17 +317,31 @@ def ensure_estadisticas_tables(execute_fn, db_backend="postgres"):
         if db_backend == "postgres":
             execute_fn(CREATE_ESTADISTICAS_PG)
             execute_fn(CREATE_DS67_CONFIG_PG)
+            _ensure_ds67_config_columns(execute_fn, db_backend)
             execute_fn(CREATE_DS67_EVENTOS_PG)
             execute_fn("CREATE INDEX IF NOT EXISTS idx_ds67_eventos_cliente_fecha ON sgsst_ds67_eventos(cliente_key, fecha_dictamen)")
             execute_fn(CREATE_CUMPLIMIENTO_PG)
         else:
             execute_fn(CREATE_ESTADISTICAS_SQLITE)
             execute_fn(CREATE_DS67_CONFIG_SQLITE)
+            _ensure_ds67_config_columns(execute_fn, db_backend)
             execute_fn(CREATE_DS67_EVENTOS_SQLITE)
             execute_fn("CREATE INDEX IF NOT EXISTS idx_ds67_eventos_cliente_fecha ON sgsst_ds67_eventos(cliente_key, fecha_dictamen)")
             execute_fn(CREATE_CUMPLIMIENTO_SQLITE)
     except Exception:
         pass
+
+
+def _ensure_ds67_config_columns(execute_fn, db_backend="postgres"):
+    """Backfill DS67 configuration columns in databases created by older versions."""
+    for column, pg_definition, sqlite_definition in DS67_CONFIG_EXTRA_COLUMNS:
+        try:
+            if db_backend == "postgres":
+                execute_fn(f"ALTER TABLE IF EXISTS sgsst_ds67_config ADD COLUMN IF NOT EXISTS {column} {pg_definition}")
+            else:
+                execute_fn(f"ALTER TABLE sgsst_ds67_config ADD COLUMN {column} {sqlite_definition}")
+        except Exception:
+            pass
 
 
 # ── Calculation functions ────────────────────────────────────────────
@@ -581,12 +661,226 @@ def render_tab_cotizacion(st, fetch_df, fetch_value, execute, K, cliente_key="",
     process_years = list(range(2021, max(next_process + 5, 2030), 2))
     process_index = process_years.index(next_process) if next_process in process_years else len(process_years) - 1
 
-    st.markdown("#### Datos de la evaluación")
-    h1, h2, h3 = st.columns(3)
-    h1.metric("Empresa", str(company.get("razon_social") or "Sin definir"))
-    h2.metric("Organismo administrador", str(company.get("organismo_admin") or "Sin definir"))
-    h3.metric("Actividad", str(company.get("actividad") or "Sin definir"))
+    def _cfg_text(name: str, fallback: str = "") -> str:
+        value = cfg.get(name)
+        if value is None or str(value).strip().lower() in {"nan", "none"}:
+            return str(fallback or "")
+        text = str(value).strip()
+        return text if text else str(fallback or "")
 
+    def _option_index(options: list[str], value: str, default: int = 0) -> int:
+        try:
+            return options.index(str(value or ""))
+        except ValueError:
+            return default
+
+    empresa_razon_default = _cfg_text("empresa_razon_social", company.get("razon_social") or "")
+    empresa_rut_default = _cfg_text("empresa_rut", company.get("rut") or "")
+    empresa_actividad_default = _cfg_text("empresa_actividad", company.get("actividad") or "")
+    empresa_ciiu_default = _cfg_text("empresa_ciiu", company.get("ciiu") or "")
+    empresa_contacto_default = _cfg_text("empresa_contacto_ds67", company.get("prevencionista") or "")
+    mutualidad_default = _cfg_text("mutualidad_nombre", company.get("organismo_admin") or "")
+
+    st.markdown("#### Empresa y mutualidad")
+    with st.container(border=True):
+        st.caption("Base de datos para preparar el proceso DS 67, conciliar antecedentes con la mutualidad adherida y simular la rebaja de cotización adicional.")
+
+        e1, e2, e3 = st.columns([1.4, 0.8, 1])
+        with e1:
+            empresa_razon_social = st.text_input(
+                "Razón social evaluada",
+                value=empresa_razon_default,
+                key=K("ds67_empresa_razon"),
+                placeholder="SOCIEDAD / EMPRESA",
+            )
+            empresa_actividad = st.text_input(
+                "Actividad económica",
+                value=empresa_actividad_default,
+                key=K("ds67_empresa_actividad"),
+                placeholder="Ej: Forestal, servicios, transporte",
+            )
+        with e2:
+            empresa_rut = st.text_input(
+                "RUT empresa",
+                value=empresa_rut_default,
+                key=K("ds67_empresa_rut"),
+                placeholder="12.345.678-5",
+            )
+            empresa_ciiu = st.text_input(
+                "CIIU / código actividad",
+                value=empresa_ciiu_default,
+                key=K("ds67_empresa_ciiu"),
+                placeholder="Opcional",
+            )
+        with e3:
+            empresa_contacto_ds67 = st.text_input(
+                "Responsable interno DS 67",
+                value=empresa_contacto_default,
+                key=K("ds67_empresa_contacto"),
+                placeholder="Prevencionista / RRHH / Gerencia",
+            )
+            numero_adherente = st.text_input(
+                "N° adherente / afiliación",
+                value=_cfg_text("numero_adherente"),
+                key=K("ds67_numero_adherente"),
+                placeholder="Código entregado por la mutualidad",
+            )
+
+        mutualidad_options = ["Mutual de Seguridad", "ACHS", "IST", "ISL", "Otra / por definir"]
+        if mutualidad_default and mutualidad_default not in mutualidad_options:
+            mutualidad_options.insert(0, mutualidad_default)
+        m1, m2, m3 = st.columns([1, 1, 1])
+        with m1:
+            mutualidad_seleccion = st.selectbox(
+                "Mutualidad / organismo administrador",
+                mutualidad_options,
+                index=_option_index(mutualidad_options, mutualidad_default),
+                key=K("ds67_mutualidad_nombre"),
+            )
+            if mutualidad_seleccion == "Otra / por definir":
+                mutualidad_nombre = st.text_input(
+                    "Nombre de la mutualidad",
+                    value="" if mutualidad_default in mutualidad_options else mutualidad_default,
+                    key=K("ds67_mutualidad_otra"),
+                    placeholder="Nombre organismo administrador",
+                )
+            else:
+                mutualidad_nombre = mutualidad_seleccion
+            mutualidad_codigo = st.text_input(
+                "Código / convenio mutualidad",
+                value=_cfg_text("mutualidad_codigo"),
+                key=K("ds67_mutualidad_codigo"),
+                placeholder="Opcional",
+            )
+        with m2:
+            sucursal_mutual = st.text_input(
+                "Sucursal o agencia",
+                value=_cfg_text("sucursal_mutual"),
+                key=K("ds67_sucursal_mutual"),
+                placeholder="Ej: Osorno, Puerto Montt",
+            )
+            ejecutivo_mutual = st.text_input(
+                "Ejecutivo mutualidad",
+                value=_cfg_text("ejecutivo_mutual"),
+                key=K("ds67_ejecutivo_mutual"),
+                placeholder="Nombre contacto",
+            )
+        with m3:
+            correo_mutual = st.text_input(
+                "Correo mutualidad",
+                value=_cfg_text("correo_mutual"),
+                key=K("ds67_correo_mutual"),
+                placeholder="contacto@mutualidad.cl",
+            )
+            telefono_mutual = st.text_input(
+                "Teléfono mutualidad",
+                value=_cfg_text("telefono_mutual"),
+                key=K("ds67_telefono_mutual"),
+                placeholder="+56 9 ...",
+            )
+
+        c1, c2, c3 = st.columns([1, 1, 1])
+        conexion_modos = ["Manual controlado", "Portal mutualidad", "Archivo conciliado", "API directa", "Pendiente"]
+        conexion_estados = ["PENDIENTE", "DATOS INCOMPLETOS", "CONFIGURADA", "AUTORIZADA", "SINCRONIZADA", "OBSERVADA"]
+        with c1:
+            conexion_modo = st.selectbox(
+                "Modo de conexión",
+                conexion_modos,
+                index=_option_index(conexion_modos, _cfg_text("conexion_modo", "Manual controlado")),
+                key=K("ds67_conexion_modo"),
+                help="La API directa requiere endpoint, autorización y referencia de credencial. No se guarda una clave secreta en texto plano.",
+            )
+            conexion_estado = st.selectbox(
+                "Estado gestión mutualidad",
+                conexion_estados,
+                index=_option_index(conexion_estados, _cfg_text("conexion_estado", "PENDIENTE")),
+                key=K("ds67_conexion_estado"),
+            )
+        with c2:
+            portal_mutual_url = st.text_input(
+                "Portal mutualidad",
+                value=_cfg_text("portal_mutual_url"),
+                key=K("ds67_portal_mutual"),
+                placeholder="https://...",
+            )
+            api_endpoint = st.text_input(
+                "Endpoint API / integración",
+                value=_cfg_text("api_endpoint"),
+                key=K("ds67_api_endpoint"),
+                placeholder="https://api.mutualidad.cl/...",
+            )
+        with c3:
+            credencial_ref = st.text_input(
+                "Referencia credencial",
+                value=_cfg_text("credencial_ref"),
+                key=K("ds67_credencial_ref"),
+                placeholder="Ej: secrets.MUTUAL_DS67_TOKEN",
+                help="Guarda solo el alias o referencia. La clave real debe quedar en un gestor seguro o Streamlit Secrets.",
+            )
+            autorizacion_intercambio = st.checkbox(
+                "Autorización de intercambio de datos vigente",
+                value=_as_bool(cfg.get("autorizacion_intercambio")),
+                key=K("ds67_autorizacion_intercambio"),
+            )
+
+        s1, s2, s3 = st.columns([1, 1, 1])
+        with s1:
+            registrar_sync = st.checkbox(
+                "Registrar última sincronización",
+                value=bool(_cfg_text("fecha_ultima_sincronizacion")),
+                key=K("ds67_registrar_sync"),
+            )
+            if registrar_sync:
+                fecha_ultima_sync = st.date_input(
+                    "Fecha última sincronización",
+                    value=_as_date(cfg.get("fecha_ultima_sincronizacion"), date.today()),
+                    key=K("ds67_ultima_sync"),
+                )
+                fecha_ultima_sync_value = fecha_ultima_sync.isoformat()
+            else:
+                fecha_ultima_sync_value = ""
+        with s2:
+            ultima_resolucion_tasa = st.text_input(
+                "Resolución / carta tasa",
+                value=_cfg_text("ultima_resolucion_tasa"),
+                key=K("ds67_resolucion_tasa"),
+                placeholder="Ej: Resolución proceso 2025",
+            )
+        with s3:
+            notas_conexion = st.text_area(
+                "Notas de conexión",
+                value=_cfg_text("notas_conexion"),
+                key=K("ds67_notas_conexion"),
+                height=88,
+                placeholder="Pendientes, credenciales, fecha solicitada, observaciones de la mutualidad",
+            )
+
+        empresa_ok = all(str(v or "").strip() for v in [empresa_razon_social, empresa_rut, empresa_actividad])
+        mutualidad_ok = bool(str(mutualidad_nombre or "").strip()) and bool(str(numero_adherente or "").strip())
+        api_ok = conexion_modo != "API directa" or (bool(str(api_endpoint or "").strip()) and bool(str(credencial_ref or "").strip()))
+        conexion_lista = mutualidad_ok and bool(autorizacion_intercambio) and api_ok
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Ficha empresa", "Completa" if empresa_ok else "Pendiente")
+        k2.metric("Mutualidad", "Identificada" if mutualidad_ok else "Pendiente")
+        k3.metric("Conexión", "Lista" if conexion_lista else "Por completar")
+        k4.metric("Estado", conexion_estado)
+
+        if st.button("Validar configuración mutualidad", use_container_width=True, key=K("ds67_validar_conexion")):
+            faltantes = []
+            if not empresa_ok:
+                faltantes.append("razón social, RUT o actividad")
+            if not mutualidad_ok:
+                faltantes.append("mutualidad y N° adherente")
+            if conexion_modo == "API directa" and not api_ok:
+                faltantes.append("endpoint API y referencia de credencial")
+            if not autorizacion_intercambio:
+                faltantes.append("autorización de intercambio de datos")
+            if faltantes:
+                st.warning("Configuración incompleta: falta " + ", ".join(faltantes) + ".")
+            else:
+                st.success("Configuración lista para conciliar antecedentes DS 67 con la mutualidad adherida.")
+
+    st.markdown("#### Evaluación DS 67")
     c1, c2, c3 = st.columns(3)
     with c1:
         anio_evaluacion = st.selectbox("Proceso de evaluación", process_years, index=process_index, key=K("ds67_anio"))
@@ -621,25 +915,54 @@ def render_tab_cotizacion(st, fetch_df, fetch_value, execute, K, cliente_key="",
             help="Art. 5 DS 67: eleva la cotización al tramo inmediatamente superior cuando la investigación del organismo administrador así lo concluye.",
         )
 
-    if st.button("Guardar datos DS 67", type="primary", use_container_width=True, key=K("ds67_save_config")):
+    if st.button("Guardar datos DS 67 y mutualidad", type="primary", use_container_width=True, key=K("ds67_save_config")):
         now = datetime.now().isoformat(timespec="seconds")
+        payload = {
+            "empresa_razon_social": str(empresa_razon_social or "").strip(),
+            "empresa_rut": str(empresa_rut or "").strip(),
+            "empresa_actividad": str(empresa_actividad or "").strip(),
+            "empresa_ciiu": str(empresa_ciiu or "").strip(),
+            "empresa_contacto_ds67": str(empresa_contacto_ds67 or "").strip(),
+            "fecha_adhesion": fecha_adhesion.isoformat(),
+            "tasa_adicional_vigente": float(tasa_vigente),
+            "remuneracion_imponible_mensual": int(remuneracion_imponible),
+            "mutualidad_nombre": str(mutualidad_nombre or "").strip(),
+            "mutualidad_codigo": str(mutualidad_codigo or "").strip(),
+            "numero_adherente": str(numero_adherente or "").strip(),
+            "sucursal_mutual": str(sucursal_mutual or "").strip(),
+            "ejecutivo_mutual": str(ejecutivo_mutual or "").strip(),
+            "correo_mutual": str(correo_mutual or "").strip(),
+            "telefono_mutual": str(telefono_mutual or "").strip(),
+            "portal_mutual_url": str(portal_mutual_url or "").strip(),
+            "conexion_modo": str(conexion_modo or "").strip(),
+            "conexion_estado": str(conexion_estado or "").strip(),
+            "api_endpoint": str(api_endpoint or "").strip(),
+            "credencial_ref": str(credencial_ref or "").strip(),
+            "autorizacion_intercambio": bool(autorizacion_intercambio),
+            "fecha_ultima_sincronizacion": str(fecha_ultima_sync_value or "").strip(),
+            "ultima_resolucion_tasa": str(ultima_resolucion_tasa or "").strip(),
+            "notas_conexion": str(notas_conexion or "").strip(),
+            "cotizaciones_al_dia": bool(cotizaciones_al_dia),
+            "sgsst_acreditado": bool(sgsst_acreditado),
+            "muerte_prevenible_confirmada": bool(muerte_prevenible),
+            "updated_at": now,
+        }
+        columns = list(payload.keys())
+        values = tuple(payload[col] for col in columns)
         if cfg.get("id"):
+            set_clause = ", ".join(f"{col}=?" for col in columns)
             execute(
-                """UPDATE sgsst_ds67_config
-                   SET fecha_adhesion=?, tasa_adicional_vigente=?, remuneracion_imponible_mensual=?,
-                       cotizaciones_al_dia=?, sgsst_acreditado=?, muerte_prevenible_confirmada=?, updated_at=?
-                   WHERE id=?""",
-                (fecha_adhesion.isoformat(), float(tasa_vigente), int(remuneracion_imponible), bool(cotizaciones_al_dia), bool(sgsst_acreditado), bool(muerte_prevenible), now, int(cfg["id"])),
+                f"UPDATE sgsst_ds67_config SET {set_clause} WHERE id=? AND COALESCE(cliente_key,'')=?",
+                values + (int(cfg["id"]), str(cliente_key)),
             )
         else:
+            insert_cols = ["cliente_key"] + columns
+            placeholders = ",".join("?" for _ in insert_cols)
             execute(
-                """INSERT INTO sgsst_ds67_config
-                   (cliente_key, fecha_adhesion, tasa_adicional_vigente, remuneracion_imponible_mensual,
-                    cotizaciones_al_dia, sgsst_acreditado, muerte_prevenible_confirmada, updated_at)
-                   VALUES(?,?,?,?,?,?,?,?)""",
-                (str(cliente_key), fecha_adhesion.isoformat(), float(tasa_vigente), int(remuneracion_imponible), bool(cotizaciones_al_dia), bool(sgsst_acreditado), bool(muerte_prevenible), now),
+                f"INSERT INTO sgsst_ds67_config ({','.join(insert_cols)}) VALUES({placeholders})",
+                (str(cliente_key),) + values,
             )
-        st.success("Datos DS 67 guardados.")
+        st.success("Datos DS 67 y conexión con mutualidad guardados.")
         st.rerun()
 
     corte_evaluacion = date(int(anio_evaluacion), 7, 1)

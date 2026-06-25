@@ -97,3 +97,37 @@ def test_ds67_sqlite_schema_creates_configuration_and_event_tables():
     assert "sgsst_estadisticas_mensuales" in tables
     assert "sgsst_ds67_config" in tables
     assert "sgsst_ds67_eventos" in tables
+    config_columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(sgsst_ds67_config)").fetchall()
+    }
+    assert "empresa_razon_social" in config_columns
+    assert "mutualidad_nombre" in config_columns
+    assert "numero_adherente" in config_columns
+    assert "conexion_modo" in config_columns
+    assert "api_endpoint" in config_columns
+    assert "autorizacion_intercambio" in config_columns
+
+
+def test_ds67_sqlite_schema_migrates_existing_configuration_table():
+    connection = sqlite3.connect(":memory:")
+    connection.execute(
+        "CREATE TABLE sgsst_ds67_config (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente_key TEXT NOT NULL DEFAULT '')"
+    )
+    connection.commit()
+
+    def execute(sql, params=()):
+        connection.execute(sql, params)
+        connection.commit()
+
+    ensure_estadisticas_tables(execute, "sqlite")
+    config_columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(sgsst_ds67_config)").fetchall()
+    }
+
+    assert "empresa_rut" in config_columns
+    assert "mutualidad_codigo" in config_columns
+    assert "portal_mutual_url" in config_columns
+    assert "credencial_ref" in config_columns
+    assert "fecha_ultima_sincronizacion" in config_columns
