@@ -227,6 +227,13 @@ CREATE TABLE IF NOT EXISTS sgsst_ds67_config (
 """
 
 DS67_CONFIG_EXTRA_COLUMNS = [
+    ("fecha_adhesion", "TEXT", "TEXT"),
+    ("tasa_adicional_vigente", "NUMERIC DEFAULT 0", "REAL DEFAULT 0"),
+    ("remuneracion_imponible_mensual", "NUMERIC DEFAULT 0", "REAL DEFAULT 0"),
+    ("cotizaciones_al_dia", "BOOLEAN DEFAULT FALSE", "INTEGER DEFAULT 0"),
+    ("sgsst_acreditado", "BOOLEAN DEFAULT FALSE", "INTEGER DEFAULT 0"),
+    ("muerte_prevenible_confirmada", "BOOLEAN DEFAULT FALSE", "INTEGER DEFAULT 0"),
+    ("updated_at", "TIMESTAMPTZ", "TEXT"),
     ("empresa_razon_social", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
     ("empresa_rut", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
     ("empresa_actividad", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),

@@ -127,6 +127,9 @@ def test_ds67_sqlite_schema_migrates_existing_configuration_table():
     }
 
     assert "empresa_rut" in config_columns
+    assert "fecha_adhesion" in config_columns
+    assert "tasa_adicional_vigente" in config_columns
+    assert "cotizaciones_al_dia" in config_columns
     assert "mutualidad_codigo" in config_columns
     assert "portal_mutual_url" in config_columns
     assert "credencial_ref" in config_columns
