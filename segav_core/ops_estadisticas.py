@@ -382,6 +382,61 @@ def calcular_tasas(df_stats: pd.DataFrame) -> dict:
     }
 
 
+def calcular_registro_mensual_tasas(df_stats: pd.DataFrame) -> pd.DataFrame:
+    """Return the monthly rate register used by accidentability and DS 67 views."""
+    columns = [
+        "Periodo", "Trabajadores", "HHT", "Acc. CTP", "Acc. STP",
+        "Días perdidos", "Enf. profesionales", "Trayecto", "Fatales",
+        "Tasa frecuencia", "Tasa gravedad", "Tasa siniestralidad", "Tasa temporal DS 67",
+    ]
+    if df_stats is None or df_stats.empty:
+        return pd.DataFrame(columns=columns)
+
+    work = df_stats.copy()
+    numeric_defaults = {
+        "anio": 0,
+        "mes": 0,
+        "trabajadores_promedio": 0,
+        "horas_hombre_trabajadas": 0,
+        "accidentes_con_tiempo_perdido": 0,
+        "accidentes_sin_tiempo_perdido": 0,
+        "dias_perdidos": 0,
+        "enfermedades_profesionales": 0,
+        "accidentes_trayecto": 0,
+        "accidentes_fatales": 0,
+    }
+    for col, default in numeric_defaults.items():
+        if col not in work.columns:
+            work[col] = default
+        work[col] = pd.to_numeric(work[col], errors="coerce").fillna(default)
+
+    rows = []
+    for _, row in work.sort_values(["anio", "mes"]).iterrows():
+        workers = float(row["trabajadores_promedio"])
+        hht = float(row["horas_hombre_trabajadas"])
+        acc_ctp = float(row["accidentes_con_tiempo_perdido"])
+        dias = float(row["dias_perdidos"])
+        tasa_frecuencia = _round_half_up(acc_ctp * 1_000_000 / hht, 2) if hht > 0 else 0.0
+        tasa_gravedad = _round_half_up(dias * 1_000_000 / hht, 2) if hht > 0 else 0.0
+        tasa_siniestralidad = _round_half_up(dias * 100 / workers, 2) if workers > 0 else 0.0
+        rows.append({
+            "Periodo": f"{int(row['anio'])}-{int(row['mes']):02d}",
+            "Trabajadores": int(workers),
+            "HHT": int(hht),
+            "Acc. CTP": int(row["accidentes_con_tiempo_perdido"]),
+            "Acc. STP": int(row["accidentes_sin_tiempo_perdido"]),
+            "Días perdidos": int(dias),
+            "Enf. profesionales": int(row["enfermedades_profesionales"]),
+            "Trayecto": int(row["accidentes_trayecto"]),
+            "Fatales": int(row["accidentes_fatales"]),
+            "Tasa frecuencia": tasa_frecuencia,
+            "Tasa gravedad": tasa_gravedad,
+            "Tasa siniestralidad": tasa_siniestralidad,
+            "Tasa temporal DS 67": tasa_siniestralidad,
+        })
+    return pd.DataFrame(rows, columns=columns)
+
+
 def _round_half_up(value: float, decimals: int = 0) -> float:
     """Apply the decimal rounding rule used by article 2 of DS 67."""
     quant = Decimal("1") if decimals == 0 else Decimal("1." + ("0" * decimals))
@@ -635,6 +690,138 @@ def render_tab_estadisticas(st, fetch_df, fetch_value, execute, K, cliente_key="
         }), use_container_width=True, hide_index=True)
     else:
         st.info("No hay estadísticas registradas para este año. Ingresa los datos mensuales arriba.")
+
+
+def _render_ds67_monthly_registry(st, fetch_df, execute, K, cliente_key: str, periodos: list[dict], stats_df: pd.DataFrame):
+    """Monthly DS 67 register embedded in the cotization workflow."""
+    st.markdown("#### Registro mensual de tasas")
+    st.caption(
+        "Ingresa cada mes la dotación, horas trabajadas, accidentes y días perdidos. "
+        "La tabla calcula automáticamente las tasas y alimenta la simulación DS 67."
+    )
+
+    if not periodos:
+        st.info("Selecciona un proceso de evaluación para cargar meses DS 67.")
+        return
+
+    def _int_or_zero(value):
+        try:
+            return int(float(value)) if pd.notna(value) else 0
+        except (TypeError, ValueError):
+            return 0
+
+    period_labels = [p["periodo"] for p in periodos]
+    selected_label = st.selectbox(
+        "Período anual julio-junio",
+        period_labels,
+        index=0,
+        key=K("ds67_reg_periodo"),
+        help="El DS 67 evalúa períodos anuales de julio a junio.",
+    )
+    selected_period = next((p for p in periodos if p["periodo"] == selected_label), periodos[0])
+    month_range = pd.date_range(selected_period["inicio"], selected_period["fin"], freq="MS")
+    month_options = [f"{m.year}-{m.month:02d}" for m in month_range]
+    current_month = f"{date.today().year}-{date.today().month:02d}"
+    month_index = month_options.index(current_month) if current_month in month_options else len(month_options) - 1
+    selected_month = st.selectbox("Mes a registrar", month_options, index=month_index, key=K("ds67_reg_mes"))
+    anio, mes = [int(part) for part in selected_month.split("-")]
+
+    existing_df = fetch_df(
+        "SELECT * FROM sgsst_estadisticas_mensuales WHERE anio=? AND mes=? AND COALESCE(cliente_key,'')=?",
+        (int(anio), int(mes), str(cliente_key)),
+    )
+    existing_row = existing_df.iloc[0].to_dict() if existing_df is not None and not existing_df.empty else {}
+    existing = existing_row.get("id")
+
+    suggested = {}
+    if not existing:
+        month_start = date(int(anio), int(mes), 1)
+        month_end = date(int(anio) + (1 if int(mes) == 12 else 0), 1 if int(mes) == 12 else int(mes) + 1, 1)
+        suggested_df = fetch_df(
+            """
+            SELECT
+                SUM(CASE WHEN tipo='ACCIDENTE DEL TRABAJO' AND COALESCE(dias_perdidos,0)>0 THEN 1 ELSE 0 END) AS accidentes_ctp,
+                SUM(CASE WHEN tipo='ACCIDENTE DEL TRABAJO' AND COALESCE(dias_perdidos,0)=0 THEN 1 ELSE 0 END) AS accidentes_stp,
+                SUM(CASE WHEN tipo IN ('ACCIDENTE DEL TRABAJO','ENFERMEDAD PROFESIONAL') THEN COALESCE(dias_perdidos,0) ELSE 0 END) AS dias_perdidos,
+                SUM(CASE WHEN tipo='ENFERMEDAD PROFESIONAL' THEN 1 ELSE 0 END) AS enfermedades,
+                SUM(CASE WHEN tipo='ACCIDENTE DE TRAYECTO' THEN 1 ELSE 0 END) AS trayectos
+            FROM sgsst_incidentes
+            WHERE fecha>=? AND fecha<? AND COALESCE(cliente_key,'')=?
+            """,
+            (month_start.isoformat(), month_end.isoformat(), str(cliente_key)),
+        )
+        if suggested_df is not None and not suggested_df.empty:
+            suggested = suggested_df.iloc[0].to_dict()
+
+    defaults = {
+        "trabajadores_promedio": _int_or_zero(existing_row.get("trabajadores_promedio")),
+        "horas_hombre_trabajadas": _int_or_zero(existing_row.get("horas_hombre_trabajadas")),
+        "accidentes_con_tiempo_perdido": _int_or_zero(existing_row.get("accidentes_con_tiempo_perdido", suggested.get("accidentes_ctp"))),
+        "accidentes_sin_tiempo_perdido": _int_or_zero(existing_row.get("accidentes_sin_tiempo_perdido", suggested.get("accidentes_stp"))),
+        "dias_perdidos": _int_or_zero(existing_row.get("dias_perdidos", suggested.get("dias_perdidos"))),
+        "enfermedades_profesionales": _int_or_zero(existing_row.get("enfermedades_profesionales", suggested.get("enfermedades"))),
+        "accidentes_trayecto": _int_or_zero(existing_row.get("accidentes_trayecto", suggested.get("trayectos"))),
+        "accidentes_fatales": _int_or_zero(existing_row.get("accidentes_fatales")),
+    }
+
+    with st.container(border=True):
+        if suggested and not existing:
+            st.caption("Valores sugeridos desde incidentes internos. Antes de guardar, concílialos con el certificado o nómina mensual de la mutualidad.")
+
+        f1, f2, f3, f4 = st.columns(4)
+        with f1:
+            trab_prom = st.number_input("Trabajadores cotizados", min_value=0, value=defaults["trabajadores_promedio"], key=K(f"ds67_m_trab_{anio}_{mes}"))
+            acc_ctp = st.number_input("Acc. con tiempo perdido", min_value=0, value=defaults["accidentes_con_tiempo_perdido"], key=K(f"ds67_m_acc_ctp_{anio}_{mes}"))
+        with f2:
+            hht = st.number_input("Horas hombre trabajadas", min_value=0, value=defaults["horas_hombre_trabajadas"], step=100, key=K(f"ds67_m_hht_{anio}_{mes}"))
+            acc_stp = st.number_input("Acc. sin tiempo perdido", min_value=0, value=defaults["accidentes_sin_tiempo_perdido"], key=K(f"ds67_m_acc_stp_{anio}_{mes}"))
+        with f3:
+            dias = st.number_input("Días perdidos DS 67", min_value=0, value=defaults["dias_perdidos"], key=K(f"ds67_m_dias_{anio}_{mes}"))
+            enf_prof = st.number_input("Enfermedades profesionales", min_value=0, value=defaults["enfermedades_profesionales"], key=K(f"ds67_m_enf_{anio}_{mes}"))
+        with f4:
+            acc_tray = st.number_input("Trayecto no computable", min_value=0, value=defaults["accidentes_trayecto"], key=K(f"ds67_m_tray_{anio}_{mes}"))
+            acc_fat = st.number_input("Accidentes fatales", min_value=0, value=defaults["accidentes_fatales"], key=K(f"ds67_m_fat_{anio}_{mes}"))
+
+        tasa_frecuencia = _round_half_up(float(acc_ctp) * 1_000_000 / float(hht), 2) if float(hht) > 0 else 0.0
+        tasa_gravedad = _round_half_up(float(dias) * 1_000_000 / float(hht), 2) if float(hht) > 0 else 0.0
+        tasa_siniestralidad = _round_half_up(float(dias) * 100 / float(trab_prom), 2) if float(trab_prom) > 0 else 0.0
+        p1, p2, p3, p4 = st.columns(4)
+        p1.metric("Tasa frecuencia", tasa_frecuencia)
+        p2.metric("Tasa gravedad", tasa_gravedad)
+        p3.metric("Tasa siniestralidad", tasa_siniestralidad)
+        p4.metric("Tasa temporal DS 67", tasa_siniestralidad)
+
+        _btn_label = "Actualizar mes" if existing else "Guardar mes"
+        if st.button(f"Guardar registro mensual: {selected_month}", key=K(f"ds67_m_save_{anio}_{mes}"), type="primary", use_container_width=True):
+            if existing:
+                execute(
+                    "UPDATE sgsst_estadisticas_mensuales SET trabajadores_promedio=?, horas_hombre_trabajadas=?, accidentes_con_tiempo_perdido=?, accidentes_sin_tiempo_perdido=?, dias_perdidos=?, enfermedades_profesionales=?, accidentes_trayecto=?, accidentes_fatales=? WHERE anio=? AND mes=? AND COALESCE(cliente_key,'')=?",
+                    (trab_prom, hht, acc_ctp, acc_stp, dias, enf_prof, acc_tray, acc_fat, int(anio), int(mes), str(cliente_key)),
+                )
+            else:
+                execute(
+                    "INSERT INTO sgsst_estadisticas_mensuales(anio,mes,trabajadores_promedio,horas_hombre_trabajadas,accidentes_con_tiempo_perdido,accidentes_sin_tiempo_perdido,dias_perdidos,enfermedades_profesionales,accidentes_trayecto,accidentes_fatales,cliente_key) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    (int(anio), int(mes), trab_prom, hht, acc_ctp, acc_stp, dias, enf_prof, acc_tray, acc_fat, str(cliente_key)),
+                )
+            st.success(f"{_btn_label}: {selected_month}.")
+            st.rerun()
+
+    registro_df = calcular_registro_mensual_tasas(stats_df)
+    if registro_df.empty:
+        st.info("Aún no hay meses registrados para el proceso seleccionado.")
+        return
+
+    meses_cargados = int(registro_df.shape[0])
+    total_dias = int(registro_df["Días perdidos"].sum())
+    total_acc_ctp = int(registro_df["Acc. CTP"].sum())
+    promedio_trab = _round_half_up(float(registro_df["Trabajadores"].sum()) / max(1, meses_cargados), 2)
+    r1, r2, r3, r4 = st.columns(4)
+    r1.metric("Meses cargados", f"{meses_cargados}/12")
+    r2.metric("Promedio trabajadores", promedio_trab)
+    r3.metric("Acc. CTP período", total_acc_ctp)
+    r4.metric("Días perdidos período", total_dias)
+
+    st.dataframe(registro_df, use_container_width=True, hide_index=True)
 
 
 def render_tab_cotizacion(st, fetch_df, fetch_value, execute, K, cliente_key="", company=None):
@@ -1000,6 +1187,9 @@ def render_tab_cotizacion(st, fetch_df, fetch_value, execute, K, cliente_key="",
            ORDER BY fecha_dictamen DESC, id DESC""",
         (str(cliente_key), inicio_datos.isoformat(), fin_datos.isoformat()),
     )
+
+    st.divider()
+    _render_ds67_monthly_registry(st, fetch_df, execute, K, str(cliente_key), periodos, stats_df)
 
     st.divider()
     st.markdown("#### Invalideces y muertes computables")

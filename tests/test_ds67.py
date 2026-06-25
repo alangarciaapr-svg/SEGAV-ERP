@@ -6,6 +6,7 @@ import pandas as pd
 
 from segav_core.ops_estadisticas import (
     calcular_evaluacion_ds67,
+    calcular_registro_mensual_tasas,
     cotizacion_adicional_ds67,
     ensure_estadisticas_tables,
     periodos_evaluacion_ds67,
@@ -80,6 +81,31 @@ def test_ds67_simulation_can_reduce_days_without_removing_permanent_events():
     assert simulated["promedio_factores"] == 0.17
     assert simulated["tasa_invalideces_muertes"] == 35
     assert simulated["cotizacion_adicional"] == 0.34
+
+
+def test_ds67_monthly_rate_register_calculates_operational_rates():
+    stats = pd.DataFrame(
+        [{
+            "anio": 2025,
+            "mes": 1,
+            "trabajadores_promedio": 10,
+            "horas_hombre_trabajadas": 2000,
+            "accidentes_con_tiempo_perdido": 1,
+            "accidentes_sin_tiempo_perdido": 2,
+            "dias_perdidos": 2,
+            "enfermedades_profesionales": 0,
+            "accidentes_trayecto": 1,
+            "accidentes_fatales": 0,
+        }]
+    )
+
+    register = calcular_registro_mensual_tasas(stats)
+
+    assert register.iloc[0]["Periodo"] == "2025-01"
+    assert register.iloc[0]["Tasa frecuencia"] == 500.0
+    assert register.iloc[0]["Tasa gravedad"] == 1000.0
+    assert register.iloc[0]["Tasa siniestralidad"] == 20.0
+    assert register.iloc[0]["Tasa temporal DS 67"] == 20.0
 
 
 def test_ds67_sqlite_schema_creates_configuration_and_event_tables():
