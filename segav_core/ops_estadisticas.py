@@ -14,7 +14,7 @@ import streamlit as st
 
 from segav_core.kpi_ui import segmented_progress
 import pandas as pd
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Callable
 
@@ -23,6 +23,11 @@ from typing import Callable
 # El DS 67 determina la cotización adicional diferenciada. La tasa básica
 # de la Ley 16.744 se muestra por separado y corresponde a 0,90%.
 COTIZACION_BASE = 0.90
+
+HHT_STANDARD_MUTUAL_180 = "Mutual estándar 180 h/mes"
+HHT_STANDARD_LEGAL_CHILE = "Jornada legal Chile proporcional"
+HHT_STANDARD_CUSTOM = "Personalizado"
+HHT_STANDARD_OPTIONS = [HHT_STANDARD_MUTUAL_180, HHT_STANDARD_LEGAL_CHILE, HHT_STANDARD_CUSTOM]
 
 DS67_COTIZACION_TABLA = [
     (32, 0.00), (64, 0.34), (96, 0.68), (128, 1.02), (160, 1.36),
@@ -443,6 +448,44 @@ def _round_half_up(value: float, decimals: int = 0) -> float:
     return float(Decimal(str(value)).quantize(quant, rounding=ROUND_HALF_UP))
 
 
+def _weekly_hours_chile_for_day(day: date) -> float:
+    """Legal ordinary weekly hours in Chile for the date, following Ley 21.561 schedule."""
+    if day >= date(2028, 4, 26):
+        return 40.0
+    if day >= date(2026, 4, 26):
+        return 42.0
+    if day >= date(2024, 4, 26):
+        return 44.0
+    return 45.0
+
+
+def horas_hombre_mensuales_estandar(
+    trabajadores: int | float,
+    anio: int,
+    mes: int,
+    standard: str = HHT_STANDARD_MUTUAL_180,
+    horas_persona_mes: int | float | None = None,
+) -> int:
+    """Estimate monthly man-hours from workforce and the selected mutuality/working-hour standard."""
+    workers = max(0.0, float(trabajadores or 0))
+    standard = str(standard or HHT_STANDARD_MUTUAL_180)
+    if workers <= 0:
+        return 0
+    if standard == HHT_STANDARD_CUSTOM:
+        per_worker = max(0.0, float(horas_persona_mes or 0))
+    elif standard == HHT_STANDARD_LEGAL_CHILE:
+        start = date(int(anio), int(mes), 1)
+        end = date(int(anio) + (1 if int(mes) == 12 else 0), 1 if int(mes) == 12 else int(mes) + 1, 1)
+        per_worker = 0.0
+        day = start
+        while day < end:
+            per_worker += _weekly_hours_chile_for_day(day) / 7
+            day += timedelta(days=1)
+    else:
+        per_worker = 180.0
+    return int(_round_half_up(workers * per_worker, 0))
+
+
 def cotizacion_adicional_ds67(tasa_siniestralidad_total: float, elevar_un_tramo: bool = False) -> float:
     """Map the total accident rate to the official article 5 premium table."""
     tasa = max(0, int(_round_half_up(tasa_siniestralidad_total, 0)))
@@ -638,7 +681,40 @@ def render_tab_estadisticas(st, fetch_df, fetch_value, execute, K, cliente_key="
         trab_prom = st.number_input("Trabajadores con cotización o subsidio", min_value=0, value=defaults["trabajadores_promedio"], key=K(f"est_trab_{int(anio)}_{int(mes)}"), help="Número de personas con remuneración imponible o subsidio durante el mes.")
         acc_ctp = st.number_input("Accidentes del trabajo con tiempo perdido", min_value=0, value=defaults["accidentes_con_tiempo_perdido"], key=K(f"est_acc_ctp_{int(anio)}_{int(mes)}"))
     with c2:
-        hht = st.number_input("Horas hombre trabajadas", min_value=0, value=defaults["horas_hombre_trabajadas"], step=100, key=K(f"est_hht_{int(anio)}_{int(mes)}"))
+        auto_hht = st.checkbox(
+            "Calcular HHT automático",
+            value=not bool(defaults["horas_hombre_trabajadas"]),
+            key=K(f"est_hht_auto_{int(anio)}_{int(mes)}"),
+        )
+        hht_standard = st.selectbox(
+            "Estándar HHT",
+            HHT_STANDARD_OPTIONS,
+            index=0,
+            key=K(f"est_hht_standard_{int(anio)}_{int(mes)}"),
+            disabled=not auto_hht,
+        )
+        custom_hours = 180
+        if auto_hht and hht_standard == HHT_STANDARD_CUSTOM:
+            custom_hours = st.number_input(
+                "Horas por trabajador/mes",
+                min_value=0,
+                value=180,
+                step=1,
+                key=K(f"est_hht_custom_{int(anio)}_{int(mes)}"),
+            )
+        hht_calculadas = horas_hombre_mensuales_estandar(trab_prom, int(anio), int(mes), hht_standard, custom_hours)
+        if auto_hht:
+            hht = hht_calculadas
+            st.metric("Horas hombre calculadas", f"{hht:,.0f}")
+        else:
+            hht = st.number_input(
+                "Horas hombre trabajadas",
+                min_value=0,
+                value=defaults["horas_hombre_trabajadas"],
+                step=100,
+                key=K(f"est_hht_{int(anio)}_{int(mes)}"),
+                help="Usa horas reales informadas por la empresa o mutualidad.",
+            )
         acc_stp = st.number_input("Accidentes del trabajo sin tiempo perdido", min_value=0, value=defaults["accidentes_sin_tiempo_perdido"], key=K(f"est_acc_stp_{int(anio)}_{int(mes)}"))
     with c3:
         dias = st.number_input("Días perdidos computables DS 67", min_value=0, value=defaults["dias_perdidos"], key=K(f"est_dias_{int(anio)}_{int(mes)}"), help="Días con incapacidad temporal por accidente del trabajo o enfermedad profesional. Excluye trayecto y eventos de otra entidad empleadora.")
@@ -773,7 +849,40 @@ def _render_ds67_monthly_registry(st, fetch_df, execute, K, cliente_key: str, pe
             trab_prom = st.number_input("Trabajadores cotizados", min_value=0, value=defaults["trabajadores_promedio"], key=K(f"ds67_m_trab_{anio}_{mes}"))
             acc_ctp = st.number_input("Acc. con tiempo perdido", min_value=0, value=defaults["accidentes_con_tiempo_perdido"], key=K(f"ds67_m_acc_ctp_{anio}_{mes}"))
         with f2:
-            hht = st.number_input("Horas hombre trabajadas", min_value=0, value=defaults["horas_hombre_trabajadas"], step=100, key=K(f"ds67_m_hht_{anio}_{mes}"))
+            auto_hht = st.checkbox(
+                "Calcular HHT automático",
+                value=not bool(defaults["horas_hombre_trabajadas"]),
+                key=K(f"ds67_m_hht_auto_{anio}_{mes}"),
+            )
+            hht_standard = st.selectbox(
+                "Estándar HHT",
+                HHT_STANDARD_OPTIONS,
+                index=0,
+                key=K(f"ds67_m_hht_standard_{anio}_{mes}"),
+                disabled=not auto_hht,
+            )
+            custom_hours = 180
+            if auto_hht and hht_standard == HHT_STANDARD_CUSTOM:
+                custom_hours = st.number_input(
+                    "Horas por trabajador/mes",
+                    min_value=0,
+                    value=180,
+                    step=1,
+                    key=K(f"ds67_m_hht_custom_{anio}_{mes}"),
+                )
+            hht_calculadas = horas_hombre_mensuales_estandar(trab_prom, int(anio), int(mes), hht_standard, custom_hours)
+            if auto_hht:
+                hht = hht_calculadas
+                st.metric("Horas hombre calculadas", f"{hht:,.0f}")
+            else:
+                hht = st.number_input(
+                    "Horas hombre trabajadas",
+                    min_value=0,
+                    value=defaults["horas_hombre_trabajadas"],
+                    step=100,
+                    key=K(f"ds67_m_hht_{anio}_{mes}"),
+                    help="Usa horas reales informadas por la empresa o mutualidad.",
+                )
             acc_stp = st.number_input("Acc. sin tiempo perdido", min_value=0, value=defaults["accidentes_sin_tiempo_perdido"], key=K(f"ds67_m_acc_stp_{anio}_{mes}"))
         with f3:
             dias = st.number_input("Días perdidos DS 67", min_value=0, value=defaults["dias_perdidos"], key=K(f"ds67_m_dias_{anio}_{mes}"))

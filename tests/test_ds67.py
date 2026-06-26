@@ -5,10 +5,13 @@ import sqlite3
 import pandas as pd
 
 from segav_core.ops_estadisticas import (
+    HHT_STANDARD_LEGAL_CHILE,
+    HHT_STANDARD_MUTUAL_180,
     calcular_evaluacion_ds67,
     calcular_registro_mensual_tasas,
     cotizacion_adicional_ds67,
     ensure_estadisticas_tables,
+    horas_hombre_mensuales_estandar,
     periodos_evaluacion_ds67,
     tasa_invalideces_muertes_ds67,
 )
@@ -106,6 +109,13 @@ def test_ds67_monthly_rate_register_calculates_operational_rates():
     assert register.iloc[0]["Tasa gravedad"] == 1000.0
     assert register.iloc[0]["Tasa siniestralidad"] == 20.0
     assert register.iloc[0]["Tasa temporal DS 67"] == 20.0
+
+
+def test_monthly_man_hours_use_mutual_and_legal_standards():
+    assert horas_hombre_mensuales_estandar(10, 2026, 6, HHT_STANDARD_MUTUAL_180) == 1800
+    assert horas_hombre_mensuales_estandar(10, 2026, 6, HHT_STANDARD_LEGAL_CHILE) == 1800
+    assert horas_hombre_mensuales_estandar(1, 2025, 5, HHT_STANDARD_LEGAL_CHILE) == 195
+    assert horas_hombre_mensuales_estandar(1, 2026, 4, HHT_STANDARD_LEGAL_CHILE) == 187
 
 
 def test_ds67_sqlite_schema_creates_configuration_and_event_tables():
