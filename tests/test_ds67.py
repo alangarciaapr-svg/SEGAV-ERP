@@ -10,6 +10,7 @@ from segav_core.ops_estadisticas import (
     calcular_evaluacion_ds67,
     calcular_registro_mensual_tasas,
     cotizacion_adicional_ds67,
+    filtrar_estadisticas_periodo_ds67,
     ensure_estadisticas_tables,
     horas_hombre_mensuales_estandar,
     periodos_evaluacion_ds67,
@@ -109,6 +110,18 @@ def test_ds67_monthly_rate_register_calculates_operational_rates():
     assert register.iloc[0]["Tasa gravedad"] == 1000.0
     assert register.iloc[0]["Tasa siniestralidad"] == 20.0
     assert register.iloc[0]["Tasa temporal DS 67"] == 20.0
+
+
+def test_ds67_monthly_register_filters_selected_annual_period_only():
+    stats = _monthly_rows("2023-07-01", 24, workers=10, days=1)
+    period = periodos_evaluacion_ds67(2025, 2)[0]
+
+    filtered = filtrar_estadisticas_periodo_ds67(stats, period)
+    register = calcular_registro_mensual_tasas(filtered)
+
+    assert register["Periodo"].tolist()[0] == "2024-07"
+    assert register["Periodo"].tolist()[-1] == "2025-06"
+    assert len(register) == 12
 
 
 def test_monthly_man_hours_use_mutual_and_legal_standards():

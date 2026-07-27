@@ -442,6 +442,21 @@ def calcular_registro_mensual_tasas(df_stats: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
+def filtrar_estadisticas_periodo_ds67(df_stats: pd.DataFrame, periodo: dict) -> pd.DataFrame:
+    """Filter monthly statistics to one DS 67 July-June annual period."""
+    if df_stats is None or df_stats.empty or not periodo:
+        return pd.DataFrame()
+    work = df_stats.copy()
+    work["anio"] = pd.to_numeric(work.get("anio"), errors="coerce")
+    work["mes"] = pd.to_numeric(work.get("mes"), errors="coerce")
+    work["fecha_mes"] = pd.to_datetime(
+        dict(year=work["anio"], month=work["mes"], day=1), errors="coerce"
+    )
+    inicio = pd.Timestamp(periodo["inicio"])
+    fin = pd.Timestamp(periodo["fin"])
+    return work[(work["fecha_mes"] >= inicio) & (work["fecha_mes"] <= fin)].copy()
+
+
 def _round_half_up(value: float, decimals: int = 0) -> float:
     """Apply the decimal rounding rule used by article 2 of DS 67."""
     quant = Decimal("1") if decimals == 0 else Decimal("1." + ("0" * decimals))
@@ -915,7 +930,8 @@ def _render_ds67_monthly_registry(st, fetch_df, execute, K, cliente_key: str, pe
             st.success(f"{_btn_label}: {selected_month}.")
             st.rerun()
 
-    registro_df = calcular_registro_mensual_tasas(stats_df)
+    registro_periodo_df = filtrar_estadisticas_periodo_ds67(stats_df, selected_period)
+    registro_df = calcular_registro_mensual_tasas(registro_periodo_df)
     if registro_df.empty:
         st.info("Aún no hay meses registrados para el proceso seleccionado.")
         return
