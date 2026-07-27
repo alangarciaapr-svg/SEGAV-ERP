@@ -98,6 +98,16 @@ Variables soportadas:
 - Para operación real usa **Supabase/Postgres + Storage**.
 - En Streamlit Cloud no confíes en el filesystem local como almacenamiento permanente.
 
+## Keep-alive Streamlit / Supabase
+El repositorio incluye `.github/workflows/segav-keepalive.yml`, que se ejecuta cada 6 horas y también puede lanzarse manualmente desde GitHub Actions.
+
+- Hace ping a `https://segav-erp.streamlit.app/` y a la ruta interna de Streamlit para generar tráfico.
+- Si existen secretos de GitHub Actions `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` o `SUPABASE_ANON_KEY`, ejecuta una consulta mínima por REST a Supabase.
+- La tabla usada por defecto es `segav_erp_clientes`; puedes cambiarla creando la variable de repositorio `KEEPALIVE_SUPABASE_TABLE`.
+- Puedes cambiar la URL de la app creando la variable de repositorio `KEEPALIVE_STREAMLIT_URL`.
+
+Esto ayuda a evitar hibernación por inactividad en planes gratuitos, aunque la eliminación total de suspensión depende de las políticas del proveedor o de pasar a un plan pagado.
+
 ## Verificación hecha en esta entrega
 - Compilación Python correcta con `py_compile` para `streamlit_app.py`, `api_rest.py` y módulos modificados de `segav_core`.
 - Tests automatizados ejecutados: `39 passed`.
