@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 
 DEFAULT_STREAMLIT_URL = "https://segav-erp.streamlit.app/"
 DEFAULT_SUPABASE_TABLE = "segav_erp_clientes"
+KEEPALIVE_OK_TEXT = "SEGAV_KEEPALIVE_OK"
 
 
 @dataclass
@@ -91,11 +92,61 @@ def _request(url: str, *, headers: dict[str, str] | None = None, timeout: int = 
         return CheckResult(url, False, None, str(exc))
 
 
+def _streamlit_keepalive_url() -> str:
+    base_url = _env("KEEPALIVE_STREAMLIT_URL", DEFAULT_STREAMLIT_URL).rstrip("/") + "/"
+    return f"{base_url}?segav_keepalive=1&segav_keepalive_ts={int(time.time())}"
+
+
+def _click_streamlit_wake_button(page) -> bool:
+    labels = [
+        "Yes, get this app back up!",
+        "Get this app back up",
+        "Wake this app",
+    ]
+    for label in labels:
+        try:
+            locator = page.get_by_role("button", name=label)
+            if locator.count() == 1:
+                locator.click(timeout=10_000)
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def ping_streamlit_browser() -> CheckResult:
+    url = _streamlit_keepalive_url()
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        return CheckResult("streamlit_browser", False, None, f"Playwright no disponible: {_clean_detail(exc)}")
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                user_agent="SEGAV-ERP-KeepAlive/1.0",
+                viewport={"width": 1440, "height": 1000},
+            )
+            page = context.new_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=90_000)
+            page.wait_for_timeout(3_000)
+            if _click_streamlit_wake_button(page):
+                page.wait_for_timeout(25_000)
+                page.goto(url, wait_until="domcontentloaded", timeout=90_000)
+            page.get_by_text(KEEPALIVE_OK_TEXT).wait_for(timeout=120_000)
+            detail = page.locator("body").inner_text(timeout=5_000)[:180].replace("\n", " ")
+            browser.close()
+        return CheckResult("streamlit_browser", True, None, detail)
+    except Exception as exc:
+        return CheckResult("streamlit_browser", False, None, _clean_detail(exc))
+
+
 def ping_streamlit() -> list[CheckResult]:
     base_url = _env("KEEPALIVE_STREAMLIT_URL", DEFAULT_STREAMLIT_URL).rstrip("/") + "/"
     targets = [
         base_url,
-        f"{base_url}?segav_keepalive={int(time.time())}",
+        _streamlit_keepalive_url(),
     ]
     results: list[CheckResult] = []
     for target in targets:
@@ -178,12 +229,13 @@ def ping_supabase() -> CheckResult:
 
 
 def main() -> int:
-    results = ping_streamlit()
+    browser_mode = _as_bool(_env("KEEPALIVE_BROWSER"), False)
+    results = [ping_streamlit_browser()] if browser_mode else ping_streamlit()
     supabase_result = ping_supabase()
     results.append(supabase_result)
 
     print(json.dumps([r.__dict__ for r in results], ensure_ascii=False, indent=2))
-    required = [r for r in results if r.name == "streamlit"]
+    required = [r for r in results if r.name in {"streamlit", "streamlit_browser"}]
     if required and not any(r.ok for r in required):
         return 1
     if _as_bool(_env("KEEPALIVE_REQUIRE_SUPABASE"), False) and not supabase_result.ok:

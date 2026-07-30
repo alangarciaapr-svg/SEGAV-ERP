@@ -101,18 +101,13 @@ Variables soportadas:
 ## Keep-alive Streamlit / Supabase
 El repositorio incluye `.github/workflows/segav-keepalive.yml`, que se ejecuta cada 6 horas y también puede lanzarse manualmente desde GitHub Actions.
 
-- Hace dos visitas a `https://segav-erp.streamlit.app/`, una normal y otra con parametro anticache, para generar tráfico real.
-- Ejecuta una consulta real `SELECT 1` contra Supabase/Postgres cuando existe el secreto de GitHub Actions `SUPABASE_DB_URL` o `PG_DSN`.
-- Como respaldo, puede consultar Supabase por REST si existen `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` o `SUPABASE_ANON_KEY`.
-- En GitHub Actions `KEEPALIVE_REQUIRE_SUPABASE` queda activo, por lo que el workflow falla si Supabase no recibe consulta real. Esto evita una falsa sensación de cobertura.
-- La tabla usada por defecto es `segav_erp_clientes`; puedes cambiarla creando la variable de repositorio `KEEPALIVE_SUPABASE_TABLE`.
+- Abre `https://segav-erp.streamlit.app/` con Chromium/Playwright como navegador real para despertar Streamlit Cloud.
+- Llama a la app con `?segav_keepalive=1`; la propia app ejecuta `SELECT 1` usando los secretos ya configurados en Streamlit Cloud.
+- No requiere copiar la contraseña Postgres ni las keys de Supabase a GitHub Actions para este flujo.
+- Si la app está dormida, el navegador intenta usar el botón de reactivación de Streamlit y vuelve a comprobar el keep-alive.
 - Puedes cambiar la URL de la app creando la variable de repositorio `KEEPALIVE_STREAMLIT_URL`.
 
-Secretos recomendados en GitHub Actions:
-- `SUPABASE_DB_URL` con el DSN Postgres de Supabase.
-- Alternativa equivalente: `PG_DSN`.
-- Alternativa por partes: `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT`, `SUPABASE_DB_NAME`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`.
-- Respaldo REST: `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`.
+El script conserva soporte opcional para secrets directos de Supabase (`SUPABASE_DB_URL`, `PG_DSN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`), pero el workflow principal no los necesita.
 
 Esto ayuda a evitar hibernación por inactividad en planes gratuitos: Streamlit Community Cloud hiberna apps sin tráfico durante 12 horas, y Supabase puede pausar proyectos Free con baja actividad durante 7 días. La eliminación contractual de pausas depende de pasar a planes pagados.
 

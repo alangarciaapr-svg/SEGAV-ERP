@@ -2538,6 +2538,40 @@ def conn():
             ) from e
     return get_sqlite_connection(DB_PATH)
 
+
+def _query_param_value(name: str, default: str = "") -> str:
+    try:
+        value = st.query_params.get(name)
+    except Exception:
+        try:
+            value = st.experimental_get_query_params().get(name)
+        except Exception:
+            value = None
+    if isinstance(value, (list, tuple)):
+        value = value[0] if value else None
+    return str(value if value is not None else default).strip()
+
+
+def handle_segav_keepalive_request():
+    marker = _query_param_value("segav_keepalive")
+    if marker.lower() not in {"1", "true", "yes", "ok", "ping"}:
+        return
+    try:
+        with conn() as c:
+            row = c.execute("SELECT 1").fetchone()
+        if not row or int(row[0]) != 1:
+            raise RuntimeError("SELECT 1 no devolvió resultado válido.")
+        st.markdown("SEGAV_KEEPALIVE_OK")
+        st.caption(f"backend={DB_BACKEND}; app={APP_VERSION}")
+    except Exception as exc:
+        _record_soft_error("segav.keepalive", exc)
+        st.error("SEGAV_KEEPALIVE_ERROR")
+    st.stop()
+
+
+handle_segav_keepalive_request()
+
+
 def migrate_add_columns_if_missing(c, table: str, cols_sql: dict):
     if DB_BACKEND == "postgres":
         return
