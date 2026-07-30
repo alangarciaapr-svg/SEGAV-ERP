@@ -101,12 +101,20 @@ Variables soportadas:
 ## Keep-alive Streamlit / Supabase
 El repositorio incluye `.github/workflows/segav-keepalive.yml`, que se ejecuta cada 6 horas y también puede lanzarse manualmente desde GitHub Actions.
 
-- Hace ping a `https://segav-erp.streamlit.app/` y a la ruta interna de Streamlit para generar tráfico.
-- Si existen secretos de GitHub Actions `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` o `SUPABASE_ANON_KEY`, ejecuta una consulta mínima por REST a Supabase.
+- Hace dos visitas a `https://segav-erp.streamlit.app/`, una normal y otra con parametro anticache, para generar tráfico real.
+- Ejecuta una consulta real `SELECT 1` contra Supabase/Postgres cuando existe el secreto de GitHub Actions `SUPABASE_DB_URL` o `PG_DSN`.
+- Como respaldo, puede consultar Supabase por REST si existen `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` o `SUPABASE_ANON_KEY`.
+- En GitHub Actions `KEEPALIVE_REQUIRE_SUPABASE` queda activo, por lo que el workflow falla si Supabase no recibe consulta real. Esto evita una falsa sensación de cobertura.
 - La tabla usada por defecto es `segav_erp_clientes`; puedes cambiarla creando la variable de repositorio `KEEPALIVE_SUPABASE_TABLE`.
 - Puedes cambiar la URL de la app creando la variable de repositorio `KEEPALIVE_STREAMLIT_URL`.
 
-Esto ayuda a evitar hibernación por inactividad en planes gratuitos, aunque la eliminación total de suspensión depende de las políticas del proveedor o de pasar a un plan pagado.
+Secretos recomendados en GitHub Actions:
+- `SUPABASE_DB_URL` con el DSN Postgres de Supabase.
+- Alternativa equivalente: `PG_DSN`.
+- Alternativa por partes: `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT`, `SUPABASE_DB_NAME`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`.
+- Respaldo REST: `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`.
+
+Esto ayuda a evitar hibernación por inactividad en planes gratuitos: Streamlit Community Cloud hiberna apps sin tráfico durante 12 horas, y Supabase puede pausar proyectos Free con baja actividad durante 7 días. La eliminación contractual de pausas depende de pasar a planes pagados.
 
 ## Verificación hecha en esta entrega
 - Compilación Python correcta con `py_compile` para `streamlit_app.py`, `api_rest.py` y módulos modificados de `segav_core`.
