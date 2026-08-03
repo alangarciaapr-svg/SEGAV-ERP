@@ -26,5 +26,6 @@ jobs:
         env:
           KEEPALIVE_STREAMLIT_URL: ${{ vars.KEEPALIVE_STREAMLIT_URL || 'https://segav-erp.streamlit.app/' }}
           KEEPALIVE_BROWSER: "true"
+          KEEPALIVE_BROWSER_TIMEOUT_SECONDS: "540"
           KEEPALIVE_REQUIRE_SUPABASE: "false"
         run: python scripts/keepalive.py
